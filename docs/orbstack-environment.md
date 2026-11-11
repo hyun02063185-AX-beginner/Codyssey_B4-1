@@ -2,7 +2,7 @@
 
 B4-1 / B4-2 실습환경을 OrbStack Ubuntu Linux Machine으로 구성하는 이유와, 교육장 Mac 초기화 후 복구하는 방법을 정리합니다.
 
-> 이 문서는 **환경 설계 문서**입니다. 아직 Machine을 생성하거나 설정을 적용하지 않았습니다.
+> 이 문서는 **환경 설계 문서**입니다. Machine `b4-lab`은 생성·사전검증까지 완료했고(9장), Mission Core 설정은 아직 적용하지 않았습니다.
 > 명령 예시는 계획 단계의 참고용이며, 실제 적용 시 결과를 확인하고 이 문서를 갱신합니다.
 > 공식 요구사항 값과 설계 선택 값의 구분은 [README 3.2](../README.md#32-값의-구분)를 따릅니다.
 
@@ -55,13 +55,16 @@ host(macOS)에는 아무 설정도 하지 않고, 모든 서버 설정은 Machin
 적용 방식 (아직 실행하지 않음):
 
 ```bash
-orb create ubuntu:<고정할-버전> <machine-name>
+orb create ubuntu:noble b4-lab   # 24.04 LTS로 고정
 ```
 
 | 항목 | 값 | 구분 |
 | --- | --- | --- |
-| 고정할 Ubuntu 버전 | _(미정)_ | [설계] — 공식 지정 버전이 있으면 그 값을 따름 → **확인 필요** |
+| 고정할 Ubuntu 버전 | **24.04 LTS (`ubuntu:noble`)** — 생성 결과 24.04.5 LTS | [설계] — 원문 지정 버전이 있으면 그 값을 따름 → **확인 필요** |
+| Machine 기본 `python3` | 3.12.3 | 실측 (9장) |
 | 제공 Python 앱의 Python 요구 버전 | _(미확인)_ | **확인 필요** |
+
+> 주의: `ubuntu:noble`은 메이저 버전(24.04)만 고정합니다. 포인트 릴리스(24.04.x)와 패키지 버전은 재생성 시점에 따라 달라질 수 있으므로, 재생성 후 9장의 검증을 다시 수행해 차이를 기록합니다.
 
 > 참고: 이 교육장 Mac의 host 아키텍처는 `x86_64`이며, OrbStack 2.0.5의 `orb create --help` 기준 지원 Machine 아키텍처는 `amd64`, `i386`입니다. 이것은 **host 정보**일 뿐이며, 제공 바이너리/앱의 architecture는 별도로 `file` 명령으로 확인합니다(추정하지 않음).
 
@@ -84,18 +87,21 @@ OrbStack에는 자체 SSH 접속 경로가 있습니다. 이것은 **미션에�
 - 반대로, sshd 포트 변경이나 UFW 설정을 잘못해 미션 SSH가 막혀도 `orb -m <machine>`으로 Machine에 들어가 복구할 수 있습니다. (확인 필요)
 - Machine 주소(`<machine>.orb.local` 또는 Machine IP)로 host에서 `20022`에 접속할 수 있는지, 그 경로에 UFW가 적용되는지는 **확인 필요**입니다.
 
-## 6. Machine 기본 정보 (확정 후 기록)
+## 6. Machine 기본 정보
 
 | 항목 | 값 |
 | --- | --- |
-| Machine 이름 | _(미정)_ |
-| 배포판 / 버전 | Ubuntu _(버전 미정, 4장 참고)_ |
-| Machine 아키텍처 (`uname -m`) | _(생성 후 확인)_ |
+| Machine 이름 | `b4-lab` |
+| 생성 명령 | `orb create ubuntu:noble b4-lab` (2026-11-11) |
+| 배포판 / 버전 | Ubuntu 24.04.5 LTS (Noble Numbat) |
+| Machine 아키텍처 (`uname -m`) | `x86_64` (`orb list` 표기 `amd64`) |
 | 제공 바이너리/앱 architecture (`file`) | _(확인 전 — 추정하지 않음)_ |
-| `python3 --version` | _(생성 후 확인)_ |
+| `python3 --version` | Python 3.12.3 |
+| init (PID 1) | systemd 255 (255.4-1ubuntu8.18) |
+| 기본 사용자 | macOS 사용자명과 동일한 이름, `sudo` 비밀번호 없이 사용 가능 |
 | OrbStack 버전 | 2.0.5 (2026-11-11 `orb version` 기준) |
 
-참고용 명령 (아직 실행하지 않음):
+참고용 명령:
 
 ```bash
 orb list                                       # Machine 목록
@@ -120,7 +126,7 @@ orb delete <machine-name>                      # Machine 삭제
      ▼
 3. Machine 존재 확인 ── orb list
      │   ├─ 있음 → 4로 (필요 시 재검증만)
-     │   └─ 없음 → orb create ubuntu:<고정 버전> <machine-name>
+     │   └─ 없음 → orb create ubuntu:noble b4-lab
      ▼
 4. bootstrap 실행 ───── scripts/bootstrap-orbstack.sh (작성 이후)
      │
@@ -144,3 +150,54 @@ orb delete <machine-name>                      # Machine 삭제
 - 같은 Mac 세션 안이라면 기존 Machine을 그대로 사용합니다.
 - Mac이 초기화된 경우 7장의 흐름으로 B4-1 종료 상태를 복구한 뒤 B4-2를 시작합니다.
 - 따라서 B4-1의 완료 조건에는 "Mission Core 충족"뿐 아니라 **"고정한 Ubuntu 버전의 새 Machine에서 bootstrap으로 동일 상태 재현 가능"** 이 포함됩니다.
+
+## 9. 기본 실행환경 사전검증 기록
+
+- 일시: 2026-11-11 16:53 KST
+- 대상: `b4-lab` (Ubuntu 24.04.5 LTS)
+- 범위: Mission Core 착수 전, Ubuntu 기본 실행환경이 적합한지 **읽기 전용으로** 확인. SSH·UFW·사용자·그룹·Agent·`monitor.sh`·cron 설정은 변경하지 않음.
+
+### 9.1 생성 전 상태
+
+| 명령 | 실제 결과 |
+| --- | --- |
+| `orb version` | `Version: 2.0.5 (2000500)` |
+| `orb list` | (출력 없음 — 기존 Machine 없음) |
+| `orb create ubuntu:noble b4-lab` | exit 0 |
+| `orb list` (생성 후) | `b4-lab  running  ubuntu  noble  amd64  649.0 MB  192.168.139.18` |
+
+### 9.2 기본 환경 검증
+
+| # | 명령 | 실제 결과 | 판정 | 판정 기준 |
+| --- | --- | --- | --- | --- |
+| 1 | `orb -m b4-lab uname -m` | `x86_64` | PASS | 아키텍처 확인 가능 |
+| 2 | `orb -m b4-lab cat /etc/os-release` | `PRETTY_NAME="Ubuntu 24.04.5 LTS"`, `VERSION_ID="24.04"`, `VERSION_CODENAME=noble` | PASS | 고정한 버전(noble)과 일치 |
+| 3 | `orb -m b4-lab python3 --version` | `Python 3.12.3` | PASS | python3 존재. 제공 앱 요구 버전과의 호환은 **확인 필요** |
+| 4 | `orb -m b4-lab ps -p 1 -o comm=` | `systemd` | PASS | PID 1이 systemd → 서비스 관리 가능 |
+| 5 | `orb -m b4-lab sudo -n true` | (출력 없음), exit 0 | PASS | 비밀번호 없이 sudo 가능 |
+| 6 | `orb -m b4-lab systemctl --version` | `systemd 255 (255.4-1ubuntu8.18)` | PASS | systemctl 사용 가능 |
+
+추가 확인 (읽기 전용):
+
+| 명령 | 실제 결과 | 의미 |
+| --- | --- | --- |
+| `orb -m b4-lab whoami` | macOS 사용자명과 동일 | OrbStack 기본 사용자 |
+| `orb -m b4-lab systemctl is-system-running` | `running` | systemd 정상 기동 |
+| `dpkg-query -W openssh-server` | `no packages found` | **미설치** → SSH 작업 시 설치 필요 |
+| `dpkg-query -W ufw` | `no packages found` | **미설치** → 방화벽 작업 시 설치 필요 |
+| `dpkg-query -W cron` | `install ok installed 3.0pl1-184ubuntu2` | 설치됨 |
+| `dpkg-query -W logrotate` | `install ok installed 3.21.0-2build1` | 설치됨 |
+| `systemctl is-active ssh cron` | `inactive` / `active` | sshd 없음, cron 동작 중 |
+
+### 9.3 결론과 남은 확인 항목
+
+- 기본 실행환경 6개 항목 **모두 PASS**. Mission Core를 진행할 수 있는 Ubuntu + systemd + sudo 환경임을 확인했습니다.
+- **Mission Core 구현 완료가 아닙니다.** 이번 단계는 환경 사전검증만 수행했습니다.
+- 확인 필요:
+  1. openssh-server, ufw 미설치 → 설치 시 apt 저장소 접근 가능 여부 확인
+  2. OrbStack Machine에서 UFW(iptables/nftables)가 실제로 동작하는지
+  3. Ubuntu 24.04의 `ssh.socket` 소켓 활성화가 포트 20022 설정에 미치는 영향
+  4. 제공 Agent 앱의 Python 요구 버전과 3.12.3의 호환성
+  5. 제공 Agent 앱/바이너리의 architecture (`file`로 확인, 추정 금지)
+
+> 참고: 첫 실행 시 zsh 반복문에서 명령 문자열이 단어로 나뉘지 않아 6개 명령 모두 `command not found`(exit 127)가 났습니다. 이는 host 쪽 호출 방식의 실수였고, 같은 명령을 올바르게 다시 실행한 결과가 위 표입니다.

@@ -5,8 +5,9 @@ OrbStack Ubuntu **Linux Machine**을 실습 서버로 사용하며, 여기서 �
 
 - B4-2 저장소: https://github.com/hyun02063185-AX-beginner/Codyssey_B4-2
 
-> 현재 상태: **저장소 문서만 구성된 단계**입니다.
-> Ubuntu Machine 생성, 사용자/그룹, SSH, UFW, cron, `monitor.sh` 등 Mission Core는 아직 구현하지 않았습니다.
+> **현재 상태 (2026-11-11)**
+> - OrbStack Ubuntu Machine `b4-lab`(Ubuntu 24.04.5 LTS, x86_64) 생성 및 기본 실행환경 사전검증 완료 → [검증 기록](docs/orbstack-environment.md#9-기본-실행환경-사전검증-기록)
+> - **Mission Core는 아직 구현하지 않았습니다.** 사용자/그룹, SSH, UFW, 환경변수, Agent, `monitor.sh`, 로그, cron 모두 미착수입니다.
 
 ---
 
@@ -14,14 +15,14 @@ OrbStack Ubuntu **Linux Machine**을 실습 서버로 사용하며, 여기서 �
 
 | 항목 | 내용 |
 | --- | --- |
-| Host | 코디세이 교육장 Mac (macOS) |
+| Host | 코디세이 교육장 Mac (macOS, `x86_64`) |
 | Host 제약 | macOS host에서 `sudo` 사용 불가 |
 | Host 초기화 | 교육장 Mac은 주기적으로 초기화됨 → 로컬 상태는 언제든 사라질 수 있음 |
-| 가상화 도구 | OrbStack (설치되어 있음) |
-| **B4-1 기본 실습환경** | **OrbStack Ubuntu Linux Machine** |
+| 가상화 도구 | OrbStack 2.0.5 |
+| **B4-1 기본 실습환경** | **OrbStack Ubuntu Linux Machine `b4-lab`** (`ubuntu:noble`, 24.04 LTS) |
 | 사용하지 않는 것 | Docker Container(기본 실습환경 아님), AWS EC2(기본환경 아님) |
 
-- host에서는 `sudo`가 안 되지만, OrbStack Linux Machine **내부**에서는 Linux 관리자 권한(`sudo`)을 사용할 수 있으므로 서버 설정 실습이 가능합니다.
+- host에서는 `sudo`가 안 되지만, OrbStack Linux Machine **내부**에서는 `sudo`를 사용할 수 있습니다(검증 완료).
 - Docker Container 대신 Linux Machine을 쓰는 이유, Ubuntu 버전 고정, OrbStack 내부 SSH와 미션 SSH의 차이는 [docs/orbstack-environment.md](docs/orbstack-environment.md)에 정리되어 있습니다.
 
 ## 2. 저장소 구조
@@ -30,7 +31,7 @@ OrbStack Ubuntu **Linux Machine**을 실습 서버로 사용하며, 여기서 �
 .
 ├── README.md                     # 미션 개요, 환경, Mission Core 체크리스트, 복구 흐름 요약
 ├── docs/
-│   └── orbstack-environment.md   # OrbStack 역할, Container vs Machine, 버전 고정, SSH 구분, 복구 흐름 상세
+│   └── orbstack-environment.md   # OrbStack 역할, Container vs Machine, 버전 고정, SSH 구분, 복구 흐름, 사전검증 기록
 └── scripts/
     └── README.md                 # scripts/ 디렉터리 용도, 향후 bootstrap-orbstack.sh 역할
 ```
@@ -44,103 +45,123 @@ OrbStack Ubuntu **Linux Machine**을 실습 서버로 사용하며, 여기서 �
 
 ### 3.1 작업 원칙
 
-- **제공 Python 앱은 수정 대상이 아니라 실행 대상입니다.** 앱 코드는 고치지 않고, 앱이 요구하는 사용자·권한·환경변수·포트 조건을 Linux 환경 쪽에서 맞춥니다.
+- **제공 Python 앱(Agent)은 수정 대상이 아니라 실행 대상입니다.** 앱 코드는 고치지 않고, 앱이 요구하는 사용자·권한·환경변수·포트 조건을 Linux 환경 쪽에서 맞춥니다.
 - **`monitor.sh`는 Bash로 작성합니다.** (shebang `#!/bin/bash` 또는 `#!/usr/bin/env bash`)
 - 제공 바이너리/앱의 architecture·실행 조건은 추정하지 않고 실제 확인(`uname -m`, `file`, 실행 결과)한 값만 기록합니다.
 - 모든 설정은 수동으로 먼저 수행·검증한 뒤 `scripts/bootstrap-orbstack.sh`로 옮깁니다.
 
-### 3.2 값의 구분
+### 3.2 값의 구분과 출처
 
-체크리스트의 각 값은 아래 셋 중 하나로 표시합니다. **설계 선택 값을 공식 값처럼 적지 않습니다.**
+**출처:** 3.3 요약표의 [관리자료] 값은 **기존 Codyssey 관리 자료**에서 확인된 값입니다. 공식 미션 원문과의 직접 대조는 아직 끝나지 않았습니다.
 
 | 표시 | 의미 |
 | --- | --- |
-| **[공식]** | B4-1 공식 요구사항에 명시된 값 |
-| **[설계]** | 공식 요구사항에 없고, 이 저장소의 환경 설계상 선택한 값 |
-| **[확인 필요]** | 공식 값이 아직 이 문서에 옮겨지지 않았거나, OrbStack 환경에서 그대로 동작하는지 검증되지 않은 항목 |
+| **[관리자료]** | 기존 Codyssey 관리 자료에 명시된 값. 공식 원문 직접 대조 전 |
+| **[원문 대조 완료]** | 공식 미션 원문과 직접 대조해 일치를 확인한 값 (현재 해당 없음) |
+| **[설계]** | 요구사항에 없고, 이 저장소의 환경 설계상 선택한 값 |
+| **[확인 필요]** | 값이 정해지지 않았거나, 추측하지 않기 위해 비워 둔 항목, 또는 OrbStack 환경에서 동작이 검증되지 않은 항목 |
+
+원문 대조가 끝나면 해당 행을 [원문 대조 완료]로 바꿉니다. 정확한 로그 형식·임계값·세부 권한 모드(숫자 mode)는 추측해 적지 않습니다.
 
 ### 3.3 요구사항 요약표
 
 | 영역 | 요구 값 | 구분 | 비고 |
 | --- | --- | --- | --- |
-| SSH 포트 | `20022` | [공식] | 기본 22 대신 사용 |
-| 방화벽 허용 포트 | `20022/tcp`, `15034/tcp` | [공식] | |
-| 방화벽 기본 정책 | 인바운드 deny / 아웃바운드 allow | [설계] | 공식 요구가 있으면 그 값을 따름 → 확인 필요 |
-| 포트 15034의 용도 | _(공식 문서 값 기입)_ | [확인 필요] | Agent 앱 포트인지 공식 문서로 확인 |
-| 사용자 계정 | _(공식 문서 값 기입)_ | [확인 필요] | |
-| 그룹 | _(공식 문서 값 기입)_ | [확인 필요] | |
-| 디렉터리·파일 권한 | _(공식 문서 값 기입)_ | [확인 필요] | 경로·소유자·그룹·모드 |
-| 환경변수 | _(공식 문서 값 기입)_ | [확인 필요] | 이름·값·적용 범위(사용자/서비스) |
-| Agent 기동 방식 | _(공식 문서 값 기입)_ | [확인 필요] | 실행 사용자·명령·상주 방식 |
-| `monitor.sh` 점검 항목 | _(공식 문서 값 기입)_ | [확인 필요] | |
-| 로그 경로·형식 | _(공식 문서 값 기입)_ | [확인 필요] | |
-| cron 주기·실행 사용자 | _(공식 문서 값 기입)_ | [확인 필요] | |
-| Ubuntu 버전 | _(미정)_ | [설계] / [확인 필요] | 공식 지정 버전이 있으면 그 값을 따름 |
-| Machine 이름 | _(미정)_ | [설계] | |
+| 사용자 | `agent-admin`, `agent-dev`, `agent-test` | [관리자료] | |
+| 그룹 | `agent-common`, `agent-core` | [관리자료] | |
+| 사용자 ↔ 그룹 소속 | _(미기입)_ | [확인 필요] | 어느 사용자가 어느 그룹에 속하는지 원문 확인 |
+| SSH 포트 | TCP `20022` | [관리자료] | |
+| SSH Root 원격 로그인 | 차단 | [관리자료] | `PermitRootLogin` 설정값은 원문 확인 후 확정 |
+| 방화벽 인바운드 | TCP `20022`, `15034`**만** 허용 | [관리자료] | 그 외 인바운드 차단 |
+| 방화벽 아웃바운드 정책 | allow | [설계] | 원문 요구가 있으면 그 값을 따름 → 확인 필요 |
+| `upload_files` 디렉터리 | `agent-common` 그룹 R/W | [관리자료] | 경로·소유자·숫자 mode는 [확인 필요] |
+| `api_keys` 디렉터리 | `agent-core` 그룹 R/W | [관리자료] | 경로·소유자·숫자 mode는 [확인 필요] |
+| `/var/log/agent-app` | `agent-core` 그룹 R/W | [관리자료] | 소유자·숫자 mode는 [확인 필요] |
+| 환경변수 | `AGENT_HOME`, `AGENT_PORT`, `AGENT_UPLOAD_DIR`, `AGENT_KEY_PATH`, `AGENT_LOG_DIR` | [관리자료] | 각 변수의 값·적용 범위는 [확인 필요] |
+| Agent 기동 성공 기준 | Boot Sequence 5단계 모두 OK → `Agent READY` 출력 → `0.0.0.0:15034` LISTEN | [관리자료] | 실행 사용자·상주 방식은 [확인 필요] |
+| `monitor.sh` 언어 | Bash | [관리자료] | |
+| `monitor.sh` 점검 항목 | 프로세스, 포트, 방화벽, CPU / MEM / DISK | [관리자료] | 출력 형식·임계값은 [확인 필요] |
+| `monitor.sh` 실패 처리 | 프로세스·포트 점검 실패 → `exit 1` / 방화벽 비활성 → `WARNING` | [관리자료] | WARNING 시 종료 코드는 [확인 필요] |
+| 로그 파일 | `/var/log/agent-app/monitor.log` | [관리자료] | 로그 라인 형식은 [확인 필요] |
+| 로그 순환 | 최대 10MB, 최대 10개 | [관리자료] | 구현 방식(logrotate / 스크립트 내부)은 [확인 필요] |
+| cron | `agent-admin` 계정으로 매분 실행 | [관리자료] | |
+| Ubuntu 버전 | 24.04 LTS (`ubuntu:noble`) | [설계] | 원문 지정 버전이 있으면 그 값을 따름 → 확인 필요 |
+| Machine 이름 | `b4-lab` | [설계] | |
 
 ### 3.4 체크리스트
 
 #### 0) 환경 준비
-- [ ] [설계] Ubuntu 버전을 명시해 OrbStack Ubuntu Linux Machine 생성 (버전 고정 이유: [docs](docs/orbstack-environment.md#4-ubuntu-버전-고정))
-- [ ] `uname -m`, `cat /etc/os-release`, `python3 --version` 결과 기록
-- [ ] 제공 바이너리/앱이 있다면 `file`로 실제 architecture 확인 후 기록 (추정 금지)
+- [x] [설계] `orb create ubuntu:noble b4-lab`으로 Machine 생성 (2026-11-11)
+- [x] `uname -m`(x86_64), `/etc/os-release`(24.04.5 LTS), `python3 --version`(3.12.3), PID 1(systemd), `sudo -n true`, `systemctl --version`(255) 확인 → [검증 기록](docs/orbstack-environment.md#9-기본-실행환경-사전검증-기록)
+- [ ] 제공 Agent 앱/바이너리의 architecture·Python 요구 버전을 `file`·실행 결과로 확인 (추정 금지)
 
 #### 1) 사용자 / 그룹
-- [ ] [확인 필요] 공식 요구 사용자 계정 생성
-- [ ] [확인 필요] 공식 요구 그룹 생성 및 사용자 소속
-- [ ] 증빙: `id <user>`, `getent group <group>`
+- [ ] [관리자료] 사용자 `agent-admin`, `agent-dev`, `agent-test` 생성
+- [ ] [관리자료] 그룹 `agent-common`, `agent-core` 생성
+- [ ] [확인 필요] 사용자별 그룹 소속 설정
+- [ ] 증빙: `id agent-admin`, `id agent-dev`, `id agent-test`, `getent group agent-common agent-core`
 
 #### 2) 디렉터리 / 파일 권한
-- [ ] [확인 필요] 공식 요구 경로 생성
-- [ ] [확인 필요] 소유자·그룹·권한(mode) 설정
+- [ ] [관리자료] `upload_files` — `agent-common` R/W (경로·mode [확인 필요])
+- [ ] [관리자료] `api_keys` — `agent-core` R/W (경로·mode [확인 필요])
+- [ ] [관리자료] `/var/log/agent-app` — `agent-core` R/W (mode [확인 필요])
+- [ ] 그룹 외 사용자가 접근할 수 없는지 확인
 - [ ] 증빙: `ls -ld <경로>`, `stat <경로>`
 
 #### 3) SSH
-- [ ] SSH 서버(openssh-server) 설치·동작 확인
-- [ ] [공식] `sshd_config`의 `Port`를 `20022`로 설정
-- [ ] [확인 필요] 그 외 공식 요구 SSH 설정(root 로그인, 인증 방식 등) 반영
-- [ ] 설정 문법 검사 `sudo sshd -t` 후 재시작
-- [ ] 증빙: `ss -tlnp | grep 20022`, **Machine의 sshd로** `ssh -p 20022` 접속 성공
-- [ ] [확인 필요] OrbStack 기본 SSH(`ssh <machine>@orb`)가 아닌 미션 sshd로 접속했음을 구분해 증빙 ([docs](docs/orbstack-environment.md#5-orbstack-내부-ssh-vs-미션-ssh))
+- [ ] openssh-server 설치 (사전검증 결과 **미설치**)
+- [ ] [관리자료] `Port 20022`
+- [ ] [관리자료] Root 원격 로그인 차단
+- [ ] `sudo sshd -t` 문법 검사 후 재시작
+- [ ] 증빙: `ss -tlnp | grep 20022`, Machine sshd로 `ssh -p 20022` 접속 성공, root 접속 거부
+- [ ] OrbStack 기본 SSH(`ssh b4-lab@orb`)가 아닌 미션 sshd 경로로 증빙 ([docs](docs/orbstack-environment.md#5-orbstack-내부-ssh-vs-미션-ssh))
+- [ ] [확인 필요] Ubuntu 24.04의 `ssh.socket`(소켓 활성화)이 포트 변경에 미치는 영향 확인
 
 #### 4) 방화벽 (UFW)
-- [ ] UFW 설치
-- [ ] [공식] `20022/tcp` 허용 — **활성화 전에 먼저 추가**(차단 방지)
-- [ ] [공식] `15034/tcp` 허용
-- [ ] [설계] 기본 정책: 인바운드 deny, 아웃바운드 allow (공식 요구 확인 필요)
+- [ ] ufw 설치 (사전검증 결과 **미설치**)
+- [ ] [관리자료] `20022/tcp` 허용 — **활성화 전에 먼저 추가**(차단 방지)
+- [ ] [관리자료] `15034/tcp` 허용
+- [ ] [관리자료] 그 외 인바운드 차단 (default deny incoming)
 - [ ] UFW 활성화
 - [ ] 증빙: `sudo ufw status verbose`
-- [ ] [확인 필요] OrbStack Machine에서 UFW(iptables/nftables)가 실제로 패킷을 차단·허용하는지 검증
+- [ ] [확인 필요] OrbStack Machine에서 UFW가 실제로 패킷을 차단·허용하는지 검증
 
 #### 5) 환경변수
-- [ ] [확인 필요] 공식 요구 환경변수 이름·값 확인
-- [ ] [확인 필요] 적용 위치 결정 (로그인 셸 / Agent 실행 환경 / cron 환경) — **cron은 로그인 셸 환경변수를 상속하지 않음에 주의**
+- [ ] [관리자료] `AGENT_HOME`, `AGENT_PORT`, `AGENT_UPLOAD_DIR`, `AGENT_KEY_PATH`, `AGENT_LOG_DIR` 정의
+- [ ] [확인 필요] 각 변수의 값과 적용 위치(로그인 셸 / Agent 실행 환경 / cron 환경) — **cron은 로그인 셸 환경변수를 상속하지 않음에 주의**
 - [ ] 증빙: Agent·`monitor.sh` 실행 환경에서 실제 값 출력
 
 #### 6) Agent(제공 Python 앱) 기동
 - [ ] 제공 앱을 **수정하지 않고** 그대로 배치
-- [ ] [확인 필요] 공식 요구 실행 사용자·명령으로 기동
-- [ ] [확인 필요] 기동 유지 방식(포그라운드 / 백그라운드 / systemd 등) 공식 요구 확인
-- [ ] [확인 필요] 15034 포트 리스닝 여부 확인: `ss -tlnp | grep 15034`
-- [ ] 증빙: 프로세스(`ps`)·포트·응답 확인
+- [ ] [확인 필요] 실행 사용자·명령·상주 방식
+- [ ] [관리자료] Boot Sequence 5단계 모두 OK
+- [ ] [관리자료] `Agent READY` 출력
+- [ ] [관리자료] `0.0.0.0:15034` LISTEN — `ss -tlnp | grep 15034`
+- [ ] 증빙: 기동 로그, `ps`, `ss` 결과
 
 #### 7) `monitor.sh` (Bash)
-- [ ] Bash로 작성 (`bash -n monitor.sh` 문법 검사)
-- [ ] [확인 필요] 공식 요구 점검 항목·출력 형식 구현
-- [ ] [확인 필요] 공식 요구 경로·소유자·실행 권한 설정
-- [ ] 수동 실행 결과 증빙
+- [ ] Bash로 작성, `bash -n monitor.sh` 문법 검사
+- [ ] [관리자료] 점검: Agent 프로세스
+- [ ] [관리자료] 점검: 포트(15034 LISTEN)
+- [ ] [관리자료] 점검: 방화벽 상태
+- [ ] [관리자료] 점검: CPU / MEM / DISK 사용량 (임계값 [확인 필요])
+- [ ] [관리자료] 프로세스·포트 점검 실패 시 `exit 1`
+- [ ] [관리자료] 방화벽 비활성 시 `WARNING` 출력
+- [ ] [확인 필요] 출력 형식, 배치 경로·소유자·실행 권한
+- [ ] 증빙: 정상 / 프로세스 중지 / 방화벽 비활성 각 상황의 출력과 `echo $?`
 
 #### 8) 로그
-- [ ] [확인 필요] 공식 요구 로그 경로·파일명 확인
-- [ ] [확인 필요] 로그 파일 소유자·권한 설정 (cron 실행 사용자가 쓸 수 있어야 함)
-- [ ] [확인 필요] 로그 형식(타임스탬프 등)·누적 방식(append) 확인
-- [ ] 증빙: `tail` 결과
+- [ ] [관리자료] `/var/log/agent-app/monitor.log`에 기록
+- [ ] [관리자료] 최대 10MB / 최대 10개로 순환 (logrotate는 기본 설치되어 있음 — 사용 여부 [확인 필요])
+- [ ] cron 실행 사용자(`agent-admin`)가 로그에 쓸 수 있는지 확인
+- [ ] [확인 필요] 로그 라인 형식
+- [ ] 증빙: `tail` 결과, 순환 설정 내용
 
 #### 9) cron
-- [ ] [확인 필요] 공식 요구 주기·실행 사용자로 `monitor.sh` 등록
-- [ ] cron 서비스 동작 확인: `systemctl status cron`
+- [ ] [관리자료] `agent-admin` 계정의 crontab에 매분(`* * * * *`) `monitor.sh` 등록
+- [ ] cron 서비스 동작 확인 (사전검증 결과 cron **설치·active**)
 - [ ] 절대 경로 사용, 필요한 환경변수를 crontab 또는 스크립트에서 명시
-- [ ] 증빙: `crontab -l`(해당 사용자), 주기에 맞춰 로그가 누적되는 결과
+- [ ] 증빙: `sudo crontab -u agent-admin -l`, 매분 로그가 누적되는 결과
 
 #### 10) 마무리
 - [ ] 수동 설정을 `scripts/bootstrap-orbstack.sh`로 재현 가능하게 정리
@@ -155,7 +176,7 @@ Mac이 초기화되면 OrbStack Machine과 그 안의 설정이 모두 사라질
 
 1. OrbStack 실행 확인 (`orb version`)
 2. 이 저장소를 다시 clone
-3. **고정한 Ubuntu 버전으로** OrbStack Ubuntu Machine 재생성
+3. `orb list`로 `b4-lab` 확인 → 없으면 `orb create ubuntu:noble b4-lab`
 4. `scripts/bootstrap-orbstack.sh` 실행 (작성 이후)
 5. 체크리스트 기준으로 상태 재검증
 
@@ -173,4 +194,4 @@ Mac이 초기화되면 OrbStack Machine과 그 안의 설정이 모두 사라질
 
 - **B4-2는 B4-1의 Linux 환경과 `monitor.sh`를 재사용합니다.** 따라서 B4-1 설정은 반드시 재현 가능해야 합니다.
 - Mac 초기화로 Machine이 사라져도 `bootstrap-orbstack.sh`로 B4-1 종료 시점 상태를 복구할 수 있어야 B4-2를 이어갈 수 있습니다.
-- B4-1에서 정한 값(Machine 이름, Ubuntu 버전, 사용자명, 포트, `monitor.sh` 경로 등)은 B4-2에서 바꾸지 않는 것을 원칙으로 하며, 변경 시 이 README에 기록합니다.
+- B4-1에서 정한 값(Machine 이름 `b4-lab`, Ubuntu 24.04, 사용자명, 포트, `monitor.sh` 경로 등)은 B4-2에서 바꾸지 않는 것을 원칙으로 하며, 변경 시 이 README에 기록합니다.
