@@ -2,7 +2,7 @@
 
 B4-1 / B4-2 실습환경을 OrbStack Ubuntu Linux Machine으로 구성하는 이유와, 교육장 Mac 초기화 후 복구하는 방법을 정리합니다.
 
-> 이 문서는 **환경 설계 문서**입니다. Machine `b4-lab`은 생성·사전검증까지 완료했고(9장), Mission Core 설정은 아직 적용하지 않았습니다.
+> 이 문서는 **환경 설계 문서**입니다. Machine `b4-lab`은 생성·사전검증(9장)과 SSH 20022 구성·검증(10장)까지 완료했고, 그 외 Mission Core 설정(UFW, 사용자·그룹, 권한, 환경변수, Agent, `monitor.sh`, 로그, cron)은 아직 적용하지 않았습니다.
 > 명령 예시는 계획 단계의 참고용이며, 실제 적용 시 결과를 확인하고 이 문서를 갱신합니다.
 > 공식 요구사항 값과 설계 선택 값의 구분은 [README 3.2](../README.md#32-값의-구분)를 따릅니다.
 
@@ -52,7 +52,7 @@ host(macOS)에는 아무 설정도 하지 않고, 모든 서버 설정은 Machin
 - **Python 버전:** 제공 Python 앱은 수정하지 않고 실행만 하므로, 앱이 Ubuntu 기본 `python3` 버전에 맞아야 합니다. Ubuntu 버전이 바뀌면 `python3` 버전도 바뀝니다.
 - **패키지·설정 차이:** openssh-server, ufw, cron의 기본 설정과 서비스 동작(예: sshd 소켓 활성화 여부)이 Ubuntu 버전마다 다를 수 있어, `bootstrap-orbstack.sh`의 결과가 달라질 수 있습니다.
 
-적용 방식 (아직 실행하지 않음):
+적용 방식 (2026-11-11 실행 완료, 9장):
 
 ```bash
 orb create ubuntu:noble b4-lab   # 24.04 LTS로 고정
@@ -70,22 +70,25 @@ orb create ubuntu:noble b4-lab   # 24.04 LTS로 고정
 
 ## 5. OrbStack 내부 SSH vs 미션 SSH
 
-OrbStack에는 자체 SSH 접속 경로가 있습니다. 이것은 **미션에서 요구하는 SSH(20022)와 다른 경로**이므로 구분해야 합니다.
+OrbStack에는 자체 SSH 접속 경로가 있습니다. 이것은 **미션에서 요구하는 SSH(20022)와 다른 경로**이므로 구분해야 합니다. (2026-11-11 실측, 상세는 [10장](#10-ssh-20022-구성-및-검증-기록))
 
-| 항목 | OrbStack 내부 SSH | 미션 SSH |
+| 항목 | OrbStack 관리 SSH | 미션 SSH (Ubuntu sshd) |
 | --- | --- | --- |
-| 접속 예 | `ssh <machine>@orb` / `orb -m <machine>` | `ssh -p 20022 <user>@<machine 주소>` |
-| 서버 | OrbStack이 제공하는 SSH 프록시 (host `127.0.0.1:32222`, `~/.orbstack/ssh/config`) | Machine 내부 openssh-server (`sshd`) |
-| 인증 키 | `~/.orbstack/ssh/id_ed25519` (OrbStack 자동 생성) | 미션 요구 방식에 따름 |
-| `sshd_config` 영향 | 받지 않음 (확인 필요) | 받음 — `Port 20022` 등 |
-| UFW 영향 | 받지 않음 (확인 필요) | 받음 — `20022/tcp` 허용 필요 |
+| 접속 예 | `ssh b4-lab@orb` / `orb -m b4-lab` | `ssh -p 20022 <user>@b4-lab.orb.local` 또는 `@192.168.139.18` |
+| 서버 | OrbStack 자체 SSH 서버 — 배너 `SSH-2.0-OrbStack` (host `127.0.0.1:32222`, `~/.orbstack/ssh/config`) | Machine 내부 openssh-server — 배너 `SSH-2.0-OpenSSH_9.6p1 Ubuntu-3ubuntu13.20` |
+| 호스트키 (ED25519) | `SHA256:9vANHPcI25pqjcMgRCKMWJiwf4R6xAWdM6X7lIaqNx0` | `SHA256:bB06Z1oE97PdHnKfjoNofPahYxXLrt3PjpfZwTyHL78` (= `/etc/ssh/ssh_host_ed25519_key.pub`) |
+| 인증 키 | `~/.orbstack/ssh/id_ed25519` (OrbStack 자동 생성) | Machine 사용자의 `~/.ssh/authorized_keys` |
+| `sshd_config` 영향 | 받지 않음 — sshd 포트 변경·socket 비활성 후에도 접속 유지 확인 | 받음 — `Port 20022`, `PermitRootLogin no` |
+| UFW 영향 | (확인 필요 — UFW 작업 시 검증) | 받음 — `20022/tcp` 허용 필요 |
 | 용도 | 관리용 접근, 설정 실수 시 복구 경로 | **미션 요구사항 충족·증빙 대상** |
 
 주의 사항:
 
-- `ssh <machine>@orb`로 접속이 된다고 해서 **미션 SSH가 동작하는 것은 아닙니다.** 미션 증빙은 반드시 `-p 20022`로 Machine의 `sshd`에 접속한 결과로 남깁니다.
-- 반대로, sshd 포트 변경이나 UFW 설정을 잘못해 미션 SSH가 막혀도 `orb -m <machine>`으로 Machine에 들어가 복구할 수 있습니다. (확인 필요)
-- Machine 주소(`<machine>.orb.local` 또는 Machine IP)로 host에서 `20022`에 접속할 수 있는지, 그 경로에 UFW가 적용되는지는 **확인 필요**입니다.
+- `ssh b4-lab@orb`로 접속이 된다고 해서 **미션 SSH가 동작하는 것은 아닙니다.** 미션 증빙은 반드시 `-p 20022`로 Machine의 `sshd`에 접속한 결과로 남깁니다.
+- **`b4-lab.orb.local:22`는 Ubuntu sshd가 아닙니다.** 이 이름은 OrbStack 프록시 주소(`192.168.138.3`)로 해석되고, 22번에서는 OrbStack 관리 SSH가 응답합니다(호스트키가 32222와 동일). 따라서 "22번 미사용" 검증은 Machine 내부 `ss`와 Machine IP(`192.168.139.18:22` → Connection refused)로 판단합니다.
+- 반면 `b4-lab.orb.local:20022`는 Ubuntu sshd로 전달됩니다(호스트키가 Machine 호스트키와 동일, `SSH_CONNECTION` 서버 주소 `192.168.139.18`).
+- sshd 포트 변경 후에도 `orb -m b4-lab`, `ssh b4-lab@orb` 모두 유지됨을 확인했습니다. UFW 활성화 후에도 유지되는지는 UFW 작업에서 검증합니다.
+- Machine IP(`192.168.139.18`)는 재시작 후에도 같았지만 고정 보장은 확인되지 않았으므로, 접속 주소는 `b4-lab.orb.local`을 우선 사용합니다.
 
 ## 6. Machine 기본 정보
 
@@ -99,6 +102,8 @@ OrbStack에는 자체 SSH 접속 경로가 있습니다. 이것은 **미션에�
 | `python3 --version` | Python 3.12.3 |
 | init (PID 1) | systemd 255 (255.4-1ubuntu8.18) |
 | 기본 사용자 | macOS 사용자명과 동일한 이름, `sudo` 비밀번호 없이 사용 가능 |
+| Machine IP | `192.168.139.18` (2026-11-11, 재시작 후 동일) |
+| openssh-server | `1:9.6p1-3ubuntu13.20` — `ssh.service` 방식, TCP 20022 (10장) |
 | OrbStack 버전 | 2.0.5 (2026-11-11 `orb version` 기준) |
 
 참고용 명령:
@@ -193,11 +198,101 @@ orb delete <machine-name>                      # Machine 삭제
 
 - 기본 실행환경 6개 항목 **모두 PASS**. Mission Core를 진행할 수 있는 Ubuntu + systemd + sudo 환경임을 확인했습니다.
 - **Mission Core 구현 완료가 아닙니다.** 이번 단계는 환경 사전검증만 수행했습니다.
-- 확인 필요:
-  1. openssh-server, ufw 미설치 → 설치 시 apt 저장소 접근 가능 여부 확인
+- 확인 필요 (위 표는 사전검증 시점의 기록이며, 이후 해결된 항목은 표시함):
+  1. openssh-server, ufw 미설치 → 설치 시 apt 저장소 접근 가능 여부 확인 — **openssh-server: 해결** (apt 설치 성공, 10장). ufw: 미설치 유지
   2. OrbStack Machine에서 UFW(iptables/nftables)가 실제로 동작하는지
-  3. Ubuntu 24.04의 `ssh.socket` 소켓 활성화가 포트 20022 설정에 미치는 영향
+  3. Ubuntu 24.04의 `ssh.socket` 소켓 활성화가 포트 20022 설정에 미치는 영향 — **해결** (socket 비활성, service 방식 채택, 10장)
   4. 제공 Agent 앱의 Python 요구 버전과 3.12.3의 호환성
   5. 제공 Agent 앱/바이너리의 architecture (`file`로 확인, 추정 금지)
 
 > 참고: 첫 실행 시 zsh 반복문에서 명령 문자열이 단어로 나뉘지 않아 6개 명령 모두 `command not found`(exit 127)가 났습니다. 이는 host 쪽 호출 방식의 실수였고, 같은 명령을 올바르게 다시 실행한 결과가 위 표입니다.
+
+## 10. SSH 20022 구성 및 검증 기록
+
+- 일시: 2026-11-11 17:31~17:35 KST
+- 대상: `b4-lab` (Ubuntu 24.04.5 LTS)
+- 범위: openssh-server 설치, TCP 20022, Root 원격 로그인 차단. UFW·사용자·그룹·Agent·`monitor.sh`·cron은 변경하지 않음.
+
+### 10.1 설치 직후 상태 (Ubuntu 24.04 기본값)
+
+| 항목 | 실제 상태 |
+| --- | --- |
+| 패키지 | `openssh-server 1:9.6p1-3ubuntu13.20` |
+| `ssh.socket` | enabled / active — `ListenStream=0.0.0.0:22`, `[::]:22` (systemd PID 1이 22를 LISTEN) |
+| `ssh.service` | disabled / inactive (접속이 오면 socket이 기동하는 구조) |
+| `/etc/ssh/sshd_config` | 12행에 `Include /etc/ssh/sshd_config.d/*.conf` — 기본값보다 **먼저** 읽힘 |
+| `/etc/ssh/sshd_config.d/` | 비어 있음 |
+| socket 포트 생성기 | `/usr/lib/systemd/system-generators/sshd-socket-generator` 존재 |
+
+Ubuntu 24.04는 기본으로 **socket 활성화**를 씁니다. 이 방식에서는 실제 LISTEN 포트를 `ssh.socket`이 정하며, `sshd_config`의 `Port`는 생성기가 `daemon-reload` 시점에 socket 설정으로 옮겨야 반영됩니다. 포트가 두 곳(`sshd_config`, socket)에 걸쳐 관리되어 불일치 위험이 있습니다.
+
+### 10.2 운영 방식 결정: socket 비활성 + `ssh.service` 상시 실행 [설계]
+
+| 선택지 | 판단 |
+| --- | --- |
+| A. `ssh.socket` 비활성, `ssh.service` 활성 | **채택.** 포트를 `sshd_config` 한 곳에서만 관리. sshd가 상시 실행되어 `ss`·`ps`로 바로 확인 가능. `ExecStartPre=/usr/sbin/sshd -t`로 기동 전 문법 검사 |
+| B. socket 유지, 생성기에 의존 | 미채택. `daemon-reload` 누락 시 22 유지·20022 미반영 위험 |
+
+### 10.3 적용한 설정
+
+`/etc/ssh/sshd_config.d/10-b4-mission.conf` (root:root, 0644):
+
+```
+# B4-1 Mission: SSH
+# Ubuntu sshd_config는 첫 번째로 지정된 값이 우선하며, Include가 파일 상단에 있으므로 이 조각의 값이 적용된다.
+Port 20022
+PermitRootLogin no
+```
+
+- 원본 `/etc/ssh/sshd_config`는 수정하지 않았습니다(패키지 업그레이드 충돌 방지).
+- `PasswordAuthentication`은 기본값(`yes`) 그대로이며 이번 작업에서 바꾸지 않았습니다.
+
+### 10.4 적용 절차
+
+```bash
+# Machine 내부 (orb -m b4-lab)
+sudo apt-get update && sudo apt-get install -y openssh-server
+sudo tee /etc/ssh/sshd_config.d/10-b4-mission.conf    # 10.3 내용
+sudo install -d -m 0755 /run/sshd                     # sshd -t 단독 실행용 (서비스 기동 시엔 자동 생성)
+sudo sshd -t                                          # 문법 검사
+sudo sshd -T | grep -E '^(port|permitrootlogin) '     # 실효값 확인
+sudo systemctl disable --now ssh.socket
+sudo systemctl enable --now ssh.service
+```
+
+- 처음 `sshd -t` 실행 시 `Missing privilege separation directory: /run/sshd`로 실패했습니다. `/run/sshd`는 `ssh.service`의 `RuntimeDirectory=sshd`가 기동 시 만드는 디렉터리라, 서비스 기동 전 수동 검사할 때만 필요합니다. 생성 후 `syntax OK`.
+- 전환 중에도 OrbStack 관리 경로(`orb -m`)는 유지되었습니다.
+
+### 10.5 검증 결과
+
+Mac에서의 접속은 이 작업 전용 키 `~/.ssh/b4-lab_ed25519`(Mac 로컬, **저장소에 저장하지 않음**)를 사용했고, 공개키만 Machine 기본 사용자의 `~/.ssh/authorized_keys`에 등록했습니다. known_hosts는 `~/.ssh/b4-lab_known_hosts`로 분리했습니다.
+
+| # | 검증 항목 | 명령 | 실제 결과 | 판정 |
+| --- | --- | --- | --- | --- |
+| 1 | 문법 검사 | `sudo sshd -t` | `syntax OK` (exit 0) | PASS |
+| 2 | 실효 설정 | `sudo sshd -T` | `port 20022`, `listenaddress 0.0.0.0:20022`, `listenaddress [::]:20022`, `permitrootlogin no` | PASS |
+| 3 | 유닛 상태 | `systemctl is-enabled/is-active` | `ssh.service enabled/active`, `ssh.socket disabled/inactive` | PASS |
+| 4 | 20022 LISTEN | `sudo ss -tlnp` | `0.0.0.0:20022`, `[::]:20022` — `sshd` | PASS |
+| 5 | Ubuntu sshd TCP 22 미사용 (내부) | `sudo ss -tlnp "sport = :22"` | 0건 | PASS |
+| 6 | Ubuntu sshd TCP 22 미사용 (Mac → Machine IP) | `ssh -p 22 …@192.168.139.18`, `nc -z 192.168.139.18 22` | `Connection refused`, nc exit 1 | PASS |
+| 7 | Mac → sshd 접속 (IP) | `ssh -p 20022 hyun…@192.168.139.18` | 로그인 성공, `hostname=b4-lab`, 부모 프로세스 `sshd`, 로그 `Accepted publickey` | PASS |
+| 8 | Mac → sshd 접속 (이름) | `ssh -p 20022 hyun…@b4-lab.orb.local` | 로그인 성공, 호스트키 = Machine 호스트키, 배너 `OpenSSH_9.6p1 Ubuntu` | PASS |
+| 9 | Root 차단 (키 미등록) | `ssh -p 20022 root@192.168.139.18` | `Permission denied (publickey,password)` | 참고 (인증 실패와 구분 불가) |
+| 10 | **Root 차단 (유효 키 임시 등록)** | root `authorized_keys`에 같은 공개키 임시 등록 후 접속 | `Permission denied`, sshd 로그 `ROOT LOGIN REFUSED FROM 192.168.139.3` | **PASS — 설정에 의한 차단** |
+| 11 | 대조군 | 같은 키로 일반 사용자 접속 | 로그인 성공 | PASS (키 자체는 유효) |
+| 12 | 임시 키 제거 | `sudo ls -la /root/.ssh` | `authorized_keys` 없음 | PASS |
+| 13 | OrbStack 관리 경로 | `orb -m b4-lab`, `ssh b4-lab@orb` | 둘 다 성공 | PASS |
+| 14 | 재시작 후 유지 | `orb restart b4-lab` 후 3·4·7·13 재확인 | 동일 결과 | PASS |
+
+Root 판정 근거: 10번에서 **같은 키가 일반 사용자로는 성공(11번)** 하고 root로는 거부되었으며, sshd가 인증 실패가 아닌 `ROOT LOGIN REFUSED`를 기록했습니다. 따라서 단순 인증 실패가 아니라 `PermitRootLogin no`에 의한 차단입니다.
+
+참고 (PASS/FAIL 대상 아님): `b4-lab.orb.local:22`는 연결이 되지만 응답 주체는 **OrbStack 관리 SSH**입니다(배너 `SSH-2.0-OrbStack`, 호스트키 = `127.0.0.1:32222`). Ubuntu sshd의 22번 사용이 아닙니다. (5장 참고)
+
+### 10.6 제약사항 및 다음 작업 주의
+
+- **UFW 작업 시:** 활성화 전에 `20022/tcp`를 먼저 허용합니다. 막히더라도 `orb -m b4-lab` 관리 경로로 복구할 수 있지만, UFW 활성화 후에도 관리 경로가 유지되는지는 그때 다시 검증합니다.
+- **UFW 검증 시:** "22 차단" 같은 확인을 `b4-lab.orb.local:22`로 하면 OrbStack 관리 SSH가 응답하므로 오판합니다. Machine IP 또는 Machine 내부 `ss`로 판단합니다.
+- **미션 사용자 SSH:** `agent-*` 사용자의 접속 방식(키/비밀번호)은 사용자 생성 작업에서 정합니다. 현재 접속 검증은 OrbStack 기본 사용자로 했습니다.
+- **`PasswordAuthentication`:** 기본값 `yes`입니다. 공식 요구가 있는지 **확인 필요**.
+- **Mac 초기화 시:** `~/.ssh/b4-lab_ed25519`와 `~/.ssh/b4-lab_known_hosts`도 사라집니다. 키를 다시 만들고 공개키를 다시 등록해야 하며, Machine을 재생성하면 호스트키도 바뀝니다.
+- **bootstrap 반영 대상:** 10.4 절차 전체 (설치, 설정 조각, socket→service 전환, 검증).

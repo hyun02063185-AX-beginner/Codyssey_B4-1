@@ -7,7 +7,8 @@ OrbStack Ubuntu **Linux Machine**을 실습 서버로 사용하며, 여기서 �
 
 > **현재 상태 (2026-11-11)**
 > - OrbStack Ubuntu Machine `b4-lab`(Ubuntu 24.04.5 LTS, x86_64) 생성 및 기본 실행환경 사전검증 완료 → [검증 기록](docs/orbstack-environment.md#9-기본-실행환경-사전검증-기록)
-> - **Mission Core는 아직 구현하지 않았습니다.** 사용자/그룹, SSH, UFW, 환경변수, Agent, `monitor.sh`, 로그, cron 모두 미착수입니다.
+> - **SSH 완료:** TCP 20022 단독 사용, Root 원격 로그인 차단, Mac에서 실제 접속 검증 → [SSH 검증 기록](docs/orbstack-environment.md#10-ssh-20022-구성-및-검증-기록)
+> - **나머지 Mission Core는 미착수:** UFW, 사용자/그룹, 권한, 환경변수, Agent, `monitor.sh`, 로그, cron. Mission Core 전체 완료가 아닙니다.
 
 ---
 
@@ -70,8 +71,10 @@ OrbStack Ubuntu **Linux Machine**을 실습 서버로 사용하며, 여기서 �
 | 사용자 | `agent-admin`, `agent-dev`, `agent-test` | [관리자료] | |
 | 그룹 | `agent-common`, `agent-core` | [관리자료] | |
 | 사용자 ↔ 그룹 소속 | _(미기입)_ | [확인 필요] | 어느 사용자가 어느 그룹에 속하는지 원문 확인 |
-| SSH 포트 | TCP `20022` | [관리자료] | |
-| SSH Root 원격 로그인 | 차단 | [관리자료] | `PermitRootLogin` 설정값은 원문 확인 후 확정 |
+| SSH 포트 | TCP `20022` | [관리자료] | **적용·검증 완료** (22 미사용) |
+| SSH Root 원격 로그인 | 차단 | [관리자료] | **적용·검증 완료** — `PermitRootLogin no` |
+| SSH 운영 방식 | `ssh.socket` 비활성 + `ssh.service` 상시 실행, 설정은 `/etc/ssh/sshd_config.d/10-b4-mission.conf` | [설계] | 이유: [docs 10.2](docs/orbstack-environment.md#102-운영-방식-결정-socket-비활성--sshservice-상시-실행-설계) |
+| SSH 비밀번호 인증 | 기본값(`yes`) 유지 | [확인 필요] | 공식 요구 여부 확인 |
 | 방화벽 인바운드 | TCP `20022`, `15034`**만** 허용 | [관리자료] | 그 외 인바운드 차단 |
 | 방화벽 아웃바운드 정책 | allow | [설계] | 원문 요구가 있으면 그 값을 따름 → 확인 필요 |
 | `upload_files` 디렉터리 | `agent-common` 그룹 R/W | [관리자료] | 경로·소유자·숫자 mode는 [확인 필요] |
@@ -109,13 +112,21 @@ OrbStack Ubuntu **Linux Machine**을 실습 서버로 사용하며, 여기서 �
 - [ ] 증빙: `ls -ld <경로>`, `stat <경로>`
 
 #### 3) SSH
-- [ ] openssh-server 설치 (사전검증 결과 **미설치**)
-- [ ] [관리자료] `Port 20022`
-- [ ] [관리자료] Root 원격 로그인 차단
-- [ ] `sudo sshd -t` 문법 검사 후 재시작
-- [ ] 증빙: `ss -tlnp | grep 20022`, Machine sshd로 `ssh -p 20022` 접속 성공, root 접속 거부
-- [ ] OrbStack 기본 SSH(`ssh b4-lab@orb`)가 아닌 미션 sshd 경로로 증빙 ([docs](docs/orbstack-environment.md#5-orbstack-내부-ssh-vs-미션-ssh))
-- [ ] [확인 필요] Ubuntu 24.04의 `ssh.socket`(소켓 활성화)이 포트 변경에 미치는 영향 확인
+상세 절차·결과: [docs 10장](docs/orbstack-environment.md#10-ssh-20022-구성-및-검증-기록) (2026-11-11)
+
+- [x] openssh-server 설치 (`1:9.6p1-3ubuntu13.20`)
+- [x] [설계] `ssh.socket` 비활성, `ssh.service` 활성 — 포트를 `sshd_config` 한 곳에서 관리
+- [x] [관리자료] `Port 20022` (`/etc/ssh/sshd_config.d/10-b4-mission.conf`)
+- [x] [관리자료] Root 원격 로그인 차단 (`PermitRootLogin no`)
+- [x] `sudo sshd -t` 문법 검사 후 서비스 기동
+- [x] 증빙: `ss -tlnp` → `0.0.0.0:20022`, `[::]:20022`만 LISTEN, 22 없음
+- [x] 증빙: Mac → `ssh -p 20022`로 Ubuntu sshd 접속 성공 (IP, `b4-lab.orb.local` 모두)
+- [x] 증빙: Mac → Machine IP `:22` Connection refused
+- [x] 증빙: root에 유효 키를 임시 등록해도 거부, sshd 로그 `ROOT LOGIN REFUSED` → 설정에 의한 차단 (임시 키 제거 완료)
+- [x] OrbStack 관리 SSH(`ssh b4-lab@orb`, `orb -m`)와 구분해 증빙, 관리 경로 유지 확인 ([docs 5장](docs/orbstack-environment.md#5-orbstack-내부-ssh-vs-미션-ssh))
+- [x] `orb restart b4-lab` 후 설정 유지 확인
+- [ ] [확인 필요] `agent-*` 사용자의 SSH 접속 방식 (사용자 생성 작업에서 결정)
+- [ ] [확인 필요] `PasswordAuthentication` 공식 요구 여부
 
 #### 4) 방화벽 (UFW)
 - [ ] ufw 설치 (사전검증 결과 **미설치**)
