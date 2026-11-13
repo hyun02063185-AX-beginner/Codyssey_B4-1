@@ -18,7 +18,9 @@
 #      -- only when no confirmed failure (exit 1 takes precedence)
 #
 # Config is loaded explicitly from /etc/default/agent-app (override: MONITOR_ENV_FILE).
-# It never relies on login-shell files. Thresholds are [design defaults], not official values.
+# It never relies on login-shell files. Warning thresholds are the official B4-1 values:
+# CPU > 20%, MEM > 10%, DISK_USED > 80% (strictly greater: a value exactly equal to the threshold is OK).
+# Deploy owner/mode: agent-dev:agent-core 0750 (cron runs it as agent-admin via the agent-core group).
 
 set -u
 export LC_ALL=C PATH=/usr/sbin:/usr/bin:/sbin:/bin
@@ -140,8 +142,8 @@ if [ -n "${AGENT_PORT:-}" ]; then
     say ERROR CONFIG "AGENT_PORT invalid (need integer 1-65535): '$AGENT_PORT'"; cfg_bad=1
   fi
 fi
-# [design defaults] - not official values; override via environment/env file
-CPU_WARN="${MONITOR_CPU_WARN:-80}"; MEM_WARN="${MONITOR_MEM_WARN:-80}"; DISK_WARN="${MONITOR_DISK_WARN:-80}"
+# official thresholds (overridable for tests via MONITOR_*_WARN)
+CPU_WARN="${MONITOR_CPU_WARN:-20}"; MEM_WARN="${MONITOR_MEM_WARN:-10}"; DISK_WARN="${MONITOR_DISK_WARN:-80}"
 DISK_PATH="${MONITOR_DISK_PATH:-/}"; CPU_INTERVAL="${MONITOR_CPU_INTERVAL:-1}"
 is_pct "$CPU_WARN"  || { say ERROR CONFIG "MONITOR_CPU_WARN invalid (0-100): '$CPU_WARN'";  cfg_bad=1; }
 is_pct "$MEM_WARN"  || { say ERROR CONFIG "MONITOR_MEM_WARN invalid (0-100): '$MEM_WARN'";  cfg_bad=1; }
@@ -151,7 +153,7 @@ is_pos "$CPU_INTERVAL" || { say ERROR CONFIG "MONITOR_CPU_INTERVAL invalid (0<x<
 [ "$cfg_bad" -eq 0 ] || finish
 say INFO CONFIG "AGENT_HOME=$AGENT_HOME AGENT_PORT=$AGENT_PORT AGENT_UPLOAD_DIR=$AGENT_UPLOAD_DIR AGENT_LOG_DIR=$AGENT_LOG_DIR"
 if [ -z "${AGENT_KEY_PATH:-}" ]; then
-  say INFO CONFIG "AGENT_KEY_PATH is empty (PENDING in setup); not needed for monitoring, continuing"
+  say INFO CONFIG "AGENT_KEY_PATH is empty; not needed for monitoring, continuing"
 else
   say INFO CONFIG "AGENT_KEY_PATH is set (value intentionally not printed or logged)"
 fi
@@ -289,8 +291,8 @@ else
   cpu=$(awk -v a="$s1" -v b="$s2" 'BEGIN{split(a,x," "); split(b,y," "); dt=y[1]-x[1]; di=y[2]-x[2];
         if (dt<=0) {print "ERR"; exit} printf "%.1f", 100*(dt-di)/dt}')
   if [ "$cpu" = "ERR" ]; then say ERROR CPU "no counter progress between samples (total delta <= 0)"
-  elif gt "$cpu" "$CPU_WARN"; then say WARNING CPU "usage=${cpu}% > threshold ${CPU_WARN}% [design default]"
-  else say OK CPU "usage=${cpu}% (threshold ${CPU_WARN}% [design default])"; fi
+  elif gt "$cpu" "$CPU_WARN"; then say WARNING CPU "usage=${cpu}% > threshold ${CPU_WARN}%"
+  else say OK CPU "usage=${cpu}% (threshold ${CPU_WARN}%)"; fi
 fi
 
 # MEM: (MemTotal - MemAvailable) / MemTotal from /proc/meminfo.
@@ -300,8 +302,8 @@ if [ -z "$mem" ] || [ "$mem" = "ERR" ]; then
   say ERROR MEM "cannot read MemTotal/MemAvailable from $MEMINFO"
 else
   set -- $mem; mpct=$1; mtot=$2; mavail=$3
-  if gt "$mpct" "$MEM_WARN"; then say WARNING MEM "usage=${mpct}% (total=${mtot}kB available=${mavail}kB) > threshold ${MEM_WARN}% [design default]"
-  else say OK MEM "usage=${mpct}% (total=${mtot}kB available=${mavail}kB) (threshold ${MEM_WARN}% [design default])"; fi
+  if gt "$mpct" "$MEM_WARN"; then say WARNING MEM "usage=${mpct}% (total=${mtot}kB available=${mavail}kB) > threshold ${MEM_WARN}%"
+  else say OK MEM "usage=${mpct}% (total=${mtot}kB available=${mavail}kB) (threshold ${MEM_WARN}%)"; fi
 fi
 
 # DISK: used / (used + avail) for DISK_PATH from 'df -Pk' (same basis as df's Use%, unrounded).
@@ -310,8 +312,8 @@ if [ -z "$dsk" ] || [ "$dsk" = "ERR" ]; then
   say ERROR DISK "df failed for $DISK_PATH"
 else
   set -- $dsk; dpct=$1; dmnt=$2
-  if gt "$dpct" "$DISK_WARN"; then say WARNING DISK "usage=${dpct}% path=$DISK_PATH mount=$dmnt > threshold ${DISK_WARN}% [design default]"
-  else say OK DISK "usage=${dpct}% path=$DISK_PATH mount=$dmnt (threshold ${DISK_WARN}% [design default])"; fi
+  if gt "$dpct" "$DISK_WARN"; then say WARNING DISK "usage=${dpct}% path=$DISK_PATH mount=$dmnt > threshold ${DISK_WARN}%"
+  else say OK DISK "usage=${dpct}% path=$DISK_PATH mount=$dmnt (threshold ${DISK_WARN}%)"; fi
 fi
 
 finish

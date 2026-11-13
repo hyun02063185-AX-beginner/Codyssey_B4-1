@@ -2,10 +2,9 @@
 # Format: plain KEY=VALUE (no "export", no quotes) so that it works with both
 #   set -a; . /etc/default/agent-app; set +a      (bash/cron/monitor.sh)
 #   EnvironmentFile=/etc/default/agent-app         (systemd)
-# Values marked [approved lab design] are not verified against the official mission text.
 AGENT_HOME=/opt/agent-app
 AGENT_PORT=15034
 AGENT_UPLOAD_DIR=/opt/agent-app/upload_files
 AGENT_LOG_DIR=/var/log/agent-app
-# PENDING: file vs directory not confirmed (needs the provided Agent). Left empty on purpose.
-AGENT_KEY_PATH=
+# Path only. The file holds the official practice string (agent_api_key_test), never a real secret.
+AGENT_KEY_PATH=/opt/agent-app/api_keys/t_secret.key

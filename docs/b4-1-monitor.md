@@ -1,5 +1,7 @@
 # B4-1 monitor.sh 구현 및 1차 검증 (작업 10)
 
+> **작업 16 정정:** 그룹 소속(common = admin·dev·test, core = admin·dev), monitor.sh 소유권(agent-dev:agent-core 0750), 경고 임계값(20/10/80), `AGENT_KEY_PATH`(`/opt/agent-app/api_keys/t_secret.key`)는 공식 요구에 맞게 변경됐습니다. 이 문서의 해당 값은 당시 기록이며 현행 값은 [공식 정합성 수정](b4-1-official-alignment.md)을 따릅니다.
+
 - 일시: 2026-11-13 / 기준 커밋 `dec6b17` (작업 10-1 판정 보완: 기준 `cd4606c`, §3·§4·§5.1·§6 갱신)
 - 소스: [bin/monitor.sh](../bin/monitor.sh) (Bash 전용) → 배포: `/opt/agent-app/bin/monitor.sh`
 - 범위: 점검 스크립트 구현·1차 검증. 작업 11에서 `monitor.log` 누적 기록 추가(§2.1, §5.2). **cron 등록, 로그 순환, bootstrap은 포함하지 않음**(다음 작업). 제공 Agent는 없고 대체 구현도 하지 않음.
@@ -10,7 +12,7 @@
 | 경로 | 소유자:그룹 | mode | 이유 |
 |---|---|---|---|
 | `/opt/agent-app/bin` | `root:root` | `0755` | 기존 `/opt/agent-app`(root:root 755)과 동일. 일반 계정이 스크립트를 바꿔치기할 수 없음 |
-| `/opt/agent-app/bin/monitor.sh` | `root:agent-admin` | `0750` | cron 계정 `agent-admin`만 실행(그룹 r-x), 수정 불가. 그 외 일반 계정은 실행·열람 불가 |
+| `/opt/agent-app/bin/monitor.sh` | `agent-dev:agent-core` | `0750` | (작업 16 정정, 이전 `root:agent-admin`) cron 계정 `agent-admin`이 `agent-core` 그룹 r-x로 실행, 소유자 `agent-dev`만 수정. 그 외 일반 계정은 실행·열람 불가 |
 
 기존 권한 설계(작업 7~8)의 `upload_files`/`api_keys`/로그 디렉터리와 충돌하지 않으며 ACL은 추가하지 않았습니다. 소유자·mode의 공식 정책이 확인되면 조정합니다. [실측] `agent-admin` 실행 가능, `agent-dev`/`agent-test` 실행 `Permission denied`, `agent-admin`의 스크립트 수정·`bin/` 쓰기 불가.
 
@@ -48,13 +50,13 @@ env 파일을 읽기 전에 발생한 줄(START 등)은 메모리에 보관했�
 ```
 [INFO] START user=agent-admin uid=1000 groups=agent-admin,agent-common,agent-core trigger=manual host=b4-lab env_file=/etc/default/agent-app
 [INFO] CONFIG AGENT_HOME=/opt/agent-app AGENT_PORT=15034 AGENT_UPLOAD_DIR=/opt/agent-app/upload_files AGENT_LOG_DIR=/var/log/agent-app
-[INFO] CONFIG AGENT_KEY_PATH is empty (PENDING in setup); not needed for monitoring, continuing
+[INFO] CONFIG AGENT_KEY_PATH is empty ; not needed for monitoring, continuing
 [PENDING] PROCESS agent identification criteria not configured (AGENT_PROCESS_PATTERN unset); not assuming any python process is the Agent
 [FAIL] PORT tcp/15034 not LISTEN
 [UNKNOWN] FIREWALL cannot read ufw status as uid=1000 (needs root; no sudo granted). hint only: ufw.conf ENABLED=yes
-[OK] CPU usage=0.2% (threshold 80% [design default])
-[OK] MEM usage=3.6% (total=16434648kB available=15840160kB) (threshold 80% [design default])
-[OK] DISK usage=0.2% path=/ mount=/ (threshold 80% [design default])
+[OK] CPU usage=0.2% (threshold 80%)
+[OK] MEM usage=3.6% (total=16434648kB available=15840160kB) (threshold 80%)
+[OK] DISK usage=0.2% path=/ mount=/ (threshold 80%)
 [INFO] SUMMARY result=UNHEALTHY exit=1 fail=1 pending=1 warning=0 unknown=1 error=0
 exit=1
 ```
@@ -95,7 +97,7 @@ exit=1
 
 따라서 **exit 0은 "프로세스 확인 + `0.0.0.0` 바인딩 + 소유 PID 일치 확인"이 모두 충족될 때만** 나옵니다. Agent를 다른 사용자로 실행하면 `agent-admin`은 PID를 볼 수 없어 항상 `PENDING`이므로, Agent 실행 계정과 모니터 실행 계정의 관계를 Agent 확보 후 정해야 합니다(같은 계정으로 실행하거나, `ss`를 읽을 권한 설계).
 
-임계값(모두 **[설계 기본값]**, 공식 요구값 아님): `MONITOR_CPU_WARN=80`, `MONITOR_MEM_WARN=80`, `MONITOR_DISK_WARN=80`(%). 환경변수 또는 env 파일로 변경 가능. 수치 수집이 실패하면 `ERROR`(값을 추정하지 않음).
+임계값(공식 요구값, 작업 16에서 수정; 이전 설계 기본값은 80/80/80): `MONITOR_CPU_WARN=20`, `MONITOR_MEM_WARN=10`, `MONITOR_DISK_WARN=80`(%). 값이 임계값과 정확히 같으면 경고하지 않음(`>`). 환경변수 또는 env 파일로 변경 가능. 수치 수집이 실패하면 `ERROR`(값을 추정하지 않음).
 
 ### UFW 점검 권한 제약
 

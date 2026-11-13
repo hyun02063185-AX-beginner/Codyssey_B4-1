@@ -38,8 +38,8 @@ B4-2는 B4-1에서 만든 Linux 환경과 `monitor.sh`를 **그대로 재사용*
 | 계정 | 보조 그룹 | upload_files | api_keys | /var/log/agent-app |
 |---|---|---|---|---|
 | `agent-admin` | `agent-common`, `agent-core` | R/W | R/W | R/W |
-| `agent-dev` | `agent-common` | R/W | 거부 | 거부 |
-| `agent-test` | 없음 | 거부 | 거부 | 거부 |
+| `agent-dev` | `agent-common`, `agent-core` | R/W | R/W | R/W |
+| `agent-test` | `agent-common` | R/W | 거부 | 거부 |
 
 - sudo는 **어느 agent-* 계정에도 없습니다.** B4-2에서도 부여하지 마세요(필요하면 먼저 권한 설계를 갱신).
 - `agent-admin`이 `api_keys`까지 R/W인 것은 단순 검증용으로 **의도한 설계**입니다(공식 원문 확인 후 조정 가능).
@@ -48,7 +48,7 @@ B4-2는 B4-1에서 만든 Linux 환경과 `monitor.sh`를 **그대로 재사용*
 |---|---|---|
 | `/opt/agent-app` (= `AGENT_HOME`) | `root:root` | `0755` |
 | `/opt/agent-app/upload_files` | `agent-admin:agent-common` | `2770` + ACL |
-| `/opt/agent-app/api_keys` | `root:agent-core` | `2770` + ACL (**비어 있음, 키 없음**) |
+| `/opt/agent-app/api_keys` | `root:agent-core` | `2770` + ACL (`t_secret.key` 실습 문자열 1개, 실제 키 없음) |
 | `/var/log/agent-app` | `root:agent-core` | `2770` + ACL |
 | `/opt/agent-app/bin` | `root:root` | `0755` |
 
@@ -63,7 +63,7 @@ AGENT_HOME=/opt/agent-app
 AGENT_PORT=15034
 AGENT_UPLOAD_DIR=/opt/agent-app/upload_files
 AGENT_LOG_DIR=/var/log/agent-app
-AGENT_KEY_PATH=            # PENDING: 비어 있음 (Agent 필요)
+AGENT_KEY_PATH=/opt/agent-app/api_keys/t_secret.key   # 공식 실습 키 파일(내용 agent_api_key_test, root:agent-core 0640)
 ```
 
 - **로그인 셸·cron에는 자동으로 들어가지 않습니다.** 사용하려면 명시적으로 로드: `set -a; . /etc/default/agent-app; set +a` (systemd는 `EnvironmentFile=/etc/default/agent-app`). `monitor.sh`는 이미 이렇게 로드합니다.
@@ -73,10 +73,10 @@ AGENT_KEY_PATH=            # PENDING: 비어 있음 (Agent 필요)
 
 | 항목 | 값 |
 |---|---|
-| 경로 | **`/opt/agent-app/bin/monitor.sh`** (= `$AGENT_HOME/bin/monitor.sh`), `root:agent-admin 0750` |
+| 경로 | **`/opt/agent-app/bin/monitor.sh`** (= `$AGENT_HOME/bin/monitor.sh`), `agent-dev:agent-core 0750` |
 | 소스 | [bin/monitor.sh](../bin/monitor.sh) (Bash). 저장소와 배포본 sha256 일치 확인됨 |
 | 실행 | `orb -m b4-lab sudo -u agent-admin /opt/agent-app/bin/monitor.sh; echo $?` |
-| 점검 | Agent 프로세스, TCP 15034(주소·소유 PID), UFW, CPU/MEM/DISK(임계 80% **설계 기본값**) |
+| 점검 | Agent 프로세스, TCP 15034(주소·소유 PID), UFW, CPU/MEM/DISK(공식 임계 CPU>20 / MEM>10 / DISK>80%) |
 | 종료 코드 | `0` 정상 / `1` 프로세스·포트 실패 또는 확인 불가 / `2` 모니터링 자체 오류 (1이 2보다 우선) |
 | 방화벽 | 비활성 → `WARNING`만(exit 영향 없음). `agent-admin`은 sudo가 없어 `UNKNOWN` |
 | 설정 변수 | `AGENT_PROCESS_PATTERN`(Agent 식별 기준 — **미설정**), `MONITOR_CPU_WARN`/`MEM_WARN`/`DISK_WARN` 등 |
@@ -154,7 +154,7 @@ scripts/bootstrap-orbstack.sh snapshot                  # 상태 스냅샷 (Mach
 | 항목 | 지금 상태 |
 |---|---|
 | 제공 Agent 설치·실행 (실행 계정·명령·Python 요구 확인) | 원본 **NOT FOUND** — 임의 생성 금지 |
-| `AGENT_KEY_PATH` 값 | 미확정(빈 값) |
+| `AGENT_KEY_PATH` 값 | 확정(작업 16): `/opt/agent-app/api_keys/t_secret.key` |
 | `AGENT_PROCESS_PATTERN` 설정 → 프로세스 점검 판정 | 미설정 → `PENDING PROCESS` |
 | Boot Sequence 5단계 `[OK]`, `Agent READY` | 미검증 |
 | `0.0.0.0:15034` LISTEN, 소유 PID 일치 | 미검증 |

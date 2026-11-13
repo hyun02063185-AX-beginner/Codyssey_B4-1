@@ -32,19 +32,21 @@ while [ $# -gt 0 ]; do
 done
 [ "$(id -u)" -eq 0 ] || { echo "must run as root (inside the Machine)" >&2; exit 2; }
 
-# ---- desired state (approved lab design; not verified against the official mission text) ----
+# ---- desired state (official B4-1 mission values: groups, monitor.sh owner, key path/test string) ----
 SSH_PORT=20022; AGENT_PORT=15034
 AGENT_HOME=/opt/agent-app; LOG_DIR=/var/log/agent-app; LOG_FILE=$LOG_DIR/monitor.log
 ENV_FILE=/etc/default/agent-app; MONITOR=$AGENT_HOME/bin/monitor.sh
+KEY_FILE=$AGENT_HOME/api_keys/t_secret.key
+KEY_TEST_STRING=agent_api_key_test      # official practice string, NOT a real secret
 SSH_FRAGMENT=/etc/ssh/sshd_config.d/10-b4-mission.conf
 LOGROTATE_CONF=/etc/logrotate.d/agent-app
 PACKAGES="openssh-server ufw acl cron logrotate iproute2 procps"
 USERS="agent-admin agent-dev agent-test"
 GROUPS_="agent-common agent-core"
 # group -> members (exact set)
-MEMBERS_common="agent-admin agent-dev"
-MEMBERS_core="agent-admin"
-STEPS="preflight packages ssh ufw accounts dirs envfile monitor logfile logrotate cron verify agent"
+MEMBERS_common="agent-admin agent-dev agent-test"
+MEMBERS_core="agent-admin agent-dev"
+STEPS="preflight packages ssh ufw accounts dirs envfile keyfile monitor logfile logrotate cron verify agent"
 
 REASONS=(); NOTES=()
 reason() { REASONS+=("$*"); }
@@ -228,7 +230,8 @@ apply_accounts() {
     fi
   done
   usermod -aG agent-common,agent-core agent-admin || return 1       # -a: only adds, other memberships are preserved
-  usermod -aG agent-common agent-dev || return 1
+  usermod -aG agent-common,agent-core agent-dev || return 1
+  usermod -aG agent-common agent-test || return 1
   # extra members cannot be fixed safely/automatically
   [ "$(members_of agent-common)" = "$(echo $MEMBERS_common | sorted)" ] && [ "$(members_of agent-core)" = "$(echo $MEMBERS_core | sorted)" ] || { echo "      unexpected extra group members; remove manually (gpasswd -d USER GROUP)" >&2; return 1; }
 }
@@ -261,21 +264,56 @@ check_envfile() {
   if [ ! -f "$ENV_FILE" ]; then reason "$ENV_FILE missing"; return; fi
   stat_is "$ENV_FILE" "root:root 644" || reason "$ENV_FILE != root:root 644"
   local k exp
-  for k in AGENT_HOME AGENT_PORT AGENT_UPLOAD_DIR AGENT_LOG_DIR; do
+  for k in AGENT_HOME AGENT_PORT AGENT_UPLOAD_DIR AGENT_LOG_DIR AGENT_KEY_PATH; do
     exp=$(sed -n "s/^$k=//p" "$SRC/config/etc-default-agent-app.example" | tail -1)
     [ "$(env_val $k)" = "$exp" ] || reason "$ENV_FILE: $k='$(env_val $k)' expected '$exp'"
   done
-  grep -q '^AGENT_KEY_PATH=' "$ENV_FILE" || reason "$ENV_FILE: AGENT_KEY_PATH not defined"
-  [ -z "$(env_val AGENT_KEY_PATH)" ] && note "AGENT_KEY_PATH is empty (PENDING: needs the provided Agent)"
-  grep -v '^[[:space:]]*#' "$ENV_FILE" | grep -qiE '(secret|password|token|BEGIN .*PRIVATE)' && reason "$ENV_FILE contains secret-looking values"
+  [ "$(grep -c '^AGENT_KEY_PATH=' "$ENV_FILE")" -le 1 ] || reason "$ENV_FILE: AGENT_KEY_PATH defined more than once"
+  # AGENT_KEY_PATH only holds a PATH (the official file name t_secret.key contains the word 'secret'): exclude that
+  # one variable from the keyword scan; every other line is still scanned.
+  grep -v '^[[:space:]]*#' "$ENV_FILE" | grep -v '^AGENT_KEY_PATH=' | grep -qiE '(secret|password|token|BEGIN .*PRIVATE)' && reason "$ENV_FILE contains secret-looking values"
+  case "$(env_val AGENT_KEY_PATH)" in *[[:space:]]*|*BEGIN*PRIVATE*) reason "$ENV_FILE: AGENT_KEY_PATH is not a plain path";; esac
 }
 apply_envfile() {
   need_src
-  if [ -e "$ENV_FILE" ]; then
-    echo "      $ENV_FILE exists with different content; NOT overwritten (merge by hand, example: config/etc-default-agent-app.example)" >&2
-    return 1
+  if [ ! -e "$ENV_FILE" ]; then install -o root -g root -m 0644 "$SRC/config/etc-default-agent-app.example" "$ENV_FILE"; return; fi
+  # existing file: never overwritten. Every current value/line is preserved; ONLY AGENT_KEY_PATH is set to the
+  # official path (replace the single existing line in place, or append it when missing). Backup kept only on change.
+  local want tmp bak; want=$(sed -n 's/^AGENT_KEY_PATH=//p' "$SRC/config/etc-default-agent-app.example" | tail -1)
+  [ -n "$want" ] || return 1
+  if [ "$(env_val AGENT_KEY_PATH)" != "$want" ] || [ "$(grep -c '^AGENT_KEY_PATH=' "$ENV_FILE")" -gt 1 ]; then
+    install -d -m 0700 "$SSH_BACKUP_DIR" || return 1
+    bak="$SSH_BACKUP_DIR/agent-app.env.$(date +%Y%m%d-%H%M%S).bak"; cp -p "$ENV_FILE" "$bak" || return 1
+    tmp=$(mktemp "$ENV_FILE.XXXXXX") || return 1
+    if grep -q '^AGENT_KEY_PATH=' "$ENV_FILE"; then
+      awk -v w="AGENT_KEY_PATH=$want" '/^AGENT_KEY_PATH=/{ if(!d){print w; d=1}; next } {print}' "$ENV_FILE" > "$tmp"
+    else { cat "$ENV_FILE"; [ -z "$(tail -c1 "$ENV_FILE")" ] || echo; echo "AGENT_KEY_PATH=$want"; } > "$tmp"; fi
+    chown root:root "$tmp" && chmod 0644 "$tmp" && mv -f "$tmp" "$ENV_FILE" || { rm -f "$tmp"; return 1; }
+    echo "      AGENT_KEY_PATH updated in $ENV_FILE (other lines untouched); backup: $bak" >&2
   fi
-  install -o root -g root -m 0644 "$SRC/config/etc-default-agent-app.example" "$ENV_FILE"
+  # any other difference is reported by the re-check (not auto-merged)
+}
+
+# ============================================================== keyfile (official practice string, not a real secret)
+check_keyfile() {
+  local want; want=$(sed -n 's/^AGENT_KEY_PATH=//p' "$SRC/config/etc-default-agent-app.example" 2>/dev/null | tail -1)
+  [ "$want" = "$KEY_FILE" ] || reason "repo example AGENT_KEY_PATH='$want' != $KEY_FILE"
+  if [ -L "$KEY_FILE" ]; then reason "$KEY_FILE is a symlink"; return; fi
+  [ -f "$KEY_FILE" ] || { reason "$KEY_FILE missing"; return; }
+  stat_is "$KEY_FILE" "root:agent-core 640" || reason "$KEY_FILE != root:agent-core 640 ($(stat -c '%U:%G %a' "$KEY_FILE"))"
+  [ "$(cat "$KEY_FILE" 2>/dev/null)" = "$KEY_TEST_STRING" ] && [ "$(wc -l < "$KEY_FILE")" -le 1 ] || reason "$KEY_FILE content is not the one-line official practice string (content not printed)"
+  local u; for u in agent-admin agent-dev; do runuser -u "$u" -- test -r "$KEY_FILE" 2>/dev/null || reason "$u cannot read $KEY_FILE"; done
+  runuser -u agent-test -- test -r "$KEY_FILE" 2>/dev/null && reason "agent-test can read $KEY_FILE (must be denied)"
+}
+apply_keyfile() {
+  [ -L "$KEY_FILE" ] && return 1
+  if [ ! -e "$KEY_FILE" ]; then
+    printf '%s\n' "$KEY_TEST_STRING" | install -o root -g agent-core -m 0640 /dev/stdin "$KEY_FILE" || return 1
+  else
+    # existing file: owner/mode only. A file with different content is NOT overwritten (could be a real key).
+    chown root:agent-core "$KEY_FILE" && chmod 0640 "$KEY_FILE" || return 1
+    [ "$(cat "$KEY_FILE")" = "$KEY_TEST_STRING" ] || { echo "      $KEY_FILE has other content; NOT overwritten" >&2; return 1; }
+  fi
 }
 
 # ============================================================== monitor
@@ -283,15 +321,17 @@ check_monitor() {
   need_src
   stat_is "$AGENT_HOME/bin" "root:root 755" || reason "$AGENT_HOME/bin != root:root 755"
   [ -f "$MONITOR" ] || { reason "$MONITOR missing"; return; }
-  stat_is "$MONITOR" "root:agent-admin 750" || reason "$MONITOR != root:agent-admin 750 ($(stat -c '%U:%G %a' "$MONITOR"))"
+  stat_is "$MONITOR" "agent-dev:agent-core 750" || reason "$MONITOR != agent-dev:agent-core 750 ($(stat -c '%U:%G %a' "$MONITOR"))"
   file_eq "$MONITOR" "$SRC/bin/monitor.sh" || reason "$MONITOR differs from repo bin/monitor.sh"
   bash -n "$MONITOR" 2>/dev/null || reason "$MONITOR has a syntax error"
+  # cron runs it as agent-admin, which has no owner/other right: execution must work through the agent-core group bit
+  id -nG agent-admin 2>/dev/null | tr ' ' '\n' | grep -qx agent-core || reason "agent-admin is not in agent-core (cannot execute $MONITOR via group)"
 }
 apply_monitor() {
   need_src
   bash -n "$SRC/bin/monitor.sh" || return 1
   install -d -o root -g root -m 0755 "$AGENT_HOME/bin" || return 1
-  install -o root -g agent-admin -m 0750 "$SRC/bin/monitor.sh" "$MONITOR"
+  install -o agent-dev -g agent-core -m 0750 "$SRC/bin/monitor.sh" "$MONITOR"
 }
 
 # ============================================================== logfile (never truncates)
@@ -364,7 +404,7 @@ apply_verify() { return 1; }
 check_agent() {
   note "PENDING: provided Agent original is not available; not installed, not faked"
   note "PENDING: AGENT_PROCESS_PATTERN is $( [ -n "$(env_val AGENT_PROCESS_PATTERN 2>/dev/null)" ] && echo set || echo 'unset (monitor.sh reports PENDING PROCESS, exit 1)')"
-  note "PENDING: AGENT_KEY_PATH, listening 0.0.0.0:$AGENT_PORT, Boot Sequence"
+  note "PENDING: listening 0.0.0.0:$AGENT_PORT, Boot Sequence"
 }
 apply_agent() { return 0; }
 
@@ -375,7 +415,7 @@ snapshot() {
   echo "## accounts"; for u in $USERS; do echo "$(id $u 2>&1)"; getent passwd $u | cut -d: -f1,3,4,6,7; echo "pw=$(passwd -S $u 2>/dev/null | awk '{print $2}') sudo=$(sudo -l -U $u 2>/dev/null | tail -1)"; done
   getent group agent-common agent-core
   echo "## dirs"; for d in $AGENT_HOME $AGENT_HOME/upload_files $AGENT_HOME/api_keys $AGENT_HOME/bin $LOG_DIR; do stat -c '%A %a %U:%G %n' $d 2>&1; getfacl -p $d 2>/dev/null | grep -vE '^#|^$'; done
-  echo "## files"; stat -c '%A %a %U:%G %n' $ENV_FILE $MONITOR $LOG_FILE $LOGROTATE_CONF $SSH_FRAGMENT 2>&1
+  echo "## files"; stat -c '%A %a %U:%G %n' $ENV_FILE $KEY_FILE $MONITOR $LOG_FILE $LOGROTATE_CONF $SSH_FRAGMENT 2>&1
   sha256sum $ENV_FILE $MONITOR $LOGROTATE_CONF $SSH_FRAGMENT 2>&1
   echo "## sshd"; sshd -T 2>&1 | grep -E '^(port|permitrootlogin|passwordauthentication|pubkeyauthentication) '; systemctl is-active ssh.service; systemctl is-enabled ssh.service; echo "socket: $(systemctl is-enabled ssh.socket 2>&1) $(systemctl is-active ssh.socket 2>&1)"
   ss -H -ltn | awk '{print $4}' | sort

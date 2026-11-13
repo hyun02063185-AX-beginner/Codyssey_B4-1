@@ -57,8 +57,9 @@ scripts/bootstrap-orbstack.sh snapshot                    # 정규화된 상태 
 | `ufw` | deny incoming / allow outgoing, **20022/tcp 허용을 먼저** 추가(없으면 활성화 거부) → 15034/tcp → `ufw --force enable`, `ufw.service` enabled. 허용 포트 집합이 정확히 {20022, 15034}인지 확인(**다른 규칙은 보고만, 삭제하지 않음**) |
 | `accounts` | 그룹 먼저(GID 1000·1001), 사용자 3명(`useradd -m -s /bin/bash`, **생성할 때만** 비밀번호 잠금), `usermod -aG`로 소속 추가(기존 소속 보존). sudo 권한은 부여하지 않으며, 있으면 차이로 보고 |
 | `dirs` | `/opt/agent-app`(root:root 755), `upload_files`(agent-admin:agent-common 2770), `api_keys`·`/var/log/agent-app`(root:agent-core 2770) + access·default ACL |
-| `envfile` | `/etc/default/agent-app`이 **없을 때만** 생성(root:root 0644). 있고 값이 다르면 **덮어쓰지 않고 실패**(`AGENT_KEY_PATH`는 값이 있어도 허용) |
-| `monitor` | `bin/monitor.sh`를 `/opt/agent-app/bin/monitor.sh`(root:agent-admin 0750)로 배포 |
+| `envfile` | `/etc/default/agent-app`이 **없을 때만** 생성(root:root 0644). 있으면 **덮어쓰지 않고 현재 값을 보존**하며 `AGENT_KEY_PATH`만 공식 경로로 교체(없으면 추가, 변경 시에만 `/var/backups/b4-bootstrap`에 백업). 다른 키가 다르면 실패 |
+| `keyfile` | `/opt/agent-app/api_keys/t_secret.key`를 없을 때만 생성(공식 실습 문자열 `agent_api_key_test` 한 줄, `root:agent-core 0640`). 내용이 다르면 덮어쓰지 않고 실패 |
+| `monitor` | `bin/monitor.sh`를 `/opt/agent-app/bin/monitor.sh`(agent-dev:agent-core 0750)로 배포 |
 | `logfile` | `monitor.log`가 없을 때만 생성(agent-admin:agent-core 0660). 있으면 소유자·mode만 맞추고 **내용은 절대 수정·삭제하지 않음** |
 | `logrotate` | `/etc/logrotate.d/agent-app` 설치, `logrotate -d` 오류 없음, `logrotate.timer` 활성 |
 | `cron` | `cron` 서비스 활성 + `monitor-cron.sh install`(관리 블록만 교체, **다른 crontab 항목 보존**, 중복 없음) |

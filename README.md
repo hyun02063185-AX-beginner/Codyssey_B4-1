@@ -12,8 +12,8 @@ OrbStack Ubuntu **Linux Machine**을 실습 서버로 사용하며, 여기서 �
 > | Ubuntu Machine `b4-lab` (24.04.5, x86_64) | 완료 | [환경 문서 9장](docs/orbstack-environment.md#9-기본-실행환경-사전검증-기록) |
 > | SSH 20022 + Root 차단 | 완료(Mac 실제 접속·`ROOT LOGIN REFUSED` 확인) | [10장](docs/orbstack-environment.md#10-ssh-20022-구성-및-검증-기록) |
 > | UFW (deny in / allow out, 20022·15034) | 완료(실제 허용·차단, `orb restart` 후 복원 확인) | [11장](docs/orbstack-environment.md#11-ufw-방화벽-구성-및-검증-기록) |
-> | 사용자 3·그룹 2·소속, `/opt/agent-app` 권한·ACL | 완료 — **[승인된 실습 설계]**(공식 원문 미대조) | [권한 설계·적용](docs/b4-1-permission-plan.md) |
-> | 환경변수 `/etc/default/agent-app` | `AGENT_HOME/PORT/UPLOAD_DIR/LOG_DIR` 완료, **`AGENT_KEY_PATH` PENDING**(Agent 필요) | [Agent 실행환경](docs/b4-1-agent-runtime.md) |
+> | 사용자 3·그룹 2·소속, `/opt/agent-app` 권한·ACL | 완료 — 그룹 소속은 **공식 구성으로 정정**(작업 16) | [공식 정합성 수정](docs/b4-1-official-alignment.md) |
+> | 환경변수 `/etc/default/agent-app` | `AGENT_HOME/PORT/UPLOAD_DIR/LOG_DIR` 완료, `AGENT_KEY_PATH=/opt/agent-app/api_keys/t_secret.key`(공식 실습 키 파일, 작업 16) | [Agent 실행환경](docs/b4-1-agent-runtime.md) |
 > | `monitor.sh` (프로세스·포트·UFW·CPU/MEM/DISK) | 구현·배포·검증. Agent 부재 시 `exit 1`이 **예상된 장애 감지 결과** | [monitor 기록](docs/b4-1-monitor.md) |
 > | `monitor.log` 기록 · 10MB/10개 순환(logrotate) | 완료(순환은 임시 환경에서 검증, 실제 타이머 발동은 PENDING) | [monitor 기록](docs/b4-1-monitor.md), [로그 순환](docs/b4-1-log-rotation.md) |
 > | `agent-admin` cron 매분 자동 실행 | 완료(예약 실행 연속 확인, `trigger=cron`) | [cron 기록](docs/b4-1-cron.md) |
@@ -130,7 +130,7 @@ OrbStack Ubuntu **Linux Machine**을 실습 서버로 사용하며, 여기서 �
 #### 1) 사용자 / 그룹
 - [x] [관리자료] 사용자 `agent-admin`, `agent-dev`, `agent-test` 생성 (홈 `750`, 비밀번호 잠김, sudo 없음)
 - [x] [관리자료] 그룹 `agent-common`(GID 1000), `agent-core`(GID 1001) 생성
-- [x] 사용자별 그룹 소속 설정 — **[승인된 실습 설계]**(공식 원문 미대조): admin∈common+core, dev∈common, test 미가입. [확인 필요] 원문 대조
+- [x] 사용자별 그룹 소속 설정 — **공식 구성**(작업 16): `agent-common` = admin·dev·test, `agent-core` = admin·dev
 - [x] 증빙: `id agent-admin`, `id agent-dev`, `id agent-test`, `getent group agent-common agent-core`
 
 #### 2) 디렉터리 / 파일 권한
@@ -170,7 +170,7 @@ OrbStack Ubuntu **Linux Machine**을 실습 서버로 사용하며, 여기서 �
 
 #### 5) 환경변수
 - [x] `AGENT_HOME`, `AGENT_PORT`, `AGENT_UPLOAD_DIR`, `AGENT_LOG_DIR` 정의 — `/etc/default/agent-app`, 값은 [승인된 실습 설계]/[관리자료](원문 대조 필요)
-- [ ] [확인 필요] `AGENT_KEY_PATH` — 파일/디렉터리 여부 미확인(PENDING, 빈 값). 제공 Agent 필요
+- [x] `AGENT_KEY_PATH=/opt/agent-app/api_keys/t_secret.key`, 파일 내용은 공식 실습 문자열 `agent_api_key_test` 한 줄(`root:agent-core 0640`; 실제 비밀키 아님). 제공 Agent 실행은 PENDING
 - [ ] 환경변수를 실제 Agent가 사용하는지 검증 (Agent NOT FOUND)
 - [ ] [확인 필요] 각 변수의 값과 적용 위치(로그인 셸 / Agent 실행 환경 / cron 환경) — 파일 로드 방식은 검증됨, 원문 대조·Agent·cron 적용은 미완 — **cron은 로그인 셸 환경변수를 상속하지 않음에 주의**
 - [ ] 증빙: Agent·`monitor.sh` 실행 환경에서 실제 값 출력
@@ -188,10 +188,10 @@ OrbStack Ubuntu **Linux Machine**을 실습 서버로 사용하며, 여기서 �
 - [ ] [관리자료] 점검: Agent 프로세스 — 구현됨, 식별 기준(`AGENT_PROCESS_PATTERN`) **PENDING**(Agent 없음). 실제 Agent 판정 미검증
 - [ ] [관리자료] 점검: 포트(15034 LISTEN) — 구현. 미LISTEN·바인딩(0.0.0.0 vs localhost/IPv6)·소유 PID 일치/불일치/확인 불가 판정 fixture 검증 PASS(작업 10-1). Agent의 실제 LISTEN은 PENDING
 - [x] [관리자료] 점검: 방화벽 상태 — 구현. root 실행 시 실제 판정 PASS, `agent-admin`(sudo 없음)은 `UNKNOWN`
-- [x] [관리자료] 점검: CPU / MEM / DISK 사용량 — 수집·계산 PASS, 임계값 80%는 **[설계 기본값]**(원문 확인 필요)
+- [x] [관리자료] 점검: CPU / MEM / DISK 사용량 — 수집·계산 PASS, 경고 임계값 CPU>20% / MEM>10% / DISK>80%(공식, 경계 `>` 엄격)
 - [x] [관리자료] 프로세스·포트 점검 실패 시 `exit 1` (식별 기준 미설정도 exit 1, 설정·수집 오류는 exit 2)
 - [x] [관리자료] 방화벽 비활성 시 `WARNING` 출력 — 로직은 스텁 출력으로 검증, 실제 UFW 비활성 상태는 미검증
-- [x] 배치 경로·소유자·권한: `/opt/agent-app/bin/monitor.sh` `root:agent-admin 0750` ([이 작업의 설계 결정], 원문 확인 필요). 출력 형식은 임시 형식
+- [x] 배치 경로·소유자·권한: `/opt/agent-app/bin/monitor.sh` `agent-dev:agent-core 0750`(공식, 작업 16; cron 계정 `agent-admin`은 `agent-core` 그룹 권한으로 실행). 출력 형식은 임시 형식
 - [ ] 증빙: 정상(exit 0) / 프로세스 중지 / 방화벽 비활성 각 상황의 출력과 `echo $?` — 현재는 Agent 부재 상황(exit 1)만 실측, 정상은 PENDING
 
 #### 8) 로그

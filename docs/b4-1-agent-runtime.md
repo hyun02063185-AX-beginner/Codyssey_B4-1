@@ -1,5 +1,7 @@
 # B4-1 Agent 실행환경 준비 (작업 9)
 
+> **작업 16 정정:** 그룹 소속(common = admin·dev·test, core = admin·dev), monitor.sh 소유권(agent-dev:agent-core 0750), 경고 임계값(20/10/80), `AGENT_KEY_PATH`(`/opt/agent-app/api_keys/t_secret.key`)는 공식 요구에 맞게 변경됐습니다. 이 문서의 해당 값은 당시 기록이며 현행 값은 [공식 정합성 수정](b4-1-official-alignment.md)을 따릅니다.
+
 - 일시: 2026-11-13 / 기준 커밋 `86678af`
 - 범위: 환경변수 파일 적용·검증, 제공 Agent 존재 확인. SSH·UFW·그룹 소속·기존 ACL 변경 없음. `monitor.sh`·cron·logrotate·bootstrap 미구현.
 - 값의 구분: **[원문]** 공식 원문 확인(현재 없음) / **[Notion 요약]** 변수 이름 5개(원문 미대조) / **[승인된 실습 설계]** 사용자 승인값, 원문 미대조 / **[적용됨]** Ubuntu에 반영 / **[실측]** 테스트 결과.
