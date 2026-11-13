@@ -62,7 +62,7 @@
 | 확인 명령 | `orb -m b4-lab sudo ufw status verbose` |
 | 2026-11-13 재확인 출력 | `Status: active` / `Default: deny (incoming), allow (outgoing), deny (routed)` / `20022/tcp ALLOW IN`, `15034/tcp ALLOW IN` + `(v6)` 동일 |
 | 허용·차단 실측 | 15035(미허용): 활성화 전 접속 성공 → 활성화 후 **timeout(차단)**. 15034(허용): 리스너가 없으면 **refused**. 20022: 접속 성공 |
-| 작업 15 재확인 | Mac→`:22` timeout(UFW drop), Mac→`:15034` refused(허용되었으나 리스너 없음 = Agent 부재와 일치) |
+| 작업 15 재확인 | Mac→`:22` timeout(UFW drop; UFW 활성화 전 작업 4에서는 refused였음), Mac→`:15034` refused(허용되었으나 리스너 없음 = Agent 부재와 일치) |
 | 재시작 후 | `orb restart b4-lab` 후 UFW 자동 복원과 허용·차단 재검증 PASS |
 | 증빙 | [orbstack-environment.md §11](orbstack-environment.md) (§11.4 결과, §11.7 재시작 후 복원) |
 | 한계 | 커널 로그 `UFW BLOCK`은 확인하지 못함(INCONCLUSIVE, 차단 자체는 접속 비교로 확인). Mac 재부팅·OrbStack 앱 재시작 후 복원은 미검증 |
@@ -209,36 +209,138 @@
 
 ## 4. 제출 증빙 목록
 
-원칙: 기존에 확보된 출력은 재사용하고, 새 설치·설정 변경은 하지 않는다. **개인키·비밀번호·실제 API 키는 캡처에 포함하지 않는다**(`api_keys` 디렉터리는 비어 있고 키 파일은 만들지 않았다). 아래 명령은 모두 Mac 터미널에서 실행하며 읽기 전용이다.
+원칙: 기존에 확보된 출력은 재사용하고, 새 설치·설정 변경은 하지 않는다. **개인키·비밀번호·실제 API 키는 캡처에 포함하지 않는다**(`api_keys` 디렉터리는 비어 있고 키 파일은 만들지 않았다). 아래 명령은 작업 15-1에서 `b4-lab`에 실제로 실행해 출력이 예상과 일치함을 확인했다(2026-11-13).
 
-범례: ✅ 저장소 문서에 출력이 기록되어 있음 / 📷 **제출용 터미널 캡처는 별도로 찍어야 함** / ⛔ 증빙 불가(PENDING)
+### 4.1 명령 유형
 
-| # | 요구 | 캡처할 명령 | 기록된 출력 | 캡처 |
+| 유형 | 의미 | 반복 실행 |
+|---|---|---|
+| **A 조회** | 상태 조회만 수행. 저장소·Machine에 파일을 쓰지 않음(sshd/sudo가 시스템 감사 로그를 남길 수 있음) | 안전 |
+| **B 로그 추가** | `monitor.log`에 줄이 추가됨(1회 실행 = 10줄). 정상 동작이며 기존 로그는 보존됨 | 가능, 필요할 때만 |
+| **C 임시 파일** | 테스트 파일을 만들고 **같은 명령 안에서 삭제**함. 끝난 뒤 디렉터리가 비어 있는지 확인 | 가능 |
+| **D 재실행 금지** | 본환경 `b4-lab`에서 재현하면 안 됨(보안 설정 변경·서비스 중단 위험). 기록된 출력으로만 증빙 | **금지** |
+
+### 4.2 준비 (Mac 터미널, zsh/bash 공통)
+
+```bash
+cd Codyssey_B4-1                                  # 저장소 루트
+alias B='orb -m b4-lab'                           # 이후 'B sudo …' = Machine 안에서 root 실행
+IP=$(orb list | awk '$1=="b4-lab"{print $NF}')    # Machine IP (running일 때 마지막 열)
+echo "$IP"
+```
+
+- `monitor.log`, `/var/lib/logrotate/status`, `ufw`, `getfacl -p`(일부) 등은 root 또는 `agent-core` 권한이 필요하므로 **`B sudo …`** 로 실행한다. `sudo` 없이 `B tail …/monitor.log`를 실행하면 `Permission denied`가 나온다(정상 — 접근 제한이 동작하는 것).
+- 파이프(`|`)는 Mac 쪽 `grep`/`head`로 이어진다. 표 안에서 `|`가 깨지지 않도록 모든 명령을 아래 코드 블록에 모았다.
+- Mac의 `nc`는 연결 시간 제한이 `-w`로는 적용되지 않으므로 `-G 3`(연결 제한 3초)을 쓴다.
+
+### 4.3 증빙 항목과 명령
+
+범례: ✅ 저장소 문서에 출력이 기록됨 / 📷 제출용 터미널 캡처를 별도로 찍어야 함 / ⛔ 증빙 불가(PENDING)
+
+| # | 요구 | 유형 | 기록된 출력 | 캡처 |
 |---|---|---|---|---|
-| E1 | SSH 포트·Root 차단 | `orb -m b4-lab sudo sshd -T \| grep -Ei '^(port\|permitrootlogin) '` ; `orb -m b4-lab sudo ss -tlnp \| grep sshd` | ✅ [env §10.5](orbstack-environment.md) | 📷 |
-| E2 | Mac→20022 접속 / 22 불가 | `ssh -p 20022 <계정>@<IP>` (키가 있을 때) 또는 `nc`로 배너 확인 | ✅ [env §10.5](orbstack-environment.md) | 📷 (공개키 로그인은 사용자가 키를 등록한 경우에만. 개인키 내용은 캡처 금지) |
-| E3 | Root 로그인 거부 | sshd 로그 `ROOT LOGIN REFUSED` 장면 | ✅ [env §10.5](orbstack-environment.md) (임시 키로 시험 후 제거) | 📷 재현하려면 임시 root 키 등록이 필요 → **누락, 필요하면 별도 승인 후** |
-| E4 | UFW 상태 | `orb -m b4-lab sudo ufw status verbose` | ✅ [env §11.4](orbstack-environment.md) | 📷 |
-| E5 | UFW 허용/차단 | Mac에서 `nc -z <IP> 15034`(refused) / `nc -z <IP> 15035`(timeout) | ✅ [env §11.4](orbstack-environment.md) | 📷 |
-| E6 | 계정·그룹 | `orb -m b4-lab id agent-admin agent-dev agent-test` ; `orb -m b4-lab getent group agent-common agent-core` | ✅ [env §12](orbstack-environment.md) | 📷 |
-| E7 | 디렉터리 권한·ACL | `orb -m b4-lab sudo getfacl -p /opt/agent-app/upload_files /opt/agent-app/api_keys /var/log/agent-app` ; `stat` | ✅ [permission §11.1](b4-1-permission-plan.md) | 📷 |
-| E8 | 사용자별 허용/거부 | `sudo -u agent-dev` 등으로 쓰기 시도 | ✅ [permission §11.3](b4-1-permission-plan.md) | 📷 (테스트 파일은 즉시 삭제) |
-| E9 | 환경변수 | `orb -m b4-lab cat /etc/default/agent-app` | ✅ [runtime §2–3](b4-1-agent-runtime.md) | 📷 |
+| E1 | SSH 포트·Root 차단 | A | ✅ [env §10.5](orbstack-environment.md) | 📷 |
+| E2 | Mac→20022 접속 / 22 불가 | A (sshd 접속 로그 1줄) | ✅ [env §10.5](orbstack-environment.md) | 📷 (개인키 내용은 캡처 금지) |
+| E3 | Root 로그인 거부 | **D** | ✅ [env §10.5](orbstack-environment.md) #10 | 재현 금지 → 문서 출력으로 대체 |
+| E4 | UFW 상태 | A | ✅ [env §11.4](orbstack-environment.md) | 📷 |
+| E5 | UFW 허용/차단 | A | ✅ [env §11.4](orbstack-environment.md) | 📷 |
+| E6 | 계정·그룹 | A | ✅ [env §12](orbstack-environment.md) | 📷 |
+| E7 | 디렉터리 권한·ACL | A | ✅ [permission §11.1](b4-1-permission-plan.md) | 📷 |
+| E8 | 사용자별 허용/거부 | **C** | ✅ [permission §11.3](b4-1-permission-plan.md) | 📷 |
+| E9 | 환경변수 | A | ✅ [runtime §2–3](b4-1-agent-runtime.md) | 📷 |
 | E10 | Agent 기동 / READY / 15034 LISTEN | — | ⛔ | ⛔ Agent 원본 필요 |
-| E11 | `monitor.sh` 소스·배치·권한 | `git show main:bin/monitor.sh` ; `orb -m b4-lab sudo stat -c '%A %U:%G %n' /opt/agent-app/bin/monitor.sh` | ✅ [monitor §1](b4-1-monitor.md) | 📷 |
-| E12 | `monitor.sh` 실행 출력 + `echo $?` (장애 감지) | `orb -m b4-lab sudo -u agent-admin /opt/agent-app/bin/monitor.sh; echo $?` | ✅ [monitor §2, §5](b4-1-monitor.md) | 📷 (실행 시 로그 10줄 추가됨, 정상 동작) |
+| E11 | `monitor.sh` 소스·배치·권한 | A | ✅ [monitor §1](b4-1-monitor.md) | 📷 |
+| E12 | `monitor.sh` 실행 + `echo $?` (장애 감지 exit 1) | **B** | ✅ [monitor §2, §5](b4-1-monitor.md) | 📷 |
 | E13 | `monitor.sh` 정상(exit 0) | — | ⛔ | ⛔ Agent 원본 필요 |
-| E14 | 방화벽 WARNING | UFW 비활성 상태에서 실행 | 스텁 검증만 ✅ ([monitor §5](b4-1-monitor.md)) | 실제 UFW를 끄는 시험은 하지 않음 → **누락** |
-| E15 | CPU/MEM/DISK | E12 출력에 포함 | ✅ | 📷 (E12와 동일 화면) |
-| E16 | `monitor.log` 누적 | `orb -m b4-lab sudo tail -20 /var/log/agent-app/monitor.log` ; `stat` | ✅ [monitor §5.2](b4-1-monitor.md) | 📷 |
-| E17 | 로그 순환 설정 | `orb -m b4-lab cat /etc/logrotate.d/agent-app` ; `logrotate -d` | ✅ [rotation §2–3](b4-1-log-rotation.md) | 📷 |
-| E18 | 로그 순환 실제 발동 | `journalctl -u logrotate.service` | ⛔ 대기 중 | ⛔ 2026-11-14 00:00 KST 이후 |
-| E19 | cron 등록 | `orb -m b4-lab sudo crontab -u agent-admin -l` ; `systemctl is-active cron` | ✅ [cron §1–2](b4-1-cron.md) | 📷 |
-| E20 | cron 자동 증가 | 1–2분 간격으로 `wc -l /var/log/agent-app/monitor.log` 두 번 + `grep -c trigger=cron` | ✅ [cron §3](b4-1-cron.md) | 📷 |
-| E21 | 환경 복구 | `scripts/bootstrap-orbstack.sh check --no-run` | ✅ [recovery §4](b4-1-recovery.md) | 📷 (작업 15에서 실행: ok=11, diff=0, verify SKIP, agent PENDING) |
-| E22 | SSH 사전검증 | [recovery §4.1](b4-1-recovery.md)의 T2 출력 | ✅ | `b4-lab`에서 재현 금지 → 문서 출력으로 대체 |
+| E14 | 방화벽 WARNING | **D** (UFW를 꺼야 함) | 스텁 검증만 ✅ [monitor §5](b4-1-monitor.md) | 누락 — 실제 UFW 비활성 시험은 하지 않음 |
+| E15 | CPU/MEM/DISK | B (E12 출력에 포함) | ✅ | 📷 (E12와 동일 화면) |
+| E16 | `monitor.log` 누적 | A | ✅ [monitor §5.2](b4-1-monitor.md) | 📷 |
+| E17 | 로그 순환 설정 | A (`-d`는 dry-run) | ✅ [rotation §2–3](b4-1-log-rotation.md) | 📷 |
+| E18 | 로그 순환 실제 발동 | A | ⛔ 대기 중 | ⛔ 2026-11-14 00:00 KST 이후 |
+| E19 | cron 등록 | A | ✅ [cron §1–2](b4-1-cron.md) | 📷 |
+| E20 | cron 자동 증가 | A (cron이 로그를 추가하는 것을 관찰) | ✅ [cron §3](b4-1-cron.md) | 📷 |
+| E21 | 환경 복구 점검 | A (`--no-run`: monitor 미실행, 임시 파일만) | ✅ [recovery §4](b4-1-recovery.md) | 📷 |
+| E22 | SSH 사전검증 | **D** | ✅ [recovery §4.1](b4-1-recovery.md) T2 | 재현 금지 → 문서 출력으로 대체 |
+
+```bash
+# E1 (A) — SSH 실효 설정과 리스너
+B sudo sshd -T | grep -Ei '^(port|permitrootlogin) '     # port 20022 / permitrootlogin no
+B sudo ss -tlnp | grep sshd                              # 0.0.0.0:20022, [::]:20022 (22 없음)
+
+# E2 (A) — Mac→Ubuntu sshd. OrbStack 기본 사용자 + 작업 전용 키(저장소에 없음, 내용 출력 금지)
+nc -w3 "$IP" 20022 </dev/null | head -1                  # SSH-2.0-OpenSSH_9.6p1 Ubuntu-3ubuntu13.20
+ssh -p 20022 -i ~/.ssh/b4-lab_ed25519 -o IdentitiesOnly=yes -o BatchMode=yes \
+    -o UserKnownHostsFile="$HOME/.ssh/b4-lab_known_hosts" "$USER@$IP" \
+    'hostname; ps -o comm= -p $PPID'                     # b4-lab / sshd   (Mac를 초기화하면 키가 없으므로 nc 배너만 사용)
+
+# E4 (A)
+B sudo ufw status verbose
+
+# E5 (A) — Mac→Machine IP (b4-lab.orb.local:22는 OrbStack 관리 SSH가 응답하므로 쓰지 말 것)
+for p in 20022 15034 15035 22; do
+  s=$(date +%s); nc -z -G 3 "$IP" "$p" >/dev/null 2>&1; echo "port $p rc=$? ($(( $(date +%s)-s ))s)"
+done
+#   20022: rc=0 (열림) / 15034: rc=1, ~0s (UFW 허용, 리스너 없음 = refused) / 15035,22: rc=1, ~3s (UFW drop = timeout)
+
+# E6 (A) — id는 사용자별로 각각
+for u in agent-admin agent-dev agent-test; do B id "$u"; done
+B getent group agent-common agent-core
+
+# E7 (A)
+B sudo getfacl -p /opt/agent-app/upload_files /opt/agent-app/api_keys /var/log/agent-app
+B sudo stat -c '%A %U:%G %n' /opt/agent-app /opt/agent-app/bin /opt/agent-app/upload_files /opt/agent-app/api_keys /var/log/agent-app
+
+# E8 (C) — 3계정×3디렉터리. 임시 파일(.evi_<pid>)을 만들고 즉시 삭제. 거부 시 'Permission denied'가 함께 출력됨
+for u in agent-admin agent-dev agent-test; do for d in /opt/agent-app/upload_files /opt/agent-app/api_keys /var/log/agent-app; do
+  r=$(B sudo -u "$u" bash -c 'f="$1/.evi_$$"; if echo ok > "$f" 2>/dev/null; then rm -f "$f"; echo ALLOW; else echo DENY; fi' _ "$d")
+  echo "$u $d $r"
+done; done
+B sudo ls -A /opt/agent-app/upload_files /opt/agent-app/api_keys     # 비어 있어야 함(정리 확인)
+#   기대: admin ALLOW×3 / dev ALLOW,DENY,DENY / test DENY×3
+
+# E9 (A) — 비밀값 없음
+B cat /etc/default/agent-app
+
+# E11 (A) — 저장소 소스와 배포본 일치 + 권한
+B sudo sha256sum /opt/agent-app/bin/monitor.sh; shasum -a 256 bin/monitor.sh     # 두 해시 동일
+B sudo stat -c '%A %U:%G %n' /opt/agent-app/bin/monitor.sh                       # -rwxr-x--- root:agent-admin
+
+# E12 (B) — 실행 1회 = 로그 10줄 추가. 파이프를 쓰면 $?가 tail의 값이 되므로 파이프 없이 실행
+B sudo -u agent-admin /opt/agent-app/bin/monitor.sh; echo "exit=$?"
+#   기대: [PENDING] PROCESS … / [FAIL] PORT tcp/15034 not LISTEN / [UNKNOWN] FIREWALL / CPU·MEM·DISK [OK] / SUMMARY result=UNHEALTHY exit=1 / exit=1
+
+# E16 (A) — root 필요(0660 agent-admin:agent-core). sudo 없이는 Permission denied가 정상
+B sudo tail -20 /var/log/agent-app/monitor.log
+B sudo stat -c '%A %U:%G %n' /var/log/agent-app/monitor.log
+
+# E17 (A) — 설정 확인과 dry-run. -d는 아무것도 변경하지 않음. 상태 파일(/var/lib/logrotate/status)이 root 전용이라 sudo 필수
+B cat /etc/logrotate.d/agent-app
+B sudo logrotate -d /etc/logrotate.d/agent-app 2>&1 | grep -A5 'considering log'
+#   기대: 'log does not need rotating (log size is below the 'size' threshold)'
+
+# E18 (A) — 이 정책의 실제 발동 확인 (2026-11-14 00:00 KST 이후에만 의미 있음. 현재 PENDING)
+B systemctl list-timers logrotate.timer --no-pager
+B sudo journalctl -u logrotate.service --no-pager | tail -5
+
+# E19 (A)
+B systemctl is-active cron
+B sudo crontab -u agent-admin -l
+
+# E20 (A) — 로그 증가 관찰: 두 번 측정(70초 이상 간격). 줄 수가 10 늘고 cron START가 1 늘어야 함
+B sudo wc -l /var/log/agent-app/monitor.log; B sudo grep -c 'trigger=cron' /var/log/agent-app/monitor.log
+sleep 70
+B sudo wc -l /var/log/agent-app/monitor.log; B sudo grep -c 'trigger=cron' /var/log/agent-app/monitor.log
+
+# E21 (A) — 지속 설정 변경 없음. --no-run: monitor.sh 실행 생략(임시 파일은 생길 수 있음)
+scripts/bootstrap-orbstack.sh check --no-run             # 기대: ok=11 diff=0, verify SKIP, agent PENDING
+```
+
+- E12를 한 번 실행하면 로그에 10줄이 더 쌓이고 E20의 줄 수 기준값도 달라진다. E20은 "증가분"을 보는 것이므로 영향 없다.
+- 매분 cron이 도는 동안 E20의 증가분은 정확히 10줄 단위가 아닐 수 있다(수동 실행이 끼어들면 그만큼 더 증가). `trigger=cron` 개수 증가를 함께 본다.
+- 허용·거부 표(E8)와 UFW(E4/E5)는 **현재 설정을 읽거나 임시 파일로 확인할 뿐 변경하지 않는다.** Root 차단 실험(E3), UFW 비활성 시험(E14), SSH 충돌 시험(E22)은 본환경에서 반복하지 않는다.
 
 ## 5. 재현·확인에 쓴 환경 정보
 
 - Mac: macOS(x86_64), OrbStack 2.0.5. Machine `b4-lab` running(192.168.139.18), `b4-recovery-test` stopped(검증용, 삭제하지 않음).
 - 이 문서의 2026-11-13 "재확인" 수치는 작업 15에서 `b4-lab`에 **읽기 전용 명령만** 실행해 얻은 값입니다(`check --no-run`, `ufw status`, `sshd -T`, `ss`, `stat`, `tail`).
+- 작업 15-1: §4의 명령을 실제 실행해 보완함(E6 `id`를 사용자별로 분리, E16·E17·E20에 `sudo` 필요 명시 — 없으면 `Permission denied`, E5의 `nc`에 `-G 3` 적용, 표 안의 `\|` 제거 후 코드 블록으로 이동, 명령 유형 A~D 표시). 기능·설정·PASS/PENDING 판정은 변경하지 않음.
