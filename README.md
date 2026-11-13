@@ -12,7 +12,8 @@ OrbStack Ubuntu **Linux Machine**을 실습 서버로 사용하며, 여기서 �
 > - **사용자·그룹 생성 완료(소속은 미확정):** `agent-admin/dev/test`, `agent-common/core` 생성. 사용자↔그룹 소속은 원문 미확인으로 **미적용** → [12장](docs/orbstack-environment.md#12-사용자그룹-구성-및-검증-기록)
 > - **그룹 소속·디렉터리 권한/ACL 적용 완료([승인된 실습 설계], 공식 원문 미대조):** `agent-admin`∈common+core, `agent-dev`∈common, `agent-test` 미가입. `/opt/agent-app/{upload_files,api_keys}`, `/var/log/agent-app` 생성·ACL 적용, 계정별 허용/차단 실측 PASS → [권한 설계·적용 기록](docs/b4-1-permission-plan.md#11-실제-적용-및-검증-작업-8)
 > - **환경변수 파일 적용(부분 완료):** `/etc/default/agent-app`(`root:root 0644`)에 `AGENT_HOME/PORT/UPLOAD_DIR/LOG_DIR` 적용·`agent-admin` 새 프로세스에서 로드 검증 PASS. `AGENT_KEY_PATH`는 **PENDING**(빈 값). 제공 Agent 원본은 **NOT FOUND**라 실행·`Agent READY`·15034 LISTEN 검증은 **미실시** → [Agent 실행환경 기록](docs/b4-1-agent-runtime.md)
-> - **나머지 Mission Core는 미착수:** Agent 기동, `monitor.sh`, 로그, cron. Mission Core 전체 완료가 아닙니다.
+> - **monitor.sh 구현·1차 검증(Agent 없이 가능한 범위):** [bin/monitor.sh](bin/monitor.sh) → `/opt/agent-app/bin/monitor.sh`(`root:agent-admin 0750`). 프로세스 `PENDING`(식별 기준 미설정)·15034 미LISTEN → exit 1, UFW는 `agent-admin` 권한으로 `UNKNOWN`, CPU/MEM/DISK 수집·임계값·설정 오류(exit 2) 로직 PASS. **Agent 정상 판정·exit 0 실측·cron·로그 기록은 PENDING** → [monitor 기록](docs/b4-1-monitor.md)
+> - **나머지 Mission Core는 미착수:** Agent 기동, 로그 기록·순환, cron. Mission Core 전체 완료가 아닙니다.
 
 ---
 
@@ -44,7 +45,7 @@ OrbStack Ubuntu **Linux Machine**을 실습 서버로 사용하며, 여기서 �
 향후 추가 예정(아직 없음):
 
 - `scripts/bootstrap-orbstack.sh` — 교육장 Mac 초기화 후 OrbStack Ubuntu Machine을 같은 상태로 재구성하는 스크립트. 역할과 범위는 [scripts/README.md](scripts/README.md) 참고.
-- `monitor.sh` — Mission Core 산출물. 저장소 내 위치는 작성 시 확정.
+- `monitor.sh` — Mission Core 산출물. 저장소 `bin/monitor.sh` → 배포 `/opt/agent-app/bin/monitor.sh`.
 
 ## 3. B4-1 Mission Core 체크리스트
 
@@ -159,15 +160,15 @@ OrbStack Ubuntu **Linux Machine**을 실습 서버로 사용하며, 여기서 �
 - [ ] 증빙: 기동 로그, `ps`, `ss` 결과
 
 #### 7) `monitor.sh` (Bash)
-- [ ] Bash로 작성, `bash -n monitor.sh` 문법 검사
-- [ ] [관리자료] 점검: Agent 프로세스
-- [ ] [관리자료] 점검: 포트(15034 LISTEN)
-- [ ] [관리자료] 점검: 방화벽 상태
-- [ ] [관리자료] 점검: CPU / MEM / DISK 사용량 (임계값 [확인 필요])
-- [ ] [관리자료] 프로세스·포트 점검 실패 시 `exit 1`
-- [ ] [관리자료] 방화벽 비활성 시 `WARNING` 출력
-- [ ] [확인 필요] 출력 형식, 배치 경로·소유자·실행 권한
-- [ ] 증빙: 정상 / 프로세스 중지 / 방화벽 비활성 각 상황의 출력과 `echo $?`
+- [x] Bash로 작성, `bash -n` 문법 검사 PASS → [bin/monitor.sh](bin/monitor.sh), 상세 [docs/b4-1-monitor.md](docs/b4-1-monitor.md)
+- [ ] [관리자료] 점검: Agent 프로세스 — 구현됨, 식별 기준(`AGENT_PROCESS_PATTERN`) **PENDING**(Agent 없음). 실제 Agent 판정 미검증
+- [ ] [관리자료] 점검: 포트(15034 LISTEN) — 구현·미LISTEN 검출 PASS. Agent의 LISTEN은 PENDING
+- [x] [관리자료] 점검: 방화벽 상태 — 구현. root 실행 시 실제 판정 PASS, `agent-admin`(sudo 없음)은 `UNKNOWN`
+- [x] [관리자료] 점검: CPU / MEM / DISK 사용량 — 수집·계산 PASS, 임계값 80%는 **[설계 기본값]**(원문 확인 필요)
+- [x] [관리자료] 프로세스·포트 점검 실패 시 `exit 1` (식별 기준 미설정도 exit 1, 설정·수집 오류는 exit 2)
+- [x] [관리자료] 방화벽 비활성 시 `WARNING` 출력 — 로직은 스텁 출력으로 검증, 실제 UFW 비활성 상태는 미검증
+- [x] 배치 경로·소유자·권한: `/opt/agent-app/bin/monitor.sh` `root:agent-admin 0750` ([이 작업의 설계 결정], 원문 확인 필요). 출력 형식은 임시 형식
+- [ ] 증빙: 정상(exit 0) / 프로세스 중지 / 방화벽 비활성 각 상황의 출력과 `echo $?` — 현재는 Agent 부재 상황(exit 1)만 실측, 정상은 PENDING
 
 #### 8) 로그
 - [ ] [관리자료] `/var/log/agent-app/monitor.log`에 기록
