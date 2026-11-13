@@ -1,0 +1,11 @@
+# B4-1 Agent runtime environment (no secrets in this file).
+# Format: plain KEY=VALUE (no "export", no quotes) so that it works with both
+#   set -a; . /etc/default/agent-app; set +a      (bash/cron/monitor.sh)
+#   EnvironmentFile=/etc/default/agent-app         (systemd)
+# Values marked [approved lab design] are not verified against the official mission text.
+AGENT_HOME=/opt/agent-app
+AGENT_PORT=15034
+AGENT_UPLOAD_DIR=/opt/agent-app/upload_files
+AGENT_LOG_DIR=/var/log/agent-app
+# PENDING: file vs directory not confirmed (needs the provided Agent). Left empty on purpose.
+AGENT_KEY_PATH=

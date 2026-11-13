@@ -11,7 +11,8 @@ OrbStack Ubuntu **Linux Machine**을 실습 서버로 사용하며, 여기서 �
 > - **UFW 완료:** 기본 deny(in)/allow(out), 20022·15034/tcp만 허용, Machine IP 기준 실제 허용·차단 검증 재시작 후 자동 복원 검증 완료 → [UFW 검증 기록](docs/orbstack-environment.md#11-ufw-방화벽-구성-및-검증-기록)
 > - **사용자·그룹 생성 완료(소속은 미확정):** `agent-admin/dev/test`, `agent-common/core` 생성. 사용자↔그룹 소속은 원문 미확인으로 **미적용** → [12장](docs/orbstack-environment.md#12-사용자그룹-구성-및-검증-기록)
 > - **그룹 소속·디렉터리 권한/ACL 적용 완료([승인된 실습 설계], 공식 원문 미대조):** `agent-admin`∈common+core, `agent-dev`∈common, `agent-test` 미가입. `/opt/agent-app/{upload_files,api_keys}`, `/var/log/agent-app` 생성·ACL 적용, 계정별 허용/차단 실측 PASS → [권한 설계·적용 기록](docs/b4-1-permission-plan.md#11-실제-적용-및-검증-작업-8)
-> - **나머지 Mission Core는 미착수:** 환경변수, Agent, `monitor.sh`, 로그, cron. Mission Core 전체 완료가 아닙니다.
+> - **환경변수 파일 적용(부분 완료):** `/etc/default/agent-app`(`root:root 0644`)에 `AGENT_HOME/PORT/UPLOAD_DIR/LOG_DIR` 적용·`agent-admin` 새 프로세스에서 로드 검증 PASS. `AGENT_KEY_PATH`는 **PENDING**(빈 값). 제공 Agent 원본은 **NOT FOUND**라 실행·`Agent READY`·15034 LISTEN 검증은 **미실시** → [Agent 실행환경 기록](docs/b4-1-agent-runtime.md)
+> - **나머지 Mission Core는 미착수:** Agent 기동, `monitor.sh`, 로그, cron. Mission Core 전체 완료가 아닙니다.
 
 ---
 
@@ -143,8 +144,10 @@ OrbStack Ubuntu **Linux Machine**을 실습 서버로 사용하며, 여기서 �
 - [x] `orb restart b4-lab` 후 UFW 자동 복원 및 허용·차단 재검증 PASS ([11.7](docs/orbstack-environment.md#117-재시작-후-복원-검증-작업-5-1)). 단 이는 OrbStack Machine 재시작 범위이며 Mac 재부팅·OrbStack 앱 재시작은 미검증
 
 #### 5) 환경변수
-- [ ] [관리자료] `AGENT_HOME`, `AGENT_PORT`, `AGENT_UPLOAD_DIR`, `AGENT_KEY_PATH`, `AGENT_LOG_DIR` 정의
-- [ ] [확인 필요] 각 변수의 값과 적용 위치(로그인 셸 / Agent 실행 환경 / cron 환경) — **cron은 로그인 셸 환경변수를 상속하지 않음에 주의**
+- [x] `AGENT_HOME`, `AGENT_PORT`, `AGENT_UPLOAD_DIR`, `AGENT_LOG_DIR` 정의 — `/etc/default/agent-app`, 값은 [승인된 실습 설계]/[관리자료](원문 대조 필요)
+- [ ] [확인 필요] `AGENT_KEY_PATH` — 파일/디렉터리 여부 미확인(PENDING, 빈 값). 제공 Agent 필요
+- [ ] 환경변수를 실제 Agent가 사용하는지 검증 (Agent NOT FOUND)
+- [ ] [확인 필요] 각 변수의 값과 적용 위치(로그인 셸 / Agent 실행 환경 / cron 환경) — 파일 로드 방식은 검증됨, 원문 대조·Agent·cron 적용은 미완 — **cron은 로그인 셸 환경변수를 상속하지 않음에 주의**
 - [ ] 증빙: Agent·`monitor.sh` 실행 환경에서 실제 값 출력
 
 #### 6) Agent(제공 Python 앱) 기동
