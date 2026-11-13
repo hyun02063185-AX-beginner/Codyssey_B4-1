@@ -398,7 +398,7 @@ check_logrotate() {
   command -v logrotate >/dev/null 2>&1 || { reason "logrotate missing"; return; }
   logrotate -d "$LOGROTATE_CONF" 2>&1 | grep -qi 'error' && reason "logrotate -d reports an error for $LOGROTATE_CONF"
   systemctl is-active --quiet logrotate.timer 2>/dev/null || reason "logrotate.timer not active (size is only checked when logrotate runs)"
-  note "logrotate size check runs via logrotate.timer (daily); the log can exceed 10 MiB between checks"
+  note "logrotate size check runs via logrotate.timer (daily); the log can exceed the 9 MiB threshold between checks"
 }
 apply_logrotate() {
   need_src

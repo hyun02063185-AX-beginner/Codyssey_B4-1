@@ -1,6 +1,6 @@
 # B4-1 monitor.log 순환 (작업 12)
 
-> **작업 20 현황(최신):** 정책 `size 10M`(=10 MiB=10485760 B)·`rotate 9`(활성+순환본 9=최대 10개)는 공식 요구(10MB·10개)에 맞는 것으로 판정해 **유지**했습니다(주석만 보강). 2026-11-13 현재 **타이머 발동 후 실제 순환(`logrotate.timer`)은 PENDING**입니다. 아래 본문의 "fd 9 유지", "`agent-dev`·`agent-test` 차단", "실행당 10줄" 서술은 당시 기록이며 [작업 20](#작업-20-운영-검증과-공식-요구사항-정합성)이 우선합니다.
+> **작업 20 현황(최신):** 정책은 작업 21에서 **`size 9M`(=9 MiB=9,437,184 B)·`rotate 9`(활성+순환본 9=최대 10개)** 로 변경됐습니다(십진 10 MB·10 MiB 두 해석 모두 만족하는 보수적 기준). 2026-11-13 현재 **설정 설치 후 `logrotate.timer` 실행 기록은 PENDING**입니다. 본문의 `size 10M`/10 MiB 수치는 작업 12·20 당시 기록입니다. 아래 본문의 "fd 9 유지", "`agent-dev`·`agent-test` 차단", "실행당 10줄" 서술은 당시 기록이며 [작업 20](#작업-20-운영-검증과-공식-요구사항-정합성)이 우선합니다.
 
 
 - 일시: 2026-11-13 / 기준 커밋 `7ebb50f`
@@ -180,3 +180,22 @@ orb -m b4-lab systemctl is-active logrotate.timer
 orb -m b4-lab sudo journalctl -u logrotate.service --since '2026-11-14 00:00' --no-pager
 orb -m b4-lab sudo grep agent-app /var/lib/logrotate/status     # 날짜가 2026-11-14-…로 바뀌면 타이머가 이 설정을 평가한 것
 ```
+
+---
+
+## 작업 21: `size 9M`로 변경 (최종 제출 기준)
+
+**결정:** 십진 10 MB(10,000,000 B)로 읽어도 10 MiB로 읽어도 위반하지 않도록 임계값을 **9 MiB = 9,437,184 B**로 낮췄습니다. 근거: 일 1회 검사 사이 증가량이 약 90~105 KB/일이므로 순환 직전 파일은 최대 약 9,437,184 + 105,000 ≈ **9.54 MB** — 두 해석 모두 10 MB 미만. `size 10M`(10,485,760 B)은 십진 해석에서 초과합니다. `rotate 9`(활성+순환본 9=최대 10개), `create 0660 agent-admin agent-core`, `su agent-admin agent-core`는 그대로입니다.
+
+**한계(변함없음):** 이것은 "임계값 도달 후 주기적 순환"이지 절대 최대 크기 보장이 아닙니다. 타이머가 일 1회만 크기를 검사하고(`AccuracySec=1h`), logrotate가 며칠 실행되지 않으면 파일은 더 커질 수 있습니다. 과제 목적을 넘는 구현(시간 단위 타이머, `maxsize` 감시 등)은 추가하지 않았습니다. 디스크 상한 ≈ 10파일 × 9.54 MB ≈ 96 MB(`nocompress`).
+
+**검증 (`b4-recovery-test`, 실제 `/etc/logrotate.d/agent-app` 옵션):**
+
+| 항목 | 결과 |
+|---|---|
+| 유효 임계값 | `logrotate -d`: `9437184 bytes (9 rotations)` |
+| 경계 | 1000 B·9,437,183 B → 순환 안 함 / 9,437,184 B(동일)·9,437,185 B·10,000,000 B → 순환 |
+| 연속 순환 14회 | 매번 `.1` sha256 = 순환 직전 파일. 파일 10개(활성 0 B + `.1`~`.9`), `.10` 없음, 가장 오래된 보존 세대는 6번째(1~5번째 삭제), 전부 `agent-admin:agent-core 660`, 순환본 첫 줄은 실제 `monitor.sh`의 공식 형식 기록 |
+| 실제 `logrotate.service` | 실제 로그 9 MiB → `Result=success`, `.1` sha256 동일, 새 `monitor.log` 0 B → 다음 cron 기록이 공식 형식으로 추가, `660 agent-admin:agent-core` |
+
+**`b4-lab` 적용:** `bootstrap apply --allow-existing`으로 설정 파일 1개만 교체(`CHG logrotate`), 2회차 `changed=0`. 기존 `monitor.log`(2,319줄)는 순환·초기화하지 않았고 소유권·cron·`monitor.sh`는 그대로입니다. 타이머 상태는 §4와 같습니다(설치 후 실행 기록 없음 → PENDING, 다음 예약 2026-11-14 00:00 KST).

@@ -5,24 +5,25 @@ OrbStack Ubuntu **Linux Machine**을 실습 서버로 사용하며, 여기서 �
 
 - B4-2 저장소: https://github.com/hyun02063185-AX-beginner/Codyssey_B4-2
 
-> **현재 상태 (2026-11-13)** — Mission Core 중 **제공 Agent가 필요한 부분을 제외하고 구현·검증 완료**. Mission Core 전체 완료는 아닙니다.
+> **현재 상태 (2026-11-13, 작업 21)** — Mission Core 13개 항목 구현·검증 완료(PASS 12 + 항목 12는 설정·동작 PASS / **타이머 실행 기록 PENDING**). 제출용 화면 캡처는 **CAPTURE PENDING**. 전체 미션 완료 판정은 Owner 최종 검수 이후입니다.
 >
 > | 영역 | 상태 | 상세 |
 > |---|---|---|
-> | Ubuntu Machine `b4-lab` (24.04.5, x86_64) | 완료 | [환경 문서 9장](docs/orbstack-environment.md#9-기본-실행환경-사전검증-기록) |
-> | SSH 20022 + Root 차단 | 완료(Mac 실제 접속·`ROOT LOGIN REFUSED` 확인) | [10장](docs/orbstack-environment.md#10-ssh-20022-구성-및-검증-기록) |
-> | UFW (deny in / allow out, 20022·15034) | 완료(실제 허용·차단, `orb restart` 후 복원 확인) | [11장](docs/orbstack-environment.md#11-ufw-방화벽-구성-및-검증-기록) |
-> | 사용자 3·그룹 2·소속, `/opt/agent-app` 권한·ACL | 완료 — 그룹 소속은 **공식 구성으로 정정**(작업 16) | [공식 정합성 수정](docs/b4-1-official-alignment.md) |
-> | 환경변수 `/etc/default/agent-app` | `AGENT_HOME/PORT/UPLOAD_DIR/LOG_DIR` 완료, `AGENT_KEY_PATH=/opt/agent-app/api_keys`(키 디렉터리, 안에 `secret.key`; 작업 17에서 Agent 요구에 맞게 정정) | [Agent 실행환경](docs/b4-1-agent-runtime.md) |
-> | `monitor.sh` (프로세스·포트·UFW·CPU/MEM/DISK) | 구현·배포·검증. Agent 실행 중 `exit 0`, 중지 시 `exit 1`(작업 18). 공식 임계값 20/10/80 | [monitor 기록](docs/b4-1-monitor.md) |
-> | `monitor.log` 기록 · 10MB/10개 순환(logrotate) | 완료(순환은 임시 환경에서 검증, 실제 타이머 발동은 PENDING) | [monitor 기록](docs/b4-1-monitor.md), [로그 순환](docs/b4-1-log-rotation.md) |
-> | `agent-admin` cron 매분 자동 실행 | 완료(예약 실행 연속 확인, `trigger=cron`) | [cron 기록](docs/b4-1-cron.md) |
-> | **환경 복구 자동화** (`bootstrap-orbstack.sh`) | **완료** — 새 Machine `b4-recovery-test`에 GitHub 파일만으로 재구축, `b4-lab`과 동일 확인, 반복 실행 안전 | [복구 자동화](docs/b4-1-recovery.md) |
-> | **제공 Agent** 설치·기동 (Boot Sequence, `Agent READY`, 0.0.0.0:15034 LISTEN) | **PASS** — Boot 5/5 OK·`Agent READY`·0.0.0.0:15034 LISTEN·정상 종료 확인(`monitor.sh` 판정은 `AGENT_PROCESS_PATTERN` 미설정으로 PENDING) | [Agent 실행환경](docs/b4-1-agent-runtime.md) |
+> | Ubuntu Machine `b4-lab` (24.04.5, x86_64) | PASS | [환경 문서 9장](docs/orbstack-environment.md#9-기본-실행환경-사전검증-기록) |
+> | SSH 20022 + Root 차단 | PASS | [10장](docs/orbstack-environment.md#10-ssh-20022-구성-및-검증-기록) |
+> | UFW (deny in / allow out, 20022·15034만 허용) | PASS | [11장](docs/orbstack-environment.md#11-ufw-방화벽-구성-및-검증-기록) |
+> | 사용자 3·그룹 2(공식 구성: common = admin·dev·test, core = admin·dev), `/opt/agent-app` 권한·ACL | PASS | [공식 정합성](docs/b4-1-official-alignment.md) |
+> | 환경변수 5개 (`AGENT_KEY_PATH=/opt/agent-app/api_keys` — 제공 Agent 요구, 과제 설명의 `t_secret.key`와 다름) | PASS | [수행 내역서 §3](docs/b4-1-final-evidence.md) |
+> | 제공 Agent: Boot 5/5 `[OK]`, `Agent READY`, `0.0.0.0:15034` LISTEN, 정상 종료 (수동 실행, 상주 서비스 아님) | PASS | [Agent 실행환경](docs/b4-1-agent-runtime.md) |
+> | `monitor.sh` (`agent-dev:agent-core 0750`): Agent 실행 시 `exit 0`, 중지 시 `exit 1`, 방화벽 WARNING은 exit 영향 없음, 임계값 CPU>20/MEM>10/DISK>80 | PASS | [monitor 기록](docs/b4-1-monitor.md) |
+> | `monitor.log` 공식 형식 `[시각] PID:… CPU:…% MEM:…% DISK_USED:…%` (실행당 1줄; 과거 상세 줄과 공존) | PASS | [monitor 기록 작업 18](docs/b4-1-monitor.md#작업-18-공식-로그-형식agent-정상-모니터링) |
+> | 로그 순환: `size 9M`·`rotate 9`(최대 10개). 절대 최대 크기 보장 아님(일 1회 검사) | 동작 PASS / **타이머 실행 기록 PENDING** | [로그 순환](docs/b4-1-log-rotation.md) |
+> | `agent-admin` cron 매분 자동 실행 | PASS | [cron 기록](docs/b4-1-cron.md) |
+> | 환경 복구 자동화 (`bootstrap-orbstack.sh`) | PASS (`check --no-run` → `diff=0`) | [복구 자동화](docs/b4-1-recovery.md) |
 >
-> **제출 문서:** [요구사항 수행 내역서](docs/b4-1-final-evidence.md)(항목별 PASS/PENDING·증빙 목록) · [B4-2 인수인계](docs/b4-2-environment-handoff.md)
+> **제출 문서:** [요구사항 수행 내역서](docs/b4-1-final-evidence.md)(항목별 요구·설정·명령·결과·증빙 위치·판정, 증빙 절차) · [B4-2 인수인계](docs/b4-2-environment-handoff.md) · 실측 원본 [본환경 회귀 출력](docs/evidence/task21-b4-lab-regression.txt)
 >
-> 남은 의존성: ① **공식 미션 원문 대조**(남은 설정값은 [승인된 실습 설계]/[관리자료]) ② logrotate 타이머의 실제 발동 확인(다음 00:00 KST 이후).
+> 남은 사항: ① 설정 설치 후 `logrotate.timer` 실행 기록(2026-11-14 00:00~01:00 KST 이후 확인) ② 제출용 화면 캡처 ③ Owner의 공식 원문 최종 대조·완료 판정. 이 README의 아래 3장 이후는 작업 중 작성한 체크리스트이며, 현재 상태는 위 표와 수행 내역서가 우선합니다.
 
 ---
 
@@ -82,7 +83,7 @@ OrbStack Ubuntu **Linux Machine**을 실습 서버로 사용하며, 여기서 �
 
 ### 3.2 값의 구분과 출처
 
-**출처:** 3.3 요약표의 [관리자료] 값은 **기존 Codyssey 관리 자료**에서 확인된 값입니다. 공식 미션 원문과의 직접 대조는 아직 끝나지 않았습니다.
+**출처:** 3.3 요약표의 [관리자료] 값은 기존 Codyssey 관리 자료의 값이며, 그룹 구성·임계값·`monitor.sh` 소유권·로그 형식·테스트 키 문자열은 Owner가 제공한 공식 요구값(작업 16~19)으로 갱신됐습니다. 미션 원문 전체와의 최종 대조는 Owner 검수에서 합니다.
 
 | 표시 | 의미 |
 | --- | --- |
@@ -99,7 +100,7 @@ OrbStack Ubuntu **Linux Machine**을 실습 서버로 사용하며, 여기서 �
 | --- | --- | --- | --- |
 | 사용자 | `agent-admin`, `agent-dev`, `agent-test` | [관리자료] | |
 | 그룹 | `agent-common`, `agent-core` | [관리자료] | |
-| 사용자 ↔ 그룹 소속 | `agent-admin`∈common+core, `agent-dev`∈common, `agent-test` 미가입 (**적용됨**) | [승인된 실습 설계] | 공식 원문 미대조 → 원문 확인 필요. 저장소·Mac에서 원문을 찾지 못함 |
+| 사용자 ↔ 그룹 소속 | `agent-common` = admin·dev·test, `agent-core` = admin·dev (**적용됨**) | [공식 요구] | 작업 16 |
 | SSH 포트 | TCP `20022` | [관리자료] | **적용·검증 완료** (22 미사용) |
 | SSH Root 원격 로그인 | 차단 | [관리자료] | **적용·검증 완료** — `PermitRootLogin no` |
 | SSH 운영 방식 | `ssh.socket` 비활성 + `ssh.service` 상시 실행, 설정은 `/etc/ssh/sshd_config.d/10-b4-mission.conf` | [설계] | 이유: [docs 10.2](docs/orbstack-environment.md#102-운영-방식-결정-socket-비활성--sshservice-상시-실행-설계) |
@@ -107,15 +108,15 @@ OrbStack Ubuntu **Linux Machine**을 실습 서버로 사용하며, 여기서 �
 | 방화벽 인바운드 | TCP `20022`, `15034`**만** 허용 | [관리자료] | 그 외 인바운드 차단 |
 | 방화벽 아웃바운드 정책 | allow | [설계] | 원문 요구가 있으면 그 값을 따름 → 확인 필요 |
 | `upload_files` 디렉터리 | `agent-common` 그룹 R/W | [관리자료] | 경로·소유자·숫자 mode는 [확인 필요] |
-| `api_keys` 디렉터리 | `agent-core` 그룹 R/W | [관리자료] | 경로·소유자·숫자 mode는 [확인 필요] |
+| `api_keys` 디렉터리 | `agent-core` 그룹 R/W (`root:agent-core 2770`+ACL) | [공식 요구] | `AGENT_KEY_PATH`는 이 디렉터리, 안에 `secret.key`(제공 Agent 요구) |
 | `/var/log/agent-app` | `agent-core` 그룹 R/W | [관리자료] | 소유자·숫자 mode는 [확인 필요] |
 | 환경변수 | `AGENT_HOME`, `AGENT_PORT`, `AGENT_UPLOAD_DIR`, `AGENT_KEY_PATH`, `AGENT_LOG_DIR` | [관리자료] | 각 변수의 값·적용 범위는 [확인 필요] |
 | Agent 기동 성공 기준 | Boot Sequence 5단계 모두 OK → `Agent READY` 출력 → `0.0.0.0:15034` LISTEN | [관리자료] | 실행 사용자·상주 방식은 [확인 필요] |
 | `monitor.sh` 언어 | Bash | [관리자료] | |
-| `monitor.sh` 점검 항목 | 프로세스, 포트, 방화벽, CPU / MEM / DISK | [관리자료] | 출력 형식·임계값은 [확인 필요] |
+| `monitor.sh` 점검 항목 | 프로세스, 포트, 방화벽, CPU / MEM / DISK | [관리자료] | 임계값 CPU>20/MEM>10/DISK>80 [공식 요구], 로그 형식 공식 |
 | `monitor.sh` 실패 처리 | 프로세스·포트 점검 실패 → `exit 1` / 방화벽 비활성 → `WARNING` | [관리자료] | WARNING 시 종료 코드는 [확인 필요] |
-| 로그 파일 | `/var/log/agent-app/monitor.log` | [관리자료] | 로그 라인 형식은 [확인 필요] |
-| 로그 순환 | 최대 10MB, 최대 10개 | [관리자료] | logrotate 사용·활성 1 + 순환본 9 = 최대 10개·10 MiB 이상에서 순환은 [승인된 실습 설계]. 크기는 일 1회 검사라 엄격한 최대 크기가 아님 |
+| 로그 파일 | `/var/log/agent-app/monitor.log` | [관리자료] | 공식 형식 `[시각] PID:… CPU:…% MEM:…% DISK_USED:…%`(작업 18) |
+| 로그 순환 | 최대 10MB, 최대 10개 | [관리자료] | `size 9M`(9 MiB, 십진 10 MB·10 MiB 모두 만족)·활성 1 + 순환본 9 = 최대 10개. 절대 최대 크기 보장 아님 |
 | cron | `agent-admin` 계정으로 매분 실행 | [관리자료] | |
 | Ubuntu 버전 | 24.04 LTS (`ubuntu:noble`) | [설계] | 원문 지정 버전이 있으면 그 값을 따름 → 확인 필요 |
 | Machine 이름 | `b4-lab` | [설계] | |
@@ -125,7 +126,7 @@ OrbStack Ubuntu **Linux Machine**을 실습 서버로 사용하며, 여기서 �
 #### 0) 환경 준비
 - [x] [설계] `orb create ubuntu:noble b4-lab`으로 Machine 생성 (2026-11-11)
 - [x] `uname -m`(x86_64), `/etc/os-release`(24.04.5 LTS), `python3 --version`(3.12.3), PID 1(systemd), `sudo -n true`, `systemctl --version`(255) 확인 → [검증 기록](docs/orbstack-environment.md#9-기본-실행환경-사전검증-기록)
-- [ ] 제공 Agent 앱/바이너리의 architecture·Python 요구 버전을 `file`·실행 결과로 확인 (추정 금지)
+- [x] 제공 Agent 바이너리: ELF 64-bit x86-64, 동적 라이브러리 해석 확인, SHA256 기록(작업 17). Python 버전 요구는 없음(독립 실행 파일)
 
 #### 1) 사용자 / 그룹
 - [x] [관리자료] 사용자 `agent-admin`, `agent-dev`, `agent-test` 생성 (홈 `750`, 비밀번호 잠김, sudo 없음. 예외: `agent-admin`은 `ufw status` 한 명령만 sudo 허용 — 작업 19)
@@ -172,40 +173,40 @@ OrbStack Ubuntu **Linux Machine**을 실습 서버로 사용하며, 여기서 �
 - [x] `AGENT_HOME`, `AGENT_PORT`, `AGENT_UPLOAD_DIR`, `AGENT_LOG_DIR` 정의 — `/etc/default/agent-app`, 값은 [승인된 실습 설계]/[관리자료](원문 대조 필요)
 - [x] `AGENT_KEY_PATH=/opt/agent-app/api_keys`(디렉터리), `api_keys/secret.key` 내용은 공식 실습 문자열 `agent_api_key_test` 한 줄(`root:agent-core 0640`; 실제 비밀키 아님). 제공 Agent 실행은 PENDING
 - [x] 환경변수를 실제 Agent가 사용하는지 검증 — 작업 17: Agent가 `AGENT_KEY_PATH`를 디렉터리로 검증(과제 설명의 `t_secret.key` 파일 경로는 거부됨)
-- [ ] [확인 필요] 각 변수의 값과 적용 위치(로그인 셸 / Agent 실행 환경 / cron 환경) — 파일 로드 방식은 검증됨, 원문 대조·Agent·cron 적용은 미완 — **cron은 로그인 셸 환경변수를 상속하지 않음에 주의**
-- [ ] 증빙: Agent·`monitor.sh` 실행 환경에서 실제 값 출력
+- [x] 변수 값·적용 위치: 파일 `/etc/default/agent-app`을 Agent 실행·`monitor.sh`가 명시 로드(작업 17·18). 로그인 셸에는 자동 적용되지 않음
+- [x] 증빙: Agent·`monitor.sh` 실행 시 값 확인([본환경 회귀 출력](docs/evidence/task21-b4-lab-regression.txt) `## env`). 화면 캡처는 CAPTURE PENDING
 
 #### 6) Agent(제공 Python 앱) 기동
-- [ ] 제공 앱을 **수정하지 않고** 그대로 배치
-- [ ] [확인 필요] 실행 사용자·명령·상주 방식
-- [ ] [관리자료] Boot Sequence 5단계 모두 OK
-- [ ] [관리자료] `Agent READY` 출력
-- [ ] [관리자료] `0.0.0.0:15034` LISTEN — `ss -tlnp | grep 15034`
-- [ ] 증빙: 기동 로그, `ps`, `ss` 결과
+- [x] 제공 앱을 **수정하지 않고** 그대로 배치 (`/opt/agent-app/bin/`, `root:agent-core 0750`, SHA256 일치)
+- [x] 실행 사용자·명령: `agent-admin`이 `/etc/default/agent-app`을 명시 로드해 수동 실행([수행 내역서 §2.5](docs/b4-1-final-evidence.md)). 상주 방식(systemd 등)은 이번 범위 밖
+- [x] [관리자료] Boot Sequence 5단계 모두 OK (작업 17)
+- [x] [관리자료] `Agent READY` 출력 (작업 17)
+- [x] [관리자료] `0.0.0.0:15034` LISTEN — `ss -tlnp | grep 15034`, 소유 PID = Agent 자식 프로세스 (작업 17·18)
+- [x] 증빙: 기동 로그·`ss` 결과([회귀 출력](docs/evidence/task21-b4-lab-regression.txt) `## agent run`). 화면 캡처는 CAPTURE PENDING
 
 #### 7) `monitor.sh` (Bash)
 - [x] Bash로 작성, `bash -n` 문법 검사 PASS → [bin/monitor.sh](bin/monitor.sh), 상세 [docs/b4-1-monitor.md](docs/b4-1-monitor.md)
 - [x] [관리자료] 점검: Agent 프로세스 — `AGENT_PROCESS_PATTERN=^/opt/agent-app/bin/agent-app-linux-x86`, 실제 Agent(부모·자식 PID) 판정 PASS(작업 18)
-- [ ] [관리자료] 점검: 포트(15034 LISTEN) — 구현. 미LISTEN·바인딩(0.0.0.0 vs localhost/IPv6)·소유 PID 일치/불일치/확인 불가 판정 fixture 검증 PASS(작업 10-1). Agent의 실제 LISTEN은 PENDING
+- [x] [관리자료] 점검: 포트(15034 LISTEN) — 미LISTEN·바인딩·소유 PID 일치/불일치/확인 불가 판정. 실제 Agent로 소유 PID 일치 확인(작업 18)
 - [x] [관리자료] 점검: 방화벽 상태 — 구현. `agent-admin`이 `sudo -n /usr/sbin/ufw status`(최소 권한 sudoers)로 실제 상태 판정: 활성 OK / 비활성 WARNING(exit 0 유지) / 권한 거부 UNKNOWN (작업 19)
 - [x] [관리자료] 점검: CPU / MEM / DISK 사용량 — 수집·계산 PASS, 경고 임계값 CPU>20% / MEM>10% / DISK>80%(공식, 경계 `>` 엄격)
-- [x] [관리자료] 프로세스·포트 점검 실패 시 `exit 1` (식별 기준 미설정도 exit 1, 설정·수집 오류는 exit 2)
+- [x] [관리자료] 프로세스·포트 점검 실패 시 `exit 1` (설정·수집 오류는 exit 2, 방화벽 WARNING은 exit 0 유지)
 - [x] [관리자료] 방화벽 비활성 시 `WARNING` 출력 — 실제 UFW 비활성 상태에서 검증 PASS(테스트 Machine, 작업 19; 본환경에서는 비활성화하지 않음)
 - [x] 배치 경로·소유자·권한: `/opt/agent-app/bin/monitor.sh` `agent-dev:agent-core 0750`(공식, 작업 16; cron 계정 `agent-admin`은 `agent-core` 그룹 권한으로 실행). 출력 형식은 임시 형식
 - [x] 증빙: 정상(exit 0, Agent 실행 중) / 프로세스 중지(exit 1) 실측(작업 18). 방화벽 비활성 WARNING도 실측(작업 19)
 
 #### 8) 로그
 - [x] [관리자료] `/var/log/agent-app/monitor.log`에 기록 — 스크립트가 직접 append(cron 리디렉션 비의존), `agent-admin:agent-core 0660`, 3회 누적·터미널과 동일 PASS ([상세](docs/b4-1-monitor.md#21-monitorlog-누적-기록-작업-11)). cron 환경 실측·Agent 정상 기록은 PENDING
-- [x] [관리자료] 최대 10MB / 최대 10개로 순환 — logrotate `size 10M`(10 MiB), 활성 1 + 순환본 9 = 최대 10개, 일 1회 검사라 엄격한 최대 크기 보장은 아님(작업 20: 서비스 순환·13회 연속·동시 실행 무손실 PASS, **타이머 발동 후 실제 순환은 PENDING**) ([상세](docs/b4-1-log-rotation.md)). 검사는 일 1회라 **엄격한 최대 크기 보장은 아님**. 실제 타이머 발동·실제 크기 도달 순환은 PENDING, 크기·개수의 원문 대조 필요
-- [x] `agent-admin`이 로그에 쓸 수 있는지 확인(`sudo -u agent-admin`으로 실측 PASS). 실제 cron 세션에서의 확인은 cron 작업에서 PENDING
+- [x] [관리자료] 최대 10MB / 최대 10개로 순환 — logrotate `size 9M`(9 MiB, 십진 10 MB·10 MiB 모두 만족), 활성 1 + 순환본 9 = 최대 10개, 일 1회 검사라 엄격한 최대 크기 보장은 아님(작업 20: 서비스 순환·13회 연속·동시 실행 무손실 PASS, **타이머 발동 후 실제 순환은 PENDING**) ([상세](docs/b4-1-log-rotation.md)). 검사는 일 1회라 **엄격한 최대 크기 보장은 아님**. 실제 타이머 발동·실제 크기 도달 순환은 PENDING, 크기·개수의 원문 대조 필요
+- [x] `agent-admin`이 로그에 쓸 수 있는지 확인 — 실제 cron 세션에서도 확인(작업 13·18)
 - [x] 로그 라인 형식 — 공식 `[YYYY-MM-DD HH:MM:SS] PID:… CPU:…% MEM:…% DISK_USED:…%`(작업 18). 이전 상세 로그는 같은 파일에 그대로 남아 두 형식이 공존
-- [ ] 증빙: `tail` 결과(확보: 3회 실행 후 로그, [상세](docs/b4-1-monitor.md#52-monitorlog-기록-테스트-작업-11-실측)), 순환 설정 내용(적용: `/etc/logrotate.d/agent-app`, [config/etc-logrotate.d-agent-app](config/etc-logrotate.d-agent-app))
+- [x] 증빙: `tail` 결과(확보: 3회 실행 후 로그, [상세](docs/b4-1-monitor.md#52-monitorlog-기록-테스트-작업-11-실측)), 순환 설정 내용(적용: `/etc/logrotate.d/agent-app`, [config/etc-logrotate.d-agent-app](config/etc-logrotate.d-agent-app))
 
 #### 9) cron
 - [x] [관리자료] `agent-admin` 계정의 crontab에 매분(`* * * * *`) `monitor.sh` 등록 ([cron 기록](docs/b4-1-cron.md))
 - [x] cron 서비스 동작 확인 (`cron 3.0pl1-184ubuntu2`, enabled·active, `agent-admin` 세션 정상 개설)
 - [x] 절대 경로 사용, 환경변수는 스크립트가 `/etc/default/agent-app`을 직접 로드(cron 환경에는 `AGENT_*` 없음을 관찰로 확인)
-- [x] 증빙: `sudo crontab -u agent-admin -l`, 매분 로그 누적(6회 이상, `trigger=cron`) — [cron 기록 §3](docs/b4-1-cron.md). 정상(exit 0) 기록은 Agent 확보 후 PENDING
+- [x] 증빙: `sudo crontab -u agent-admin -l`, 매분 로그 줄 수 증가(공식 형식 1줄/실행) — [수행 내역서 §2.11](docs/b4-1-final-evidence.md)
 
 #### 10) 마무리
 - [x] 수동 설정을 `scripts/bootstrap-orbstack.sh`로 재현 가능하게 정리 (작업 14, [복구 자동화](docs/b4-1-recovery.md))
@@ -220,7 +221,7 @@ OrbStack Ubuntu **Linux Machine**을 실습 서버로 사용하며, 여기서 �
 | | 초기화로 사라짐 | GitHub로 재현됨 |
 |---|---|---|
 | 내용 | 기존 Machine과 그 안의 데이터(`monitor.log`·순환본, 업로드 파일, 저장소에 없는 수동 변경), 사용자 비밀번호, Mac의 SSH 키쌍, push하지 않은 로컬 커밋 | OrbStack Machine 생성, SSH 20022·Root 차단, UFW, 사용자·그룹·소속, `/opt/agent-app` 권한·ACL, 환경변수 파일, `monitor.sh`, `monitor.log` 권한, logrotate, `agent-admin` cron |
-| 복구 불가(저장소에 없음) | SSH 개인키·API 키·비밀번호, **제공 Agent 원본(PENDING)** | |
+| 복구 불가(저장소에 없음) | SSH 개인키·API 키·비밀번호, **제공 Agent 바이너리·ZIP**(수동 배포, 파일명·해시·방법만 기록) | |
 
 **절차 A — 처음 쓰는 Mac에서 새 Machine 구성**
 

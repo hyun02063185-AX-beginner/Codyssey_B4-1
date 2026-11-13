@@ -1,21 +1,14 @@
 # B4-2 환경 인수인계
 
-> **작업 20 현황(최신):** 정책 `size 10M`(=10 MiB=10485760 B)·`rotate 9`(활성+순환본 9=최대 10개)는 공식 요구(10MB·10개)에 맞는 것으로 판정해 **유지**했습니다(주석만 보강). 2026-11-13 현재 **타이머 발동 후 실제 순환(`logrotate.timer`)은 PENDING**입니다. 아래 본문의 "fd 9 유지", "`agent-dev`·`agent-test` 차단", "실행당 10줄" 서술은 당시 기록이며 [작업 20](b4-1-log-rotation.md#작업-20-운영-검증과-공식-요구사항-정합성)이 우선합니다.
-
-
-> **작업 19 현황(최신):** `agent-admin`은 `/etc/sudoers.d/90-b4-agent-admin-ufw-status`(root:root 0440)로 **정확히 `/usr/sbin/ufw status`만** 비밀번호 없이(`sudo -n`) 실행할 수 있고, `monitor.sh`는 UFW 활성 `OK` / 비활성 `WARNING`(exit 영향 없음) / 권한 거부 `UNKNOWN`을 구분합니다. 이 문서의 "sudo 없음 / UFW UNKNOWN / UFW 비활성 PENDING" 서술은 당시 기록이며 [monitor 기록 작업 19](b4-1-monitor.md#작업-19-ufw-상태-점검과-최소-권한)가 우선합니다. `agent-dev`·`agent-test`는 여전히 sudo 없음.
-
-
-> **작업 18 현황(최신):** 제공 Agent는 확보·실행 검증 완료(Boot 5/5, `Agent READY`, 0.0.0.0:15034). `AGENT_PROCESS_PATTERN=^/opt/agent-app/bin/agent-app-linux-x86` 설정으로 Agent 실행 중 `monitor.sh`는 `HEALTHY exit 0`, 중지 시 `exit 1`. `monitor.log`는 **공식 형식 1줄/실행**(`[시각] PID:… CPU:…% MEM:…% DISK_USED:…%`)이며 상세 Health Check는 콘솔에만 출력. 과거 상세 로그(10줄/실행)는 그대로 남아 있어 한 파일에 두 형식이 공존. 아래 본문 중 "Agent NOT FOUND / `AGENT_KEY_PATH` PENDING / 임시 로그 형식"은 당시 기록이며 [Agent 실행 기록](b4-1-agent-runtime.md#작업-18-agent-정상-모니터링공식-로그-형식)이 우선합니다.
-
+> **현재 상태(작업 21, 2026-11-13):** 이 문서는 현재 구현과 일치하도록 갱신됐습니다. 제공 Agent는 실행·모니터링 검증 완료(수동 실행, 상주 서비스 아님), `monitor.sh`는 Agent 실행 시 `exit 0`·중지 시 `exit 1`, `monitor.log`는 공식 형식 1줄/실행, `logrotate`는 `size 9M`·`rotate 9`입니다. 남은 PENDING은 설정 설치 후 `logrotate.timer` 실행 기록 하나뿐입니다. 과거 작업 문서(`b4-1-*.md`)의 옛 서술(Agent 없음, 10줄/실행 등)은 기록용이며 이 문서와 [b4-1-final-evidence.md](b4-1-final-evidence.md)가 우선합니다.
 
 B4-2는 B4-1에서 만든 Linux 환경과 `monitor.sh`를 **그대로 재사용**합니다. 이 문서는 B4-2 작업자가 바로 쓸 수 있는 값·명령·주의사항만 모았습니다. 근거와 실측은 [b4-1-final-evidence.md](b4-1-final-evidence.md)와 각 상세 문서에 있습니다.
 
 - B4-2 저장소: https://github.com/hyun02063185-AX-beginner/Codyssey_B4-2
 - 이 저장소: https://github.com/hyun02063185-AX-beginner/Codyssey_B4-1
-- 인수인계 시점: 2026-11-13 (작업 15)
+- 인수인계 시점: 2026-11-13 (작업 21)
 
-> **먼저 읽을 것.** 제공 Agent는 작업 17·18에서 실행·모니터링 검증을 마쳤습니다(바이너리는 저장소에 없음, 수동 배포). 모든 값은 공식 원문과 대조되지 않았습니다 — [관리자료] 또는 [승인된 실습 설계]입니다.
+> **먼저 읽을 것.** 제공 Agent 바이너리(`agent-app-linux-x86`)와 ZIP은 **저장소에 없습니다**(수동 배포 방법·해시는 [b4-1-agent-runtime.md](b4-1-agent-runtime.md)). 값은 공식 요구값과 제공 Agent 실행 결과로 확정했고, 최종 원문 대조·완료 판정은 Owner 검수 대상입니다.
 
 ## 1. Machine
 
@@ -42,7 +35,7 @@ B4-2는 B4-1에서 만든 Linux 환경과 `monitor.sh`를 **그대로 재사용*
 - Root 원격 로그인은 `PermitRootLogin no`. 설정: `/etc/ssh/sshd_config.d/10-b4-mission.conf`, `ssh.socket` 비활성 + `ssh.service` 상시 실행.
 - `agent-*` 계정은 비밀번호가 잠겨 있고 SSH 키가 없어 **SSH로 로그인할 수 없습니다.** 계정 전환은 `orb -m b4-lab sudo -u agent-admin …`.
 
-## 3. 사용자·그룹·접근 권한 [승인된 실습 설계]
+## 3. 사용자·그룹·접근 권한 (공식 구성)
 
 | 계정 | 보조 그룹 | upload_files | api_keys | /var/log/agent-app |
 |---|---|---|---|---|
@@ -50,8 +43,8 @@ B4-2는 B4-1에서 만든 Linux 환경과 `monitor.sh`를 **그대로 재사용*
 | `agent-dev` | `agent-common`, `agent-core` | R/W | R/W | R/W |
 | `agent-test` | `agent-common` | R/W | 거부 | 거부 |
 
-- sudo는 **어느 agent-* 계정에도 없습니다.** B4-2에서도 부여하지 마세요(필요하면 먼저 권한 설계를 갱신).
-- `agent-admin`이 `api_keys`까지 R/W인 것은 단순 검증용으로 **의도한 설계**입니다(공식 원문 확인 후 조정 가능).
+- sudo: `agent-dev`·`agent-test`는 **없음**. `agent-admin`은 `/etc/sudoers.d/90-b4-agent-admin-ufw-status`(`0440`)로 **`/usr/sbin/ufw status` 한 명령만** 비밀번호 없이 허용(방화벽 상태 점검용). B4-2에서도 더 부여하지 마세요.
+- 그룹: `agent-common` = admin·dev·test, `agent-core` = admin·dev (공식). 키 파일 `api_keys/secret.key`는 `root:agent-core 0640`.
 
 | 경로 | 소유자:그룹 | mode |
 |---|---|---|
@@ -72,8 +65,11 @@ AGENT_HOME=/opt/agent-app
 AGENT_PORT=15034
 AGENT_UPLOAD_DIR=/opt/agent-app/upload_files
 AGENT_LOG_DIR=/var/log/agent-app
-AGENT_KEY_PATH=/opt/agent-app/api_keys   # 키 디렉터리. 안의 secret.key = 실습 문자열(root:agent-core 0640)
+AGENT_KEY_PATH=/opt/agent-app/api_keys   # 키 디렉터리(제공 Agent가 요구). 안의 secret.key = 실습 문자열(root:agent-core 0640)
+AGENT_PROCESS_PATTERN=^/opt/agent-app/bin/agent-app-linux-x86   # monitor.sh의 Agent 식별 기준
 ```
+
+- 과제 설명은 `AGENT_KEY_PATH=…/api_keys/t_secret.key`(파일)지만 **제공 Agent는 디렉터리 `/opt/agent-app/api_keys`와 `secret.key`를 요구**합니다(실행 오류·정상 부팅 증거: [final-evidence §3](b4-1-final-evidence.md)).
 
 - **로그인 셸·cron에는 자동으로 들어가지 않습니다.** 사용하려면 명시적으로 로드: `set -a; . /etc/default/agent-app; set +a` (systemd는 `EnvironmentFile=/etc/default/agent-app`). `monitor.sh`는 이미 이렇게 로드합니다.
 - 비밀값(실제 API 키 등)을 이 파일에 넣지 마세요(0644, 모든 계정이 읽음).
@@ -88,9 +84,9 @@ AGENT_KEY_PATH=/opt/agent-app/api_keys   # 키 디렉터리. 안의 secret.key =
 | 점검 | Agent 프로세스, TCP 15034(주소·소유 PID), UFW, CPU/MEM/DISK(공식 임계 CPU>20 / MEM>10 / DISK>80%) |
 | 종료 코드 | `0` 정상 / `1` 프로세스·포트 실패 또는 확인 불가 / `2` 모니터링 자체 오류 (1이 2보다 우선) |
 | 방화벽 | 비활성 → `WARNING`만(exit 영향 없음). `agent-admin`은 `sudo -n /usr/sbin/ufw status`만 허용(작업 19)되어 실제 상태 판정, 권한 거부 시 `UNKNOWN` |
-| 설정 변수 | `AGENT_PROCESS_PATTERN`(Agent 식별 기준 — **미설정**), `MONITOR_CPU_WARN`/`MEM_WARN`/`DISK_WARN` 등 |
+| 설정 변수 | `AGENT_PROCESS_PATTERN`(설정됨), 시험용 `MONITOR_CPU_WARN`/`MEM_WARN`/`DISK_WARN`·`MONITOR_LOG_FILE` 등 |
 
-- **현재 `exit 1`은 정상 동작입니다.** Agent가 없어서 `PENDING PROCESS` + `FAIL PORT`가 나오는 것이 "예상된 장애 감지"입니다. B4-2의 장애 분석 입력으로 이 로그를 쓰되, **Agent가 없는 상태에서의 exit 1을 실제 장애로 오해하지 마세요.**
+- **Agent가 실행 중이면 `exit 0`, 중지되어 있으면 `exit 1`**(프로세스·포트 FAIL)이 정상 동작입니다. Agent는 상주 서비스가 아니라 필요할 때 `agent-admin`으로 수동 실행합니다(실행 명령: [final-evidence §2.5](b4-1-final-evidence.md)). 그래서 cron 로그에는 Agent 중지 구간이 `PID:N/A`로 남는 것이 정상입니다.
 - 로그를 쓰려면 `agent-core` 그룹이 필요합니다(`agent-admin`은 소속). 다른 계정으로 실행하면 로그 열기 실패 → exit 2.
 - 판정 규칙 전체: [b4-1-monitor.md §3–4](b4-1-monitor.md)
 
@@ -99,13 +95,13 @@ AGENT_KEY_PATH=/opt/agent-app/api_keys   # 키 디렉터리. 안의 secret.key =
 | 항목 | 값 |
 |---|---|
 | 로그 | `/var/log/agent-app/monitor.log`, `agent-admin:agent-core 0660` |
-| 형식 | **공식(작업 18):** `[YYYY-MM-DD HH:MM:SS] PID:… CPU:…% MEM:…% DISK_USED:…%` 1줄/실행(Agent 없으면 `PID:N/A`). 작업 17 이전 기록은 `YYYY-MM-DD HH:MM:SS [LEVEL] CATEGORY message` 상세 형식이 그대로 남아 있음. 1회 실행 = 10줄, 마지막이 `SUMMARY result=… exit=…` |
-| 구분 | `START … trigger=cron\|manual` 로 cron/수동 구분 |
-| 순환 | `/etc/logrotate.d/agent-app`: `size 10M`, `rotate 9`(활성+순환본 9=최대 10개), `create 0660 agent-admin agent-core`, `su agent-admin agent-core`, rename+create |
+| 형식 | **공식(작업 18):** `[YYYY-MM-DD HH:MM:SS] PID:… CPU:…% MEM:…% DISK_USED:…%` 1줄/실행(Agent 없으면 `PID:N/A`). 작업 17 이전 기록은 `YYYY-MM-DD HH:MM:SS [LEVEL] CATEGORY message` 상세 형식이 그대로 남아 있음. 상세 Health Check는 콘솔에만 출력(cron은 버림) |
+| 혼재 | 과거 상세 형식 줄(2,280줄)은 삭제하지 않고 같은 파일에 남아 있음 — 형식 검증·분석은 `grep -E '^\[[0-9-]{10} '`로 공식 형식 줄만 골라서 |
+| 순환 | `/etc/logrotate.d/agent-app`: `size 9M`(9 MiB = 9,437,184 B), `rotate 9`(활성+순환본 9=최대 10개), `create 0660 agent-admin agent-core`, `su agent-admin agent-core`, rename+create |
 | 발동 | 기존 `logrotate.timer` 일 1회(00:00 KST) |
 
 - 확인: `orb -m b4-lab sudo tail -20 /var/log/agent-app/monitor.log`
-- **순환은 엄격한 최대 크기 보장이 아닙니다**(일 1회 검사 사이에 10 MiB 초과 가능). 이 정책의 실제 타이머 발동은 **미확인(PENDING)** — 2026-11-14 00:00 KST 이후 `journalctl -u logrotate.service`로 확인.
+- **순환은 엄격한 최대 크기 보장이 아닙니다**(일 1회 검사 사이에 9 MiB 임계값 초과 가능). 설정 설치 후 타이머 실행 기록은 **PENDING** — 2026-11-14 01:00 KST 이후 `journalctl -u logrotate.service --since 2026-11-14`로 확인(타이머가 돌아도 로그가 9 MiB 미만이면 순환하지 않는 것이 정상).
 - 분석할 때 순환본(`monitor.log.1`, …)도 같이 보세요. 로그를 직접 지우거나 `truncate`하지 마세요.
 
 ## 7. cron 관리·중지·재개
@@ -129,7 +125,7 @@ orb -m b4-lab sudo bash -s -- remove  < scripts/monitor-cron.sh
 ```
 
 - 같은 명령이 [b4-1-cron.md §6](b4-1-cron.md)에 검증된 형태로 기록되어 있습니다. `status`는 ACTIVE / PAUSED / NOT_INSTALLED를 출력합니다.
-- `pause`/`resume`은 다른 crontab 항목을 보존합니다. 매분 실행이 로그에 `trigger=cron`으로 쌓이므로, 분석 실험 전에 `pause`하고 끝나면 `resume`하세요.
+- `pause`/`resume`은 다른 crontab 항목을 보존합니다. 매분 실행이 공식 형식 1줄씩 쌓이므로, 분석 실험 전에 `pause`하고 끝나면 `resume`하세요.
 - **알려진 공백:** cron이 출력을 버리므로 로그 쓰기 실패는 "새 줄이 안 생김"으로만 보입니다.
 
 ## 8. GitHub 기반 복구 (Mac 초기화 후)
@@ -156,9 +152,9 @@ scripts/bootstrap-orbstack.sh snapshot                  # 상태 스냅샷 (Mach
 - `agent-admin` 매분 cron, logrotate 설정, `monitor-cron.sh`의 pause/resume
 - 환경변수 파일 구조와 명시 로드 방식(§4)
 - `bootstrap-orbstack.sh` — 같은 환경을 새 Machine에 재구성, `snapshot`으로 일치 확인
-- 장애 감지 로그: Agent 부재 상황의 `exit 1` 기록이 이미 누적되어 있어, 로그 읽기 연습용으로 쓸 수 있음
+- 장애 감지 로그: Agent 중지 구간(`PID:N/A`)과 실행 구간(`PID:<n>`)이 모두 공식 형식으로 누적되어 있어 로그 읽기 연습에 쓸 수 있음. 과거 상세 형식(Agent 부재 시절 `exit 1`) 줄도 남아 있음
 
-## 10. 제공 Agent가 확보되어야 가능한 항목
+## 10. 제공 Agent 의존 항목 (현재 상태)
 
 | 항목 | 지금 상태 |
 |---|---|
@@ -167,12 +163,9 @@ scripts/bootstrap-orbstack.sh snapshot                  # 상태 스냅샷 (Mach
 | `AGENT_PROCESS_PATTERN` 설정 → 프로세스 점검 판정 | **설정됨(작업 18)** `^/opt/agent-app/bin/agent-app-linux-x86` → Agent 실행 시 exit 0 |
 | Boot Sequence 5단계 `[OK]`, `Agent READY` | PASS(작업 17) |
 | `0.0.0.0:15034` LISTEN, 소유 PID 일치 | PASS(작업 17·18) |
-| `monitor.sh` exit 0 (정상 Health Check) | 미검증 |
-| B4-2의 `agent-leak-app` 등 장애 분석 대상 | **B4-1 Agent 파일의 존재 증거가 아님** — 별도로 확보 필요 |
-| 공식 원문과의 값 대조(포트·권한·임계값·로그 형식·소속) | 미완료 — 값이 바뀌면 이 문서와 [b4-1-final-evidence.md](b4-1-final-evidence.md)를 함께 갱신 |
+| `monitor.sh` exit 0 (정상 Health Check) | PASS(작업 18, Agent 실행 중). 중지 시 exit 1 |
+| 상주 서비스(systemd 등)로 Agent 상시 실행 | **이번 범위 밖**(수동 실행). 필요하면 B4-2에서 별도 설계 |
+| B4-2의 `agent-leak-app` 등 장애 분석 대상 | **B4-1 Agent와 별개** — 별도로 확보 필요 |
+| 공식 원문 최종 대조·완료 판정 | Owner 검수 — 값이 바뀌면 이 문서와 [b4-1-final-evidence.md](b4-1-final-evidence.md)를 함께 갱신 |
 
-Agent를 확보하면: ① 파일/아키텍처 확인 → ② 실행 계정·`AGENT_KEY_PATH` 결정 → ③ `AGENT_PROCESS_PATTERN` 설정 → ④ `monitor.sh` 재검증 → ⑤ `machine-setup.sh`의 `agent` 단계 구현 순으로 진행하세요.
-
-## 11. 변경하지 말 것 (B4-1 값 고정)
-
-Machine 이름 `b4-lab`, Ubuntu 24.04, 사용자·그룹명, 포트 20022/15034, `monitor.sh` 경로, 로그 경로는 B4-2에서 바꾸지 않는 것이 원칙입니다. 바꾸면 README와 이 문서에 기록하세요.
+Agent 수동 배포(저장소에 없음): `orb -m b4-lab sudo install -o root -g agent-core -m 0750 /dev/stdin /opt/agent-app/bin/agent-app-linux-x86 < agent-app-linux-x86`, SHA256 `cdbae8c066e734916b7cd25dc9e651818acf63b2e6817125ede5e85a4de0ff5a` 확인. `machine-setup.sh`의 `agent` 단계는 배포 상태를 표시만 하고 설치하지 않습니다.

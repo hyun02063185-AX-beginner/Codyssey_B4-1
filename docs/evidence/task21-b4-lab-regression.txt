@@ -1,0 +1,127 @@
+# b4-lab 전체 회귀·증빙 실측 출력 (작업 21, 2026-11-13 21:22~21:24 KST)
+# 명령: orb -m b4-lab sudo bash < (읽기 전용 점검 + 제공 Agent 약 15초 실행/종료). 비밀값 출력 없음(secret.key 내용은 일치 여부만).
+# UFW 비활성 WARNING은 본환경 UFW를 끄지 않고 읽기 전용 스텁(MONITOR_UFW_CMD)으로 시연.
+
+## OS/SSH
+Ubuntu 24.04.5 LTS x86_64
+port 20022
+permitrootlogin no
+0.0.0.0:20022 [::]:20022 
+active
+disabled
+## UFW
+Status: active
+Logging: on (low)
+Default: deny (incoming), allow (outgoing), deny (routed)
+New profiles: skip
+To                         Action      From
+--                         ------      ----
+20022/tcp                  ALLOW IN    Anywhere                   # SSH
+15034/tcp                  ALLOW IN    Anywhere                   # Agent
+20022/tcp (v6)             ALLOW IN    Anywhere (v6)              # SSH
+15034/tcp (v6)             ALLOW IN    Anywhere (v6)              # Agent
+## accounts
+agent-common:x:1000:agent-admin,agent-dev,agent-test
+agent-core:x:1001:agent-admin,agent-dev
+agent-admin: agent-admin agent-common agent-core |     (root) NOPASSWD: /usr/sbin/ufw status
+agent-dev: agent-dev agent-common agent-core | User agent-dev is not allowed to run sudo on b4-lab.
+agent-test: agent-test agent-common | User agent-test is not allowed to run sudo on b4-lab.
+## ACL matrix
+agent-admin: upload_files=R/W api_keys=R/W agent-app=R/W
+agent-dev: upload_files=R/W api_keys=R/W agent-app=R/W
+agent-test: upload_files=R/W api_keys=no/no agent-app=no/no
+root:root 755 /opt/agent-app
+agent-admin:agent-common 2770 /opt/agent-app/upload_files
+root:agent-core 2770 /opt/agent-app/api_keys
+root:agent-core 2770 /var/log/agent-app
+root:root 755 /opt/agent-app/bin
+agent-dev:agent-core 750 /opt/agent-app/bin/monitor.sh
+root:agent-core 750 /opt/agent-app/bin/agent-app-linux-x86
+root:agent-core 640 /opt/agent-app/api_keys/secret.key
+agent-admin:agent-core 660 /var/log/agent-app/monitor.log
+root:root 440 /etc/sudoers.d/90-b4-agent-admin-ufw-status
+root:root 644 /etc/default/agent-app
+root:root 644 /etc/logrotate.d/agent-app
+## env
+AGENT_HOME=/opt/agent-app
+AGENT_PORT=15034
+AGENT_UPLOAD_DIR=/opt/agent-app/upload_files
+AGENT_LOG_DIR=/var/log/agent-app
+AGENT_KEY_PATH=/opt/agent-app/api_keys
+AGENT_PROCESS_PATTERN=^/opt/agent-app/bin/agent-app-linux-x86
+secret.key content ok: yes
+cdbae8c066e734916b7cd25dc9e651818acf63b2e6817125ede5e85a4de0ff5a
+## agent run
+>>> Starting Agent Boot Sequence...
+[1/5] Checking User Account               [OK]
+[2/5] Verifying Environment Variables     [OK]
+[3/5] Checking Required Files             [OK]
+[4/5] Checking Port Availability          [OK]
+[5/5] Verifying Log Permission            [OK]
+All Boot Checks Passed!
+Agent READY
+LISTEN 0      1      0.0.0.0:15034 0.0.0.0:* users:(("agent-app-linux",pid=48272,fd=4))
+-- monitor (Agent running)
+[INFO] START user=agent-admin uid=1000 groups=agent-admin,agent-common,agent-core trigger=manual host=b4-lab env_file=/etc/default/agent-app
+[INFO] CONFIG AGENT_HOME=/opt/agent-app AGENT_PORT=15034 AGENT_UPLOAD_DIR=/opt/agent-app/upload_files AGENT_LOG_DIR=/var/log/agent-app
+[INFO] CONFIG AGENT_KEY_PATH is set (value intentionally not printed or logged)
+[OK] PROCESS agent process matched pattern '^/opt/agent-app/bin/agent-app-linux-x86' pid=[48270 48272]
+[OK] PORT tcp/15034 LISTEN on 0.0.0.0 [0.0.0.0:15034], owner pid=[48272] matches agent pid=[48270 48272]
+[OK] FIREWALL ufw active (checked via sudo)
+[OK] CPU usage=6.6% (threshold 20%)
+[OK] MEM usage=5.1% (total=16434648kB available=15594572kB) (threshold 10%)
+[OK] DISK usage=0.4% path=/ mount=/ (threshold 80%)
+[INFO] LOG record appended to /tmp/ev.LXHy/m.log: PID:48272 CPU:6.6% MEM:5.1% DISK_USED:0.4%
+[INFO] SUMMARY result=HEALTHY exit=0 fail=0 pending=0 warning=0 unknown=0 error=0 log=/tmp/ev.LXHy/m.log
+rc=0
+[2026-11-13 21:22:36] PID:48272 CPU:6.6% MEM:5.1% DISK_USED:0.4%
+-- UFW inactive WARNING via read-only stub (real UFW untouched)
+[WARNING] FIREWALL ufw inactive (checked via hook)
+[INFO] SUMMARY result=HEALTHY exit=0 fail=0 pending=0 warning=1 unknown=0 error=0 log=/tmp/ev.LXHy/m.log
+rc=0
+-- thresholds (fixed input files)
+eq: [OK] CPU usage=20.0% (threshold 20%) [OK] MEM usage=10.0% (total=10000kB available=9000kB 
+gt: [WARNING] CPU usage=20.1% (raw 20.100000) > threshol [WARNING] MEM usage=10.1% (raw 10.100000) (total=100 
+[OK] DISK usage=0.4% path=/ mount=/ (threshold 80%)
+agent stopped, residual none
+15034 released
+-- monitor (Agent stopped)
+[INFO] CONFIG AGENT_HOME=/opt/agent-app AGENT_PORT=15034 AGENT_UPLOAD_DIR=/opt/agent-app/upload_files AGENT_LOG_DIR=/var/log/agent-app
+[FAIL] PROCESS no process matches pattern '^/opt/agent-app/bin/agent-app-linux-x86'
+[FAIL] PORT tcp/15034 not LISTEN
+[OK] FIREWALL ufw active (checked via sudo)
+[INFO] SUMMARY result=UNHEALTHY exit=1 fail=2 pending=0 warning=0 unknown=0 error=0 log=/tmp/ev.LXHy/m.log
+rc=1
+[2026-11-13 21:22:43] PID:N/A CPU:0.0% MEM:4.3% DISK_USED:0.4%
+## cron + official log
+# BEGIN B4-1 monitor (managed by scripts/monitor-cron.sh; do not edit inside)
+* * * * * MONITOR_TRIGGER=cron /opt/agent-app/bin/monitor.sh >/dev/null 2>&1
+# END B4-1 monitor
+active
+no crontab for root
+monitor.log lines 2319 -> 2320
+[2026-11-13 21:20:02] PID:N/A CPU:0.5% MEM:4.1% DISK_USED:0.4%
+[2026-11-13 21:21:02] PID:N/A CPU:0.2% MEM:4.2% DISK_USED:0.4%
+[2026-11-13 21:22:02] PID:N/A CPU:0.2% MEM:4.4% DISK_USED:0.4%
+[2026-11-13 21:23:02] PID:N/A CPU:0.5% MEM:4.7% DISK_USED:0.4%
+official-format lines: 40 of 2320 total; legacy detailed lines: 2280
+## logrotate
+/var/log/agent-app/monitor.log {
+    su agent-admin agent-core
+    size 9M
+    rotate 9
+    create 0660 agent-admin agent-core
+    missingok
+    notifempty
+    nocompress
+}
+rotating pattern: /var/log/agent-app/monitor.log  9437184 bytes (9 rotations)
+NEXT                            LEFT LAST                        PASSED UNIT            ACTIVATES
+Sat 2026-11-14 00:00:00 KST 2h 36min Fri 2026-11-13 00:00:40 KST      - logrotate.timer logrotate.service
+enabled
+Nov 12 00:00:40 b4-lab systemd[1]: Finished logrotate.service - Rotate log files.
+Nov 13 00:00:40 b4-lab systemd[1]: Finished logrotate.service - Rotate log files.
+"/var/log/agent-app/monitor.log" 2026-11-13-16:0:0
+total 284
+-rw-rw----+ 1 agent-admin agent-core  15666 Nov 13 21:22 agent_app.log
+-rw-rw----  1 agent-admin agent-core 272499 Nov 13 21:23 monitor.log

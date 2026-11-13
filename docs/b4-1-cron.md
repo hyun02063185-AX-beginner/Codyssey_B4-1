@@ -97,7 +97,7 @@ PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/us
 | `logrotate.timer` | enabled·active, 다음 실행 2026-11-14 00:00 KST(이번 작업에서 수동 실행·강제 순환 없음, 다른 시스템 로그 영향 없음) | PASS |
 | cron 기록 중 로그 파일 | `660 agent-admin:agent-core`, `group::rw-`, `other::---` 유지 | PASS |
 | **타이머가 실제로 이 설정을 실행** | 아직 발동 전(`journalctl -u logrotate`에 17:00 이후 항목 없음, state 파일의 마지막 갱신 기록은 비강제 확인 시점) → 다음 00:00 이후 `journalctl -u logrotate`·`/var/lib/logrotate/status`로 확인해야 함 | **PENDING** |
-| 실제 로그의 10 MiB 도달·순환 | 현재 약 14 KB | **PENDING** |
+| 실제 로그의 9 MiB 도달·순환 | 현재 약 14 KB | **PENDING** |
 | monitor 회귀 | 작업 10-1 스위트 42 PASS / 0 FAIL. 작업 10 스위트 40/3은 이전과 동일한 3건(하네스 패턴 오기 1 + 판정 강화에 따른 의도된 변경 2) | PASS |
 | 환경 회귀 | SSH 20022 접속·`ssh b4-lab@orb`, `permitrootlogin no`, UFW active·허용 규칙 4개, 그룹 소속, 디렉터리 소유·mode·ACL(`group:agent-core:rwx`, default 포함), `agent-*` sudo 없음, `upload_files`·`api_keys` 비어 있음 | PASS |
 
