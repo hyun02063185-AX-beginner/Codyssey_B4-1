@@ -100,3 +100,102 @@ sudo -u agent-admin env -i PATH=/usr/bin:/bin bash -c 'set -a; . /etc/default/ag
 4. 5개 변수의 이름·값·경로를 공식 원문과 대조(현재 [Notion 요약]·[승인된 실습 설계]).
 5. cron/`monitor.sh`에서 위 명시 로드 방식이 실제로 동작하는지는 해당 작업에서 실측.
 6. 변수를 Agent에 전달하는 방식(systemd 서비스 `EnvironmentFile=` 또는 실행 스크립트의 `source`)은 Agent 확인 후 결정.
+
+---
+
+# 작업 17: 제공 Agent 실행 및 Boot Sequence 검증
+
+기준 SHA `338ffe7`. 검증 순서: `b4-recovery-test` → PASS 후 `b4-lab`.
+
+## 제공 파일 확인
+
+| 항목 | 결과 |
+|---|---|
+| ZIP | `~/Downloads/agent-app.zip` (13,847,175 B), SHA256 `b0489f1035369b4a8785cd84f2f0ff99f2b04f76d4caa1eca07229abb48a7732` |
+| 내부 파일 | `agent-app-linux-x86`, `agent-app-linux-arm64`, `__MACOSX/` 메타데이터 2개. 경로 이탈(`..`, 절대경로) 없음 |
+| 실행 파일 | `agent-app-linux-x86` 6,498,144 B, SHA256 `cdbae8c066e734916b7cd25dc9e651818acf63b2e6817125ede5e85a4de0ff5a` (ZIP에서 꺼낸 것과 `~/Downloads/agent-app/` 압축 해제본 동일) |
+| 형식 | ELF 64-bit, little-endian, ET_EXEC, machine `0x3e`(x86-64). Machine 아키텍처 `x86_64`와 일치 (`file` 명령은 Machine에 없어 헤더를 직접 확인) |
+| 동적 라이브러리 | `libdl`, `libz`, `libpthread`, `libc` — 모두 Ubuntu 24.04 Machine에서 해석됨 |
+
+파일 내용은 변경하지 않았고 ZIP·실행 파일은 저장소에 포함하지 않습니다.
+
+## 배포
+
+```bash
+# 파일은 Mac에서 Machine으로 stdin 스트리밍 (sudo는 Machine 안에서만 사용)
+orb -m <machine> sudo install -o root -g agent-core -m 0750 /dev/stdin /opt/agent-app/bin/agent-app-linux-x86 < agent-app-linux-x86
+```
+
+`root:agent-core 0750`: `agent-admin`·`agent-dev`가 실행하고, 쓰기 권한은 root만 가집니다. 배포 후 SHA256이 위 값과 일치함을 확인했습니다.
+
+## 실행 방법 (`agent-admin`, 환경변수 명시 로드)
+
+```bash
+sudo runuser -u agent-admin -- env -i PATH=/usr/bin:/bin HOME=/home/agent-admin bash -c \
+  'cd ~; set -a; . /etc/default/agent-app; set +a; exec /opt/agent-app/bin/agent-app-linux-x86'
+```
+
+UID 1000(`agent-admin`), 보조 그룹 `agent-common agent-core`. 종료는 SIGINT(Ctrl+C 동등)로 수행했습니다.
+
+## 발견: `AGENT_KEY_PATH`는 디렉터리이며 파일명은 `secret.key`
+
+작업 16 설정(`AGENT_KEY_PATH=/opt/agent-app/api_keys/t_secret.key`)으로 실행한 결과, 제공 Agent가 직접 거부했습니다.
+
+| 시도 | 환경 | 결과 |
+|---|---|---|
+| 1 | `AGENT_KEY_PATH=…/api_keys/t_secret.key` | `[2/5] FAIL` — `Key Path Mismatch. Expected: /opt/agent-app/api_keys` (3~5단계 Skipped) |
+| 2 | `AGENT_KEY_PATH=/opt/agent-app/api_keys`, `secret.key` 없음 | `[2/5] OK`, `[3/5] FAIL` — `Missing File: secret.key (Expected location: /opt/agent-app/api_keys/secret.key)` |
+| 3 | 위 경로 + `api_keys/secret.key`(`agent_api_key_test`, `root:agent-core 0640`) | 5/5 OK, `Agent READY` |
+
+원인 분류: 시도 1·2는 **설정 불일치**(Agent 결함 아님). 이에 따라 `config/etc-default-agent-app.example`, `machine-setup.sh`(`keyfile` 단계), 문서를 정정했습니다. 이미 있던 `t_secret.key`는 삭제하지 않았고 더 이상 관리하지 않습니다. 시도 1·2는 `b4-recovery-test`에서 환경변수 임시 덮어쓰기로만 수행했고, `b4-lab`에는 정정된 설정으로만 실행했습니다.
+
+## Boot Sequence 결과 (`b4-recovery-test`, `b4-lab` 동일)
+
+```
+>>> Starting Agent Boot Sequence...
+[1/5] Checking User Account               [OK]   Running as service user 'agent-admin' (uid=1000)
+[2/5] Verifying Environment Variables     [OK]   All required Envs correct
+[3/5] Checking Required Files             [OK]   Verified 'secret.key' with correct key string.
+[4/5] Checking Port Availability          [OK]   Port 15034 is available.
+[5/5] Verifying Log Permission            [OK]   Log directory is writable: /var/log/agent-app
+All Boot Checks Passed!
+Agent READY
+```
+
+stderr 출력은 없었고(stdout/stderr를 함께 기록), 이후 `[INFO]` 로그가 나옵니다: `Agent listening at port 15034`, `Agent Worker Started`, 순환 부하(`Cycle: 0 -> 256MB/Lv10 -> 0`)로 메모리·CPU를 단계적으로 올렸다 내립니다(`nice=10`). 이 부하 때문에 공식 임계값(CPU 20 / MEM 10)이 의미를 가집니다. Agent는 `/var/log/agent-app/agent_app.log`에도 기록합니다(`agent-admin:agent-core 660`).
+
+| 실행 | PID(부모/자식) |
+|---|---|
+| `b4-recovery-test` | 3164 / 3167 |
+| `b4-lab` | 36865 / 36869 |
+
+## 포트·프로세스 검증
+
+- `ss -ltnp`(agent-admin 권한): `LISTEN 0.0.0.0:15034`, 소켓 소유 PID = **자식 프로세스**(3167 / 36869). 부모는 PyInstaller형 부트로더로 소켓을 직접 잡지 않습니다.
+- Mac → Machine IP `:15034` TCP 연결 성공(`b4-recovery-test` 192.168.139.99, `b4-lab` 192.168.139.18). UFW 허용 규칙만으로 판단하지 않고 실제 LISTEN 소켓과 연결을 확인했습니다.
+- 약 60초 이상 유지됨을 확인, 메모리 단계가 25MB씩 오르내림.
+- SIGINT 종료: `Stop signal received` → `Agent Shutdown. Releasing resources.`, 잔여 프로세스 없음, 15034 해제.
+
+## `monitor.sh` 관찰 (Agent 실행 중)
+
+| 조건 | PROCESS | PORT | 결과 |
+|---|---|---|---|
+| `AGENT_PROCESS_PATTERN` 미설정(현재 설정, cron 실행 포함) | **PENDING** | OK(`0.0.0.0` LISTEN, "소유 PID 미평가") | `UNHEALTHY exit=1` |
+| 패턴 `^/opt/agent-app/bin/agent-app-linux-x86` 임시 지정 | OK pid=[부모 자식] | OK, 소유 PID 일치 | `HEALTHY exit=0` (UFW는 비root라 UNKNOWN) |
+
+**Agent 실행 성공과 모니터링 완료는 다릅니다.** Agent는 정상 기동했지만, `AGENT_PROCESS_PATTERN`이 환경 파일에 설정되지 않아 현재 cron의 `monitor.sh`는 계속 PENDING/`exit 1`을 기록합니다(작업 범위 밖이라 변경하지 않음). 패턴은 인자에 패턴 문자열이 들어가는 `env`/`runuser` 래퍼까지 매칭하므로(테스트 중 `pid=[…3182 3184]`로 확인) 앵커(`^`)를 쓰는 것이 안전합니다. UFW 상태는 비root라 UNKNOWN으로 남는 것도 기존과 같습니다(이후 작업).
+
+## `b4-lab` 적용 범위
+
+변경: `AGENT_KEY_PATH` 한 줄(백업 `/var/backups/b4-bootstrap`), `api_keys/secret.key` 생성, Agent 바이너리 배포. 변경 없음: SSH·UFW·사용자·그룹·ACL·cron(1개 유지). `monitor.log`는 삭제·초기화 없이 2100줄 → 2120줄로 증가했고, Agent 실행 중 cron 1회(20:26:01)가 그대로 기록됐습니다.
+
+## 판정
+
+| 항목 | 판정 |
+|---|---|
+| 일반 계정(agent-admin)으로 실행 | PASS |
+| Boot Sequence 5/5 `[OK]` | PASS (설정 정정 후) |
+| `Agent READY` | PASS |
+| `0.0.0.0:15034` LISTEN, 소유 PID | PASS |
+| 정상 종료·잔여 프로세스 없음 | PASS |
+| `monitor.sh` 프로세스 판정 | PENDING (`AGENT_PROCESS_PATTERN` 미설정) |

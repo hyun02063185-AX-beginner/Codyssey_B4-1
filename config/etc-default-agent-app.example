@@ -6,5 +6,6 @@ AGENT_HOME=/opt/agent-app
 AGENT_PORT=15034
 AGENT_UPLOAD_DIR=/opt/agent-app/upload_files
 AGENT_LOG_DIR=/var/log/agent-app
-# Path only. The file holds the official practice string (agent_api_key_test), never a real secret.
-AGENT_KEY_PATH=/opt/agent-app/api_keys/t_secret.key
+# Key DIRECTORY (the provided Agent requires exactly this path and reads <dir>/secret.key).
+# secret.key holds the official practice string (agent_api_key_test), never a real secret.
+AGENT_KEY_PATH=/opt/agent-app/api_keys

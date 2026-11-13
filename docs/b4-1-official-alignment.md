@@ -2,6 +2,8 @@
 
 기준 SHA `07f343c`. 테스트 Machine `b4-recovery-test`에서 먼저 검증한 뒤 `b4-lab`에 적용했습니다. SSH·UFW·로그·cron 기능은 변경하지 않았습니다.
 
+> **작업 17 정정:** 제공 Agent 실행 결과, `AGENT_KEY_PATH`는 **디렉터리** `/opt/agent-app/api_keys`여야 하고 그 안의 파일명은 `secret.key`입니다(`t_secret.key` 아님). 아래 키 관련 값은 이에 맞게 고쳤습니다. 근거: [Agent 실행 기록](b4-1-agent-runtime.md#작업-17-제공-agent-실행-및-boot-sequence-검증).
+
 ## 변경 사항
 
 | 항목 | 이전 | 공식(현행) |
@@ -10,7 +12,7 @@
 | `agent-core` | admin | admin, dev |
 | `monitor.sh` 소유권 | `root:agent-admin 0750` | `agent-dev:agent-core 0750` (cron은 `agent-admin`, 그룹 권한으로 실행) |
 | 경고 임계값 | 80 / 80 / 80 | CPU > 20, MEM > 10, DISK_USED > 80 (엄격한 `>`) |
-| `AGENT_KEY_PATH` | 빈 값 | `/opt/agent-app/api_keys/t_secret.key` |
+| `AGENT_KEY_PATH` | 빈 값 | `/opt/agent-app/api_keys` (**작업 17 정정**: 작업 16의 `…/t_secret.key`는 제공 Agent가 거부함) |
 | 키 파일 | 없음 | 내용 `agent_api_key_test` 한 줄(공식 실습 문자열, 실제 비밀키 아님), `root:agent-core 0640` |
 
 키 파일은 `agent-core`(admin·dev)만 읽을 수 있고 `agent-test`는 api_keys 디렉터리 단계에서 거부됩니다. `AGENT_HOME=/opt/agent-app`은 유지했습니다. sudo 권한은 추가하지 않았고 기존 사용자·데이터는 삭제하지 않았습니다.

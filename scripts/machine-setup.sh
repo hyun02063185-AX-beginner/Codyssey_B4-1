@@ -36,7 +36,8 @@ done
 SSH_PORT=20022; AGENT_PORT=15034
 AGENT_HOME=/opt/agent-app; LOG_DIR=/var/log/agent-app; LOG_FILE=$LOG_DIR/monitor.log
 ENV_FILE=/etc/default/agent-app; MONITOR=$AGENT_HOME/bin/monitor.sh
-KEY_FILE=$AGENT_HOME/api_keys/t_secret.key
+KEY_DIR=$AGENT_HOME/api_keys       # AGENT_KEY_PATH = this DIRECTORY (required by the provided Agent, task 17)
+KEY_FILE=$KEY_DIR/secret.key         # file the Agent looks for inside it
 KEY_TEST_STRING=agent_api_key_test      # official practice string, NOT a real secret
 SSH_FRAGMENT=/etc/ssh/sshd_config.d/10-b4-mission.conf
 LOGROTATE_CONF=/etc/logrotate.d/agent-app
@@ -269,7 +270,7 @@ check_envfile() {
     [ "$(env_val $k)" = "$exp" ] || reason "$ENV_FILE: $k='$(env_val $k)' expected '$exp'"
   done
   [ "$(grep -c '^AGENT_KEY_PATH=' "$ENV_FILE")" -le 1 ] || reason "$ENV_FILE: AGENT_KEY_PATH defined more than once"
-  # AGENT_KEY_PATH only holds a PATH (the official file name t_secret.key contains the word 'secret'): exclude that
+  # AGENT_KEY_PATH only holds a PATH (it contains the word 'secret' in file names such as secret.key): exclude that
   # one variable from the keyword scan; every other line is still scanned.
   grep -v '^[[:space:]]*#' "$ENV_FILE" | grep -v '^AGENT_KEY_PATH=' | grep -qiE '(secret|password|token|BEGIN .*PRIVATE)' && reason "$ENV_FILE contains secret-looking values"
   case "$(env_val AGENT_KEY_PATH)" in *[[:space:]]*|*BEGIN*PRIVATE*) reason "$ENV_FILE: AGENT_KEY_PATH is not a plain path";; esac
@@ -297,7 +298,7 @@ apply_envfile() {
 # ============================================================== keyfile (official practice string, not a real secret)
 check_keyfile() {
   local want; want=$(sed -n 's/^AGENT_KEY_PATH=//p' "$SRC/config/etc-default-agent-app.example" 2>/dev/null | tail -1)
-  [ "$want" = "$KEY_FILE" ] || reason "repo example AGENT_KEY_PATH='$want' != $KEY_FILE"
+  [ "$want" = "$KEY_DIR" ] || reason "repo example AGENT_KEY_PATH='$want' != $KEY_DIR"
   if [ -L "$KEY_FILE" ]; then reason "$KEY_FILE is a symlink"; return; fi
   [ -f "$KEY_FILE" ] || { reason "$KEY_FILE missing"; return; }
   stat_is "$KEY_FILE" "root:agent-core 640" || reason "$KEY_FILE != root:agent-core 640 ($(stat -c '%U:%G %a' "$KEY_FILE"))"
@@ -402,7 +403,8 @@ apply_verify() { return 1; }
 
 # ============================================================== agent (PENDING)
 check_agent() {
-  note "PENDING: provided Agent original is not available; not installed, not faked"
+  note "provided Agent is never stored in the repo or installed by this script; deploy by hand (docs/b4-1-agent-runtime.md)"
+  note "provided Agent binary: $( [ -f $AGENT_HOME/bin/agent-app-linux-x86 ] && stat -c '%U:%G %a' $AGENT_HOME/bin/agent-app-linux-x86 || echo 'not deployed (never stored in the repo; see docs/b4-1-agent-runtime.md)')"
   note "PENDING: AGENT_PROCESS_PATTERN is $( [ -n "$(env_val AGENT_PROCESS_PATTERN 2>/dev/null)" ] && echo set || echo 'unset (monitor.sh reports PENDING PROCESS, exit 1)')"
   note "PENDING: listening 0.0.0.0:$AGENT_PORT, Boot Sequence"
 }

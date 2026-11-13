@@ -13,12 +13,12 @@ OrbStack Ubuntu **Linux Machine**을 실습 서버로 사용하며, 여기서 �
 > | SSH 20022 + Root 차단 | 완료(Mac 실제 접속·`ROOT LOGIN REFUSED` 확인) | [10장](docs/orbstack-environment.md#10-ssh-20022-구성-및-검증-기록) |
 > | UFW (deny in / allow out, 20022·15034) | 완료(실제 허용·차단, `orb restart` 후 복원 확인) | [11장](docs/orbstack-environment.md#11-ufw-방화벽-구성-및-검증-기록) |
 > | 사용자 3·그룹 2·소속, `/opt/agent-app` 권한·ACL | 완료 — 그룹 소속은 **공식 구성으로 정정**(작업 16) | [공식 정합성 수정](docs/b4-1-official-alignment.md) |
-> | 환경변수 `/etc/default/agent-app` | `AGENT_HOME/PORT/UPLOAD_DIR/LOG_DIR` 완료, `AGENT_KEY_PATH=/opt/agent-app/api_keys/t_secret.key`(공식 실습 키 파일, 작업 16) | [Agent 실행환경](docs/b4-1-agent-runtime.md) |
+> | 환경변수 `/etc/default/agent-app` | `AGENT_HOME/PORT/UPLOAD_DIR/LOG_DIR` 완료, `AGENT_KEY_PATH=/opt/agent-app/api_keys`(키 디렉터리, 안에 `secret.key`; 작업 17에서 Agent 요구에 맞게 정정) | [Agent 실행환경](docs/b4-1-agent-runtime.md) |
 > | `monitor.sh` (프로세스·포트·UFW·CPU/MEM/DISK) | 구현·배포·검증. Agent 부재 시 `exit 1`이 **예상된 장애 감지 결과** | [monitor 기록](docs/b4-1-monitor.md) |
 > | `monitor.log` 기록 · 10MB/10개 순환(logrotate) | 완료(순환은 임시 환경에서 검증, 실제 타이머 발동은 PENDING) | [monitor 기록](docs/b4-1-monitor.md), [로그 순환](docs/b4-1-log-rotation.md) |
 > | `agent-admin` cron 매분 자동 실행 | 완료(예약 실행 연속 확인, `trigger=cron`) | [cron 기록](docs/b4-1-cron.md) |
 > | **환경 복구 자동화** (`bootstrap-orbstack.sh`) | **완료** — 새 Machine `b4-recovery-test`에 GitHub 파일만으로 재구축, `b4-lab`과 동일 확인, 반복 실행 안전 | [복구 자동화](docs/b4-1-recovery.md) |
-> | **제공 Agent** 설치·기동 (Boot Sequence, `Agent READY`, 0.0.0.0:15034 LISTEN) | **PENDING** — 원본 미확보 | [Agent 실행환경](docs/b4-1-agent-runtime.md) |
+> | **제공 Agent** 설치·기동 (Boot Sequence, `Agent READY`, 0.0.0.0:15034 LISTEN) | **PASS** — Boot 5/5 OK·`Agent READY`·0.0.0.0:15034 LISTEN·정상 종료 확인(`monitor.sh` 판정은 `AGENT_PROCESS_PATTERN` 미설정으로 PENDING) | [Agent 실행환경](docs/b4-1-agent-runtime.md) |
 >
 > **제출 문서:** [요구사항 수행 내역서](docs/b4-1-final-evidence.md)(항목별 PASS/PENDING·증빙 목록) · [B4-2 인수인계](docs/b4-2-environment-handoff.md)
 >
@@ -170,7 +170,7 @@ OrbStack Ubuntu **Linux Machine**을 실습 서버로 사용하며, 여기서 �
 
 #### 5) 환경변수
 - [x] `AGENT_HOME`, `AGENT_PORT`, `AGENT_UPLOAD_DIR`, `AGENT_LOG_DIR` 정의 — `/etc/default/agent-app`, 값은 [승인된 실습 설계]/[관리자료](원문 대조 필요)
-- [x] `AGENT_KEY_PATH=/opt/agent-app/api_keys/t_secret.key`, 파일 내용은 공식 실습 문자열 `agent_api_key_test` 한 줄(`root:agent-core 0640`; 실제 비밀키 아님). 제공 Agent 실행은 PENDING
+- [x] `AGENT_KEY_PATH=/opt/agent-app/api_keys`(디렉터리), `api_keys/secret.key` 내용은 공식 실습 문자열 `agent_api_key_test` 한 줄(`root:agent-core 0640`; 실제 비밀키 아님). 제공 Agent 실행은 PENDING
 - [ ] 환경변수를 실제 Agent가 사용하는지 검증 (Agent NOT FOUND)
 - [ ] [확인 필요] 각 변수의 값과 적용 위치(로그인 셸 / Agent 실행 환경 / cron 환경) — 파일 로드 방식은 검증됨, 원문 대조·Agent·cron 적용은 미완 — **cron은 로그인 셸 환경변수를 상속하지 않음에 주의**
 - [ ] 증빙: Agent·`monitor.sh` 실행 환경에서 실제 값 출력

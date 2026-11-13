@@ -48,7 +48,7 @@ B4-2는 B4-1에서 만든 Linux 환경과 `monitor.sh`를 **그대로 재사용*
 |---|---|---|
 | `/opt/agent-app` (= `AGENT_HOME`) | `root:root` | `0755` |
 | `/opt/agent-app/upload_files` | `agent-admin:agent-common` | `2770` + ACL |
-| `/opt/agent-app/api_keys` | `root:agent-core` | `2770` + ACL (`t_secret.key` 실습 문자열 1개, 실제 키 없음) |
+| `/opt/agent-app/api_keys` | `root:agent-core` | `2770` + ACL (`secret.key` 실습 문자열 1개, 실제 키 없음) |
 | `/var/log/agent-app` | `root:agent-core` | `2770` + ACL |
 | `/opt/agent-app/bin` | `root:root` | `0755` |
 
@@ -63,7 +63,7 @@ AGENT_HOME=/opt/agent-app
 AGENT_PORT=15034
 AGENT_UPLOAD_DIR=/opt/agent-app/upload_files
 AGENT_LOG_DIR=/var/log/agent-app
-AGENT_KEY_PATH=/opt/agent-app/api_keys/t_secret.key   # 공식 실습 키 파일(내용 agent_api_key_test, root:agent-core 0640)
+AGENT_KEY_PATH=/opt/agent-app/api_keys   # 키 디렉터리. 안의 secret.key = 실습 문자열(root:agent-core 0640)
 ```
 
 - **로그인 셸·cron에는 자동으로 들어가지 않습니다.** 사용하려면 명시적으로 로드: `set -a; . /etc/default/agent-app; set +a` (systemd는 `EnvironmentFile=/etc/default/agent-app`). `monitor.sh`는 이미 이렇게 로드합니다.
@@ -154,7 +154,7 @@ scripts/bootstrap-orbstack.sh snapshot                  # 상태 스냅샷 (Mach
 | 항목 | 지금 상태 |
 |---|---|
 | 제공 Agent 설치·실행 (실행 계정·명령·Python 요구 확인) | 원본 **NOT FOUND** — 임의 생성 금지 |
-| `AGENT_KEY_PATH` 값 | 확정(작업 16): `/opt/agent-app/api_keys/t_secret.key` |
+| `AGENT_KEY_PATH` 값 | 확정(작업 17): `/opt/agent-app/api_keys` (디렉터리, 안에 `secret.key`) |
 | `AGENT_PROCESS_PATTERN` 설정 → 프로세스 점검 판정 | 미설정 → `PENDING PROCESS` |
 | Boot Sequence 5단계 `[OK]`, `Agent READY` | 미검증 |
 | `0.0.0.0:15034` LISTEN, 소유 PID 일치 | 미검증 |
