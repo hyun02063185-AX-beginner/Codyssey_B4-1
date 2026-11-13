@@ -8,7 +8,7 @@ OrbStack Ubuntu **Linux Machine**을 실습 서버로 사용하며, 여기서 �
 > **현재 상태 (2026-11-11)**
 > - OrbStack Ubuntu Machine `b4-lab`(Ubuntu 24.04.5 LTS, x86_64) 생성 및 기본 실행환경 사전검증 완료 → [검증 기록](docs/orbstack-environment.md#9-기본-실행환경-사전검증-기록)
 > - **SSH 완료:** TCP 20022 단독 사용, Root 원격 로그인 차단, Mac에서 실제 접속 검증 → [SSH 검증 기록](docs/orbstack-environment.md#10-ssh-20022-구성-및-검증-기록)
-> - **UFW 완료:** 기본 deny(in)/allow(out), 20022·15034/tcp만 허용, Machine IP 기준 실제 허용·차단 검증 (재부팅 후 자동 복원은 INCONCLUSIVE) → [UFW 검증 기록](docs/orbstack-environment.md#11-ufw-방화벽-구성-및-검증-기록)
+> - **UFW 완료:** 기본 deny(in)/allow(out), 20022·15034/tcp만 허용, Machine IP 기준 실제 허용·차단 검증 재시작 후 자동 복원 검증 완료 → [UFW 검증 기록](docs/orbstack-environment.md#11-ufw-방화벽-구성-및-검증-기록)
 > - **나머지 Mission Core는 미착수:** 사용자/그룹, 권한, 환경변수, Agent, `monitor.sh`, 로그, cron. Mission Core 전체 완료가 아닙니다.
 
 ---
@@ -137,7 +137,7 @@ OrbStack Ubuntu **Linux Machine**을 실습 서버로 사용하며, 여기서 �
 - [x] UFW 활성화 (IPv4/IPv6 모두 규칙 적용)
 - [x] 증빙: `sudo ufw status verbose` ([11장](docs/orbstack-environment.md#11-ufw-방화벽-구성-및-검증-기록))
 - [x] OrbStack Machine에서 UFW가 실제로 패킷을 차단·허용하는지 검증 — Machine IP 기준 PASS (15035 활성화 전 접속 성공 → 후 차단)
-- [ ] [확인 필요] 재부팅 후 UFW 자동 복원 (`ufw.service`가 부팅 시 비활성으로 보인 현상, INCONCLUSIVE)
+- [x] `orb restart b4-lab` 후 UFW 자동 복원 및 허용·차단 재검증 PASS ([11.7](docs/orbstack-environment.md#117-재시작-후-복원-검증-작업-5-1)). 단 이는 OrbStack Machine 재시작 범위이며 Mac 재부팅·OrbStack 앱 재시작은 미검증
 
 #### 5) 환경변수
 - [ ] [관리자료] `AGENT_HOME`, `AGENT_PORT`, `AGENT_UPLOAD_DIR`, `AGENT_KEY_PATH`, `AGENT_LOG_DIR` 정의

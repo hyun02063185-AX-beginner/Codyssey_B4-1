@@ -339,7 +339,7 @@ Default: deny (incoming), allow (outgoing), deny (routed)
 
 ### 11.3 검증 방법
 
-Machine 내부에 임시 TCP 서버(`nc -l`, `0.0.0.0:15034`·`0.0.0.0:15035`)를 띄우고 Mac에서 **Machine IP `192.168.139.18`로 직접** 접속했습니다. macOS `nc -w`는 연결 타임아웃을 제한하지 못해 8초 `alarm`으로 끊었으며, 이때 종료는 "무응답(DROP)"을 뜻합니다. 테스트 서버는 검증 후 종료·제거했습니다(`ss`로 15034/15035 LISTEN 0건 확인).
+Machine 내부에 임시 TCP 서버(`nc -l`, `0.0.0.0:15034`·`0.0.0.0:15035`)를 띄우고 Mac에서 **Machine IP `192.168.139.18`로 직접** 접속했습니다. macOS `nc -w`는 연결 타임아웃을 제한하지 못해 8초 `alarm`으로 끊었으며, 이때 종료는 "무응답(DROP)"을 뜻합니다. 테스트 서버는 검증 후 종료했다고 기록했으나 **실제로는 남아 있었고**(작업 5-1에서 발견), 5-1에서 종료·`ss`로 LISTEN 0건 확인했습니다. 남은 서버가 있었어도 15035 차단 판정(활성화 전 성공/후 무응답)에는 영향이 없었습니다.
 
 ### 11.4 검증 결과
 
@@ -354,7 +354,7 @@ Machine 내부에 임시 TCP 서버(`nc -l`, `0.0.0.0:15034`·`0.0.0.0:15035`)�
 | 4 | 15035 차단 | 활성화 **전** Machine IP·`orb.local` 모두 연결 성공(서버 LISTEN 확인) → 활성화 **후** Machine IP(IPv4)·IPv6 모두 무응답(타임아웃), 서버는 계속 LISTEN | PASS |
 | 4b | TCP 22 (Machine IP) | 이전 `Connection refused` → UFW 후 무응답(DROP). 22는 원래 미사용이며 차단 방식만 달라짐 | 참고 |
 | 5 | OrbStack SSH vs Ubuntu SSH 구분 | 판정은 Machine IP·Machine 내부 `ss` 기준으로만 수행. `b4-lab.orb.local:22` 응답은 판정에서 제외 | PASS |
-| 6 | 재부팅 후 UFW 자동 복원 | 미실시. 활성화 직후 `ufw.service`가 `inactive (dead)`, `ConditionResult=no`로 보였음(원인 미확인, LXC 계열 drop-in 존재). 수동 `systemctl start ufw`는 정상 동작. `ENABLED=yes`이므로 복원될 가능성은 있으나 검증하지 않음 | INCONCLUSIVE |
+| 6 | 재부팅 후 UFW 자동 복원 | (작업 5 시점 미실시 → 11.7에서 PASS로 갱신) 당시 기록: 활성화 직후 `ufw.service`가 `inactive (dead)`, `ConditionResult=no`로 보였음(원인은 11.7에서 규명). 수동 `systemctl start ufw`는 정상 동작. `ENABLED=yes`이므로 복원될 가능성은 있으나 검증하지 않음 | INCONCLUSIVE |
 | 7 | UFW 차단 로그(`UFW BLOCK`) | `/var/log/ufw.log`·dmesg에 없음 (Machine 로그 구성 영향 추정). 차단 판정은 로그가 아닌 접속 결과 비교에 근거 | INCONCLUSIVE |
 
 FAIL 항목 없음.
@@ -368,7 +368,38 @@ FAIL 항목 없음.
 
 ### 11.6 남은 문제 및 다음 작업 주의
 
-- Machine 재시작 후 `sudo ufw status`로 활성 여부를 확인해야 합니다. 비활성이면 `sudo systemctl start ufw`/`sudo ufw enable`. 확인 전까지 `monitor.sh`의 방화벽 점검 검증은 이 점에 유의합니다.
+- Machine 재시작 후 UFW 자동 복원은 11.7에서 PASS. Mac 재부팅·OrbStack 앱 재시작 후는 미검증이므로 `sudo ufw status`로 확인합니다.
 - Agent 설치 시 15034 허용 규칙은 이미 존재합니다. 실제 Agent 리슨 주소/프로토콜은 Agent 작업에서 확인합니다.
 - Mac IP(`192.168.139.3`)는 허용 규칙에 한정하지 않았습니다(요구사항이 포트 단위).
 - **bootstrap 반영 대상:** 11.2 절차 전체 + 재부팅 후 상태 확인.
+
+### 11.7 재시작 후 복원 검증 (작업 5-1)
+
+- 일시: 2026-11-13 / 기준 커밋 `f7e6ab3`
+
+**원인 분석 (`inactive (dead)` / `ConditionResult=no`)**
+
+- `ufw.service`에는 `Condition*` 항목이 없고, 유일한 drop-in(`/run/systemd/system/service.d/zzz-lxc-service.conf`)도 보안 샌드박스 옵션(`ProtectSystem=no` 등)만 완화합니다. 즉 unit이 조건으로 막힌 것이 아닙니다.
+- `ufw enable`은 규칙을 커널에 적용하고 `ENABLED=yes`를 기록할 뿐 `ufw.service`를 시작하지 않습니다. 작업 5에서는 한 번도 start 시도가 없었기에 systemd는 `inactive`, 조건 평가 전 기본값 `ConditionResult=no`를 표시한 것으로 **판단**됩니다. 근거: 수동 start 후 `ConditionResult=yes`, `ConditionTimestamp` 기록. 다만 당시 상태 변화를 직접 포착한 것은 아니므로 이 설명은 재시작 결과와 정합한 해석이며, 독립 증명은 아닙니다.
+- unit은 `enabled`(multi-user.target)이고 `ENABLED=yes`였습니다.
+
+**재시작 전 상태**: ufw active, 규칙 4개 유지, `ufw.service` active(exited, 수동 start 14:22:52). 작업 트리 clean, 실행 중 작업 없음. (테스트용 `nc` 2개가 남아 있어 종료)
+
+**절차**: `orb restart b4-lab` (PID 1 시작 시각 14:27:44로 실제 재시작 확인. `uptime -s`는 VM 부팅 시각을 보여주므로 증거로 부적합).
+
+**재시작 후 결과** (수동 start 없이)
+
+| # | 항목 | 결과 | 판정 |
+|---|---|---|---|
+| 1 | Machine 실행 | `running` | PASS |
+| 2 | UFW 활성·규칙 | `ufw status verbose` active, deny(in)/allow(out), 허용 4개 유지. iptables `INPUT` 정책 DROP, `ufw-user-input` ACCEPT 20022/15034 | PASS |
+| 2b | `ufw.service` | 부팅 시 자동 시작: `Starting` 14:27:45 → `Finished` 14:27:46, `ConditionResult=yes`, `active (exited)` | PASS |
+| 3 | SSH 20022 (Mac → IP) | 로그인 성공, `SSH_CONNECTION … 192.168.139.18 20022`, `port 20022`, `permitrootlogin no` | PASS |
+| 4 | OrbStack 관리 SSH | `ssh b4-lab@orb`, `orb -m` 성공 | PASS |
+| 5 | 15034 허용 | 서버 LISTEN 중 연결 성공 (IPv4). IPv6는 `refused`(방화벽 통과, 서버가 v4만 바인딩) | PASS |
+| 6 | 15035 차단 | 서버 LISTEN 중 IPv4·IPv6 모두 무응답(DROP). LISTEN 상태이므로 "서비스 부재"가 아닌 UFW 차단 | PASS |
+| 7 | 부팅 로그 | `journalctl -b -u ufw` 정상 시작 기록 확인. `UFW BLOCK` 커널 로그는 여전히 0건(로그 미기록) | INCONCLUSIVE (로그 한정, 차단 자체는 6번으로 확인) |
+
+임시 서버(`nc`)는 종료했고 LISTEN 0건 확인. 변경된 설정 없음(수정 불필요).
+
+**검증 범위**: OrbStack `orb restart b4-lab`까지입니다. Mac 재부팅이나 OrbStack 앱 재시작 후의 동작은 확인하지 않았습니다. 재시작 후에도 `sudo ufw status` 확인 습관은 유지하세요.
