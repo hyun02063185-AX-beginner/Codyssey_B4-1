@@ -10,7 +10,8 @@ OrbStack Ubuntu **Linux Machine**을 실습 서버로 사용하며, 여기서 �
 > - **SSH 완료:** TCP 20022 단독 사용, Root 원격 로그인 차단, Mac에서 실제 접속 검증 → [SSH 검증 기록](docs/orbstack-environment.md#10-ssh-20022-구성-및-검증-기록)
 > - **UFW 완료:** 기본 deny(in)/allow(out), 20022·15034/tcp만 허용, Machine IP 기준 실제 허용·차단 검증 재시작 후 자동 복원 검증 완료 → [UFW 검증 기록](docs/orbstack-environment.md#11-ufw-방화벽-구성-및-검증-기록)
 > - **사용자·그룹 생성 완료(소속은 미확정):** `agent-admin/dev/test`, `agent-common/core` 생성. 사용자↔그룹 소속은 원문 미확인으로 **미적용** → [12장](docs/orbstack-environment.md#12-사용자그룹-구성-및-검증-기록)
-> - **나머지 Mission Core는 미착수:** 권한, 환경변수, Agent, `monitor.sh`, 로그, cron. Mission Core 전체 완료가 아닙니다.
+> - **권한·ACL 설계 초안 작성(미적용):** [권한 설계](docs/b4-1-permission-plan.md) — 소속·경로·mode 확인 후 적용 예정
+> - **나머지 Mission Core는 미착수:** 권한 적용, 환경변수, Agent, `monitor.sh`, 로그, cron. Mission Core 전체 완료가 아닙니다.
 
 ---
 
@@ -107,6 +108,7 @@ OrbStack Ubuntu **Linux Machine**을 실습 서버로 사용하며, 여기서 �
 - [x] 증빙(소속 제외): `id agent-admin`, `id agent-dev`, `id agent-test`, `getent group agent-common agent-core`
 
 #### 2) 디렉터리 / 파일 권한
+- [x] 설계 초안 작성(적용 전): [docs/b4-1-permission-plan.md](docs/b4-1-permission-plan.md)
 - [ ] [관리자료] `upload_files` — `agent-common` R/W (경로·mode [확인 필요])
 - [ ] [관리자료] `api_keys` — `agent-core` R/W (경로·mode [확인 필요])
 - [ ] [관리자료] `/var/log/agent-app` — `agent-core` R/W (mode [확인 필요])
