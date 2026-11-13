@@ -229,11 +229,12 @@ scripts/bootstrap-orbstack.sh all          # = create + apply + verify (소요 �
 **절차 B — 이미 구성된 Machine 점검·복구**
 
 ```bash
-scripts/bootstrap-orbstack.sh check                    # 읽기 전용: 단계별 OK/DIFF
+scripts/bootstrap-orbstack.sh check                    # 지속 상태 변경 없음: 단계별 OK/DIFF (--no-run: monitor.sh도 실행 안 함)
 scripts/bootstrap-orbstack.sh apply --allow-existing   # 차이가 있는 단계만 복구(기존 로그·다른 crontab 항목 보존, 삭제 없음)
 ```
 
 - 다른 이름의 Machine: `--machine NAME`. 기존 `b4-lab`을 삭제·초기화하는 기능은 없습니다.
+- SSH는 서비스를 재시작하기 **전에** `sshd -t`·`sshd -T`로 검증하고, 충돌(예: `00-*.conf`의 `PermitRootLogin yes`, `Port 22`)이 있으면 조각을 원복한 채 중단합니다(작업 14-1).
 - 반복 실행해도 같은 결과(idempotent)이며, 단계가 실패하면 그 단계에서 멈춥니다.
 - 상세: [환경 문서 7장](docs/orbstack-environment.md#7-교육장-mac-초기화-후-복구-흐름).
 

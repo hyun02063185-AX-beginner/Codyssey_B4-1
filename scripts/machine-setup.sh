@@ -2,7 +2,12 @@
 # machine-setup.sh - runs INSIDE the Ubuntu Machine as root. Normally started by
 # scripts/bootstrap-orbstack.sh (Mac side), which streams the needed repo files and passes --src.
 #
-#   machine-setup.sh check    --src DIR   read-only: compare the machine with the desired B4-1 state
+#   machine-setup.sh check    --src DIR [--no-run]
+#                                         changes NO persistent system state; compares the machine with the desired state.
+#                                         Side effects of a normal check (all transient): the 'verify' step creates a temp
+#                                         dir in /tmp and runs monitor.sh once against a TEMP log (never the real monitor.log);
+#                                         sudo -l / systemd / PAM may add journal/audit entries.
+#                                         --no-run skips that monitor.sh run (the temp dir and the process are not created).
 #   machine-setup.sh apply    --src DIR   apply every step idempotently (stops at the first failing step)
 #   machine-setup.sh snapshot             print a normalized state description (for diffing machines)
 #
@@ -17,9 +22,13 @@ set -u
 export LC_ALL=C PATH=/usr/sbin:/usr/bin:/sbin:/bin DEBIAN_FRONTEND=noninteractive
 
 MODE="${1:-}"; [ $# -gt 0 ] && shift
-SRC=""
+SRC=""; NO_RUN=0
 while [ $# -gt 0 ]; do
-  case "$1" in --src) SRC="${2:-}"; shift 2;; *) echo "unknown argument: $1" >&2; exit 2;; esac
+  case "$1" in
+    --src) SRC="${2:-}"; shift 2;;
+    --no-run) NO_RUN=1; shift;;      # check only: do not execute monitor.sh (no temp dir, no process run)
+    *) echo "unknown argument: $1" >&2; exit 2;;
+  esac
 done
 [ "$(id -u)" -eq 0 ] || { echo "must run as root (inside the Machine)" >&2; exit 2; }
 
@@ -98,22 +107,77 @@ check_ssh() {
   ss -H -ltn 2>/dev/null | awk '{print $4}' | grep -qE ':22$' && reason "something LISTENs on tcp/22"
   note "OrbStack management SSH (orb -m / ssh <machine>@orb) is separate from this sshd and is not touched"
 }
+# Effective-config gate: evaluates the WHOLE sshd configuration as sshd would load it (main file + all
+# drop-ins, first value wins) and prints every problem. Used BEFORE any service is touched.
+SSH_BACKUP_DIR=/var/backups/b4-bootstrap
+ssh_journal_excerpt() {   # most informative recent sshd/systemd error lines (cause first), max 3
+  journalctl -u ssh.service -n 30 --no-pager 2>/dev/null | grep -iE 'error|fatal|cannot|cannot bind|in use|failed' | grep -v 'Failed with result' | tail -n 3 | sed 's/^[A-Za-z]* [0-9]* [0-9:]* [^ ]* //' | cut -c1-150 | tr '\n' '|'
+}
+ssh_effective_problems() {
+  local eff ports rl bad=0
+  eff=$(sshd -T 2>&1) || { echo "sshd -T failed: $(echo "$eff" | head -1)"; return 1; }
+  ports=$(echo "$eff" | awk '$1=="port"{print $2}' | sort -u | tr '\n' ' ' | sed 's/ $//')
+  rl=$(echo "$eff" | awk '$1=="permitrootlogin"{print $2}')
+  [ "$ports" = "$SSH_PORT" ] || { echo "effective Port(s) = [$ports], required exactly [$SSH_PORT]"; bad=1; }
+  [ "$rl" = no ] || { echo "effective PermitRootLogin = '$rl', required 'no'"; bad=1; }
+  if [ $bad -ne 0 ]; then
+    echo "files that set Port/PermitRootLogin (not modified by this script): $(grep -lEis '^[[:space:]]*(Port|PermitRootLogin)[[:space:]]' /etc/ssh/sshd_config /etc/ssh/sshd_config.d/*.conf | tr '\n' ' ')"
+  fi
+  return $bad
+}
 apply_ssh() {
   need_src
   install -d -m 0755 /run/sshd || return 1
-  local bak=""
-  if [ -f "$SSH_FRAGMENT" ]; then bak=$(mktemp); cp -p "$SSH_FRAGMENT" "$bak"; fi
-  install -o root -g root -m 0644 "$SRC/config/sshd-b4-mission.conf" "$SSH_FRAGMENT" || return 1
-  if ! sshd -t 2>/tmp/b4-sshd-t.err; then
-    echo "      sshd -t failed: $(head -2 /tmp/b4-sshd-t.err | tr '\n' ' ')" >&2
-    if [ -n "$bak" ]; then install -o root -g root -m 0644 "$bak" "$SSH_FRAGMENT"; else rm -f "$SSH_FRAGMENT"; fi
-    rm -f "$bak" /tmp/b4-sshd-t.err; return 1     # existing sshd keeps running with its old config
+  # ---- 0. remember the current state (fragment + service state) so everything can be put back
+  local prev_exists=0 bak="" svc_active sock_active sock_enabled svc_pid
+  svc_active=$(systemctl is-active ssh.service 2>/dev/null); sock_active=$(systemctl is-active ssh.socket 2>/dev/null)
+  sock_enabled=$(systemctl is-enabled ssh.socket 2>/dev/null); svc_pid=$(systemctl show -p MainPID --value ssh.service 2>/dev/null)
+  if [ -f "$SSH_FRAGMENT" ]; then
+    prev_exists=1; install -d -m 0700 "$SSH_BACKUP_DIR" || return 1
+    bak="$SSH_BACKUP_DIR/10-b4-mission.conf.$(date +%Y%m%d-%H%M%S).bak"
+    cp -p "$SSH_FRAGMENT" "$bak" || return 1                      # backup BEFORE any change (keeps mode/owner/mtime)
+    echo "      backup of existing fragment: $bak" >&2
   fi
-  rm -f "$bak" /tmp/b4-sshd-t.err
+  restore_fragment() {   # puts the fragment back exactly as it was; touches no other SSH file
+    if [ "$prev_exists" -eq 1 ]; then cp -p "$bak" "$SSH_FRAGMENT"; rm -f "$bak"; else rm -f "$SSH_FRAGMENT"; fi
+  }
+  # ---- 1. install the new fragment (temp name is not '*.conf', so sshd ignores it until the atomic rename)
+  local tmp="$SSH_FRAGMENT.new"
+  install -o root -g root -m 0644 "$SRC/config/sshd-b4-mission.conf" "$tmp" && mv -f "$tmp" "$SSH_FRAGMENT" || { rm -f "$tmp"; restore_fragment; return 1; }
+  # ---- 2. syntax
+  local err; err=$(sshd -t 2>&1) || {
+    echo "      REJECTED before any restart: sshd -t failed: $(echo "$err" | head -2 | tr '\n' ' ')" >&2
+    restore_fragment; echo "      fragment restored; ssh.service/ssh.socket were not touched (ssh.service MainPID still $(systemctl show -p MainPID --value ssh.service))" >&2; return 1; }
+  # ---- 3. EFFECTIVE configuration (sshd -T) must already be correct BEFORE the service is restarted
+  local probs; probs=$(ssh_effective_problems) || {
+    echo "      REJECTED before any restart: the effective SSH configuration is not acceptable:" >&2
+    echo "$probs" | sed 's/^/        - /' >&2
+    restore_fragment; echo "      fragment restored; other SSH files left untouched; ssh.service/ssh.socket were not touched (ssh.service MainPID still $(systemctl show -p MainPID --value ssh.service))" >&2
+    echo "      remove or fix the conflicting file by hand, then run apply again" >&2; return 1; }
+  # ---- 4. only now touch the services; on any failure put the previous state back
+  rollback_services() {
+    echo "      rolling back: restoring fragment and previous service state" >&2
+    restore_fragment
+    [ "$sock_enabled" = enabled ] && systemctl enable ssh.socket >/dev/null 2>&1
+    [ "$sock_active" = active ] && systemctl start ssh.socket >/dev/null 2>&1
+    if [ "$svc_active" = active ]; then systemctl restart ssh.service >/dev/null 2>&1; else systemctl stop ssh.service >/dev/null 2>&1; fi
+    echo "      after rollback: ssh.service=$(systemctl is-active ssh.service) (was $svc_active), ssh.socket=$(systemctl is-active ssh.socket) (was $sock_active)" >&2
+    [ "$svc_active" = active ] && ! systemctl is-active --quiet ssh.service && echo "      ERROR: ssh.service could NOT be brought back; use 'orb -m <machine>' to repair. journal: $(ssh_journal_excerpt)" >&2
+  }
   systemctl disable --now ssh.socket >/dev/null 2>&1 || true
-  systemctl enable ssh.service >/dev/null 2>&1 || return 1
-  systemctl restart ssh.service || return 1
-  sleep 1
+  systemctl enable ssh.service >/dev/null 2>&1 || { echo "      systemctl enable ssh.service failed" >&2; rollback_services; return 1; }
+  if ! systemctl restart ssh.service; then
+    echo "      ssh.service restart FAILED; journal: $(ssh_journal_excerpt)" >&2
+    rollback_services; return 1
+  fi
+  local i ok=0
+  for i in 1 2 3 4 5 6 7 8 9 10; do
+    if systemctl is-active --quiet ssh.service && ss -H -ltn 2>/dev/null | awk '{print $4}' | grep -qE ":$SSH_PORT\$"; then ok=1; break; fi; sleep 1; done
+  if [ "$ok" -ne 1 ]; then echo "      ssh.service is not listening on $SSH_PORT after restart" >&2; rollback_services; return 1; fi
+  # success: keep the backup of a replaced fragment only if its content differed
+  if [ -n "$bak" ] && cmp -s "$bak" "$SSH_FRAGMENT"; then rm -f "$bak"; fi
+  [ -n "$bak" ] && [ -f "$bak" ] && echo "      previous fragment kept at $bak" >&2
+  return 0
 }
 
 # ============================================================== ufw
@@ -281,6 +345,7 @@ apply_cron() {
 # ============================================================== verify (runs monitor.sh against a TEMP log)
 check_verify() {
   [ -x "$MONITOR" ] || { reason "$MONITOR not executable"; return; }
+  if [ "$NO_RUN" -eq 1 ] && [ "$MODE" = check ]; then note "skipped (--no-run): monitor.sh was not executed"; return; fi
   local t; t=$(mktemp -d /tmp/b4-verify.XXXXXX); chmod 777 "$t"
   runuser -u agent-admin -- env -i PATH=/usr/bin:/bin MONITOR_TRIGGER=bootstrap MONITOR_LOG_FILE="$t/m.log" "$MONITOR" >"$t/out" 2>&1; local rc=$?
   local sum; sum=$(grep 'SUMMARY' "$t/out" | sed 's/^[0-9-]* [0-9:]* //')
@@ -328,6 +393,7 @@ run_check_only() {
   for s in $STEPS; do
     REASONS=(); NOTES=(); "check_$s"; local n=${#REASONS[@]}
     if [ "$s" = agent ]; then show PEND "$s" "${NOTES[0]}"; local i; for ((i=1;i<${#NOTES[@]};i++)); do show PEND "$s" "${NOTES[$i]}"; done; continue; fi
+    if [ "$s" = verify ] && [ "$NO_RUN" -eq 1 ] && [ "$n" -eq 0 ]; then show SKIP "$s" "monitor.sh not executed (--no-run)"; continue; fi
     if [ "$n" -eq 0 ]; then show OK "$s" "desired state reached"; c_ok=$((c_ok+1)); else
       show DIFF "$s" "${REASONS[0]}"; local i; for ((i=1;i<n;i++)); do show "" "" "  - ${REASONS[$i]}"; done; c_diff=$((c_diff+1)); fi
     local nt; for nt in "${NOTES[@]}"; do show note "$s" "$nt"; done

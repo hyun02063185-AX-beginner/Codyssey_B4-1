@@ -6,7 +6,7 @@ B4-1 환경을 재현하기 위한 스크립트를 두는 디렉터리입니다.
 
 | 파일 | 실행 위치 | 역할 |
 |---|---|---|
-| `bootstrap-orbstack.sh` | **Mac** (sudo 불필요) | Machine 생성(`create`), 읽기 전용 점검(`check`), 적용(`apply`), 상태 출력(`snapshot`), Mac 쪽 네트워크·SSH·cron 검증(`verify`), 전체(`all`). 기존 Machine 삭제·초기화 기능 없음 |
+| `bootstrap-orbstack.sh` | **Mac** (sudo 불필요) | Machine 생성(`create`), 지속 상태를 바꾸지 않는 점검(`check`, `--no-run`으로 monitor.sh 시험 실행 생략), 적용(`apply`), 상태 출력(`snapshot`), Mac 쪽 네트워크·SSH·cron 검증(`verify`), 전체(`all`). 기존 Machine 삭제·초기화 기능 없음 |
 | `machine-setup.sh` | Machine 안, root | 단계별 `check`/`apply`/`snapshot`. 보통 `bootstrap-orbstack.sh`가 필요한 파일과 함께 전송해 실행 |
 | `monitor-cron.sh` | Machine 안, root | `agent-admin` crontab의 `monitor.sh` 매분 작업 `install`/`pause`/`resume`/`remove`/`status` |
 

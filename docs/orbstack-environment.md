@@ -129,7 +129,7 @@ orb delete <machine-name>                      # Machine 삭제
      ▼
 3. 복구 실행 (Mac에서 sudo 불필요)
      ├─ Machine 없음 → scripts/bootstrap-orbstack.sh all          (create + apply + verify)
-     └─ Machine 있음 → scripts/bootstrap-orbstack.sh check        (읽기 전용 점검)
+     └─ Machine 있음 → scripts/bootstrap-orbstack.sh check        (지속 상태 변경 없는 점검)
                        scripts/bootstrap-orbstack.sh apply --allow-existing   (차이만 복구)
      ▼
 4. 재검증 ──────────── scripts/bootstrap-orbstack.sh verify --wait-cron 240

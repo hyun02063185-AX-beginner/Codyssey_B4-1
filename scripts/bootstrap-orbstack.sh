@@ -6,7 +6,9 @@
 #   scripts/bootstrap-orbstack.sh [--machine NAME] <command> [options]
 #
 #   create      create the OrbStack Machine (ubuntu:noble) if it does not exist (never deletes anything)
-#   check       read-only: compare the Machine with the desired state (no changes)
+#   check       compare the Machine with the desired state; changes no persistent system state.
+#               By default it also runs monitor.sh once against a TEMP log (temp dir in /tmp, removed afterwards).
+#               --no-run skips that run. (A transient copy of the repo files is always streamed to /tmp and removed.)
 #   apply       apply all steps idempotently; stops at the first failing step
 #               (refuses to touch a Machine that already holds B4-1 data unless --allow-existing)
 #   snapshot    print a normalized state description (diff two Machines with it)
@@ -21,12 +23,13 @@
 # Not handled: SSH keys / passwords / API keys (never generated or stored) and the provided Agent (PENDING).
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"; REPO="$(cd "$HERE/.." && pwd)"
-MACHINE=b4-lab; ALLOW_EXISTING=0; WAIT_CRON=0; PUBKEY=""
+MACHINE=b4-lab; ALLOW_EXISTING=0; WAIT_CRON=0; PUBKEY=""; NO_RUN=0
 CMD=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --machine) MACHINE="${2:-}"; shift 2;;
     --allow-existing) ALLOW_EXISTING=1; shift;;
+    --no-run) NO_RUN=1; shift;;
     --wait-cron) WAIT_CRON="${2:-0}"; shift 2;;
     --ssh-pubkey) PUBKEY="${2:-}"; shift 2;;
     -h|--help) sed -n '2,/^set -u/p' "$0" | sed '$d' | sed 's/^# \{0,1\}//'; exit 0;;
@@ -61,7 +64,7 @@ remote() { # mode [extra args]
 
 need_machine() { exists || { say "[FAIL] Machine '$MACHINE' does not exist (run: $0 --machine $MACHINE create)"; return 1; }; }
 
-do_check()    { need_machine || return 1; say "== check: $MACHINE (read-only)"; remote check; }
+do_check()    { need_machine || return 1; say "== check: $MACHINE (no persistent changes$( [ "$NO_RUN" -eq 1 ] && echo ", monitor.sh not run"))"; if [ "$NO_RUN" -eq 1 ]; then remote check --no-run; else remote check; fi; }
 do_snapshot() { need_machine || return 1; orb -m "$MACHINE" sudo bash -s -- snapshot < "$REPO/scripts/machine-setup.sh"; }
 do_apply() {
   need_machine || return 1
