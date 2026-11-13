@@ -20,6 +20,8 @@ OrbStack Ubuntu **Linux Machine**을 실습 서버로 사용하며, 여기서 �
 > | **환경 복구 자동화** (`bootstrap-orbstack.sh`) | **완료** — 새 Machine `b4-recovery-test`에 GitHub 파일만으로 재구축, `b4-lab`과 동일 확인, 반복 실행 안전 | [복구 자동화](docs/b4-1-recovery.md) |
 > | **제공 Agent** 설치·기동 (Boot Sequence, `Agent READY`, 0.0.0.0:15034 LISTEN) | **PENDING** — 원본 미확보 | [Agent 실행환경](docs/b4-1-agent-runtime.md) |
 >
+> **제출 문서:** [요구사항 수행 내역서](docs/b4-1-final-evidence.md)(항목별 PASS/PENDING·증빙 목록) · [B4-2 인수인계](docs/b4-2-environment-handoff.md)
+>
 > 남은 의존성: ① **제공 Agent 원본** ② **공식 미션 원문 대조**(모든 설정값은 [승인된 실습 설계]/[관리자료]) ③ logrotate 타이머의 실제 발동 확인(다음 00:00 KST 이후).
 
 ---
@@ -62,7 +64,9 @@ OrbStack Ubuntu **Linux Machine**을 실습 서버로 사용하며, 여기서 �
     ├── b4-1-monitor.md                # monitor.sh·monitor.log 구현·검증
     ├── b4-1-log-rotation.md           # logrotate 순환 설계·검증
     ├── b4-1-cron.md                   # cron 매분 실행 검증
-    └── b4-1-recovery.md               # 환경 복구 자동화와 재구축 검증
+    ├── b4-1-recovery.md               # 환경 복구 자동화와 재구축 검증
+    ├── b4-1-final-evidence.md         # 제출용 요구사항 수행 내역서·증빙 목록
+    └── b4-2-environment-handoff.md    # B4-2 환경 인수인계
 ```
 
 **아직 없는 것:** 제공 Agent(원본 미확보). 저장소에는 Agent를 포함하지 않으며, 대체 구현도 하지 않습니다.
@@ -206,8 +210,8 @@ OrbStack Ubuntu **Linux Machine**을 실습 서버로 사용하며, 여기서 �
 #### 10) 마무리
 - [x] 수동 설정을 `scripts/bootstrap-orbstack.sh`로 재현 가능하게 정리 (작업 14, [복구 자동화](docs/b4-1-recovery.md))
 - [x] 새 Machine(`b4-recovery-test`)에서 bootstrap 실행 → 재검증 PASS(`b4-lab`과 동일, 반복 실행 안전). Agent 관련 항목은 PENDING
-- [ ] 제출 요구사항(스크린샷, 출력 결과 등) 정리 — 공식 제출 원문 미확인
-- [ ] B4-2에서 사용할 값(Machine 이름, 사용자, 포트, `monitor.sh` 경로) 기록
+- [x] 제출 수행 내역서·증빙 목록 정리 → [b4-1-final-evidence.md](docs/b4-1-final-evidence.md) (공식 제출 원문은 미확인; 터미널 캡처 자체는 사용자가 찍어야 함, 목록은 §4)
+- [x] B4-2에서 사용할 값(Machine 이름, 사용자, 포트, `monitor.sh` 경로) 기록 → [b4-2-environment-handoff.md](docs/b4-2-environment-handoff.md)
 
 ## 4. 교육장 Mac 초기화 후 복구 (요약)
 

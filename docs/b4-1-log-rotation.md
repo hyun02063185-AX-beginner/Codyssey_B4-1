@@ -111,7 +111,7 @@ orb -m b4-lab systemctl is-active logrotate.timer
 
 ## 7. 남은 문제·다음 작업 주의
 
-1. `agent-admin` 매분 cron 등록 후, cron 환경에서의 기록과 소속 반영을 확인하고 **실제 타이머 발동 시 이 설정이 실행되는지**(다음 `logrotate.timer` 실행 후 `/var/lib/logrotate/status`와 `journalctl -u logrotate`) 확인.
+1. (cron 등록·소속 반영은 작업 13에서 확인됨.) **실제 타이머 발동 시 이 설정이 실행되는지**(다음 `logrotate.timer` 실행 후 `/var/lib/logrotate/status`와 `journalctl -u logrotate`) 확인.
 2. 더 촘촘한 크기 검사가 필요한지 결정(일 1회 검사의 초과 허용 여부, 공식 원문의 "최대 10MB" 해석).
 3. 크기·보존 수·소유자·압축 여부를 공식 원문과 대조(현재 [승인된 실습 설계]).
 4. rename 직후 `create` 사이 경합(§1)은 미검증.

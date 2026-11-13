@@ -198,8 +198,8 @@ orb delete <machine-name>                      # Machine 삭제
 - 기본 실행환경 6개 항목 **모두 PASS**. Mission Core를 진행할 수 있는 Ubuntu + systemd + sudo 환경임을 확인했습니다.
 - **Mission Core 구현 완료가 아닙니다.** 이번 단계는 환경 사전검증만 수행했습니다.
 - 확인 필요 (위 표는 사전검증 시점의 기록이며, 이후 해결된 항목은 표시함):
-  1. openssh-server, ufw 미설치 → 설치 시 apt 저장소 접근 가능 여부 확인 — **openssh-server: 해결** (apt 설치 성공, 10장). ufw: 미설치 유지
-  2. OrbStack Machine에서 UFW(iptables/nftables)가 실제로 동작하는지
+  1. openssh-server, ufw 미설치 → 설치 시 apt 저장소 접근 가능 여부 확인 — **openssh-server: 해결** (apt 설치 성공, 10장). ufw: **해결** (설치·구성, 11장)
+  2. OrbStack Machine에서 UFW(iptables/nftables)가 실제로 동작하는지 — **해결** (실제 허용·차단 확인, 11.4)
   3. Ubuntu 24.04의 `ssh.socket` 소켓 활성화가 포트 20022 설정에 미치는 영향 — **해결** (socket 비활성, service 방식 채택, 10장)
   4. 제공 Agent 앱의 Python 요구 버전과 3.12.3의 호환성
   5. 제공 Agent 앱/바이너리의 architecture (`file`로 확인, 추정 금지)
@@ -289,12 +289,12 @@ Root 판정 근거: 10번에서 **같은 키가 일반 사용자로는 성공(11
 
 ### 10.6 제약사항 및 다음 작업 주의
 
-- **UFW 작업 시:** 활성화 전에 `20022/tcp`를 먼저 허용합니다. 막히더라도 `orb -m b4-lab` 관리 경로로 복구할 수 있지만, UFW 활성화 후에도 관리 경로가 유지되는지는 그때 다시 검증합니다.
+- **UFW 작업 시:** 활성화 전에 `20022/tcp`를 먼저 허용합니다. (작업 5에서 적용·검증 완료: UFW 활성화 후에도 `orb -m` 관리 경로 유지.)
 - **UFW 검증 시:** "22 차단" 같은 확인을 `b4-lab.orb.local:22`로 하면 OrbStack 관리 SSH가 응답하므로 오판합니다. Machine IP 또는 Machine 내부 `ss`로 판단합니다.
-- **미션 사용자 SSH:** `agent-*` 사용자의 접속 방식(키/비밀번호)은 사용자 생성 작업에서 정합니다. 현재 접속 검증은 OrbStack 기본 사용자로 했습니다.
+- **미션 사용자 SSH:** `agent-*` 사용자의 접속 방식(키/비밀번호)은 아직 정하지 않았습니다(비밀번호 잠금·키 없음 = 접속 불가). 현재 접속 검증은 OrbStack 기본 사용자로 했습니다.
 - **`PasswordAuthentication`:** 기본값 `yes`입니다. 공식 요구가 있는지 **확인 필요**.
 - **Mac 초기화 시:** `~/.ssh/b4-lab_ed25519`와 `~/.ssh/b4-lab_known_hosts`도 사라집니다. 키를 다시 만들고 공개키를 다시 등록해야 하며, Machine을 재생성하면 호스트키도 바뀝니다.
-- **bootstrap 반영 대상:** 10.4 절차 전체 (설치, 설정 조각, socket→service 전환, 검증).
+- **bootstrap 반영:** 10.4 절차 전체는 `scripts/machine-setup.sh`의 `ssh` 단계에 반영됨(작업 14, 재시작 전 사전검증은 작업 14-1).
 
 ## 11. UFW 방화벽 구성 및 검증 기록
 
@@ -368,9 +368,9 @@ FAIL 항목 없음.
 ### 11.6 남은 문제 및 다음 작업 주의
 
 - Machine 재시작 후 UFW 자동 복원은 11.7에서 PASS. Mac 재부팅·OrbStack 앱 재시작 후는 미검증이므로 `sudo ufw status`로 확인합니다.
-- Agent 설치 시 15034 허용 규칙은 이미 존재합니다. 실제 Agent 리슨 주소/프로토콜은 Agent 작업에서 확인합니다.
+- 15034 허용 규칙은 이미 존재합니다(Agent는 아직 없음). 실제 Agent 리슨 주소/프로토콜은 Agent 작업에서 확인합니다.
 - Mac IP(`192.168.139.3`)는 허용 규칙에 한정하지 않았습니다(요구사항이 포트 단위).
-- **bootstrap 반영 대상:** 11.2 절차 전체 + 재부팅 후 상태 확인.
+- **bootstrap 반영:** 11.2 절차는 `scripts/machine-setup.sh`의 `ufw` 단계에 반영됨(작업 14). Mac 재부팅 후 상태 확인은 미검증.
 
 ### 11.7 재시작 후 복원 검증 (작업 5-1)
 
