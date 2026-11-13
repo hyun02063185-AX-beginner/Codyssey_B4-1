@@ -1,0 +1,29 @@
+# /etc/logrotate.d/agent-app  --  B4-1 monitor.log rotation
+# [approved lab design] size/rotate/owner are NOT verified against the official mission text.
+#
+# Policy: rotate when the active log is 10 MiB (10485760 bytes) or MORE (logrotate 3.21 compares
+# with >=; verified: 10485759 B is not rotated, 10485760 B is); keep the active
+# file + at most 9 rotated files (monitor.log, monitor.log.1 ... monitor.log.9 = 10 files max).
+#
+# Why rename+create (default) and NOT copytruncate:
+#   monitor.sh opens monitor.log in append mode (fd 9) for the duration of one run (~2 s) and
+#   reopens it on every run. After a rename the running instance keeps writing to the renamed
+#   file (its whole run stays together, nothing lost); the next run opens the new active file.
+#   copytruncate copies then truncates, which can lose lines written between the two steps and
+#   splits a running instance's output across two files.
+#
+# 'su agent-admin agent-core': the log directory is root:agent-core 2770, i.e. group-writable by
+#   a non-root group, so logrotate refuses to rotate there unless told which user/group to use.
+#   Rotation then runs as agent-admin (member of agent-core, can rename/create in the directory).
+#
+# Note: the size is only checked when logrotate runs (systemd logrotate.timer = daily). The log can
+#   therefore exceed 10 MiB between checks; this is NOT a strict maximum size guarantee.
+/var/log/agent-app/monitor.log {
+    su agent-admin agent-core
+    size 10M
+    rotate 9
+    create 0660 agent-admin agent-core
+    missingok
+    notifempty
+    nocompress
+}

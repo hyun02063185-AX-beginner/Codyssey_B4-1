@@ -245,5 +245,5 @@ Agent 확보 후: `/etc/default/agent-app`에 `AGENT_PROCESS_PATTERN=<Agent 명�
 1. 제공 Agent 확보 → `AGENT_PROCESS_PATTERN` 확정, 실제 프로세스·LISTEN·listener PID 검증, 정상 경로(exit 0) 실측. Agent 실행 계정이 `agent-admin`이 아니면 PID가 보이지 않아 `PENDING`이 되므로 계정 관계를 정할 것.
 2. UFW 점검 권한 방식 결정(§3): 현재 `agent-admin` 실행 시 `UNKNOWN`.
 3. 임계값·**로그 포맷**·WARNING 시 종료 코드·종료 코드 정의를 공식 원문과 대조(현재 모두 임시 설계).
-4. cron 등록(`agent-admin`, 매분) 및 cron 환경(PATH 최소)에서의 실행·기록 검증, 로그 순환(10MB×10)은 별도 작업. **순환 시 주의:** `monitor.log`는 `agent-admin:agent-core 0660`이며 `mv`/rename은 mode를 승계하고 새 파일은 순환 도구가 만들면 소유자·그룹·mode가 달라질 수 있음(logrotate `create 0660 agent-admin agent-core` 등 확인 필요). 순환이 열린 fd를 쥔 실행과 겹치는 경우도 검토.
+4. cron 등록(`agent-admin`, 매분) 및 cron 환경(PATH 최소)에서의 실행·기록 검증은 별도 작업. 로그 순환(10MB×10)은 작업 12에서 구현. **순환(작업 12에서 구현·[로그 순환 기록](b4-1-log-rotation.md)):** 아래는 구현 전 주의사항이며 `create 0660 agent-admin agent-core`로 해결·검증됨. `monitor.log`는 `agent-admin:agent-core 0660`이며 `mv`/rename은 mode를 승계하고 새 파일은 순환 도구가 만들면 소유자·그룹·mode가 달라질 수 있음(logrotate `create 0660 agent-admin agent-core` 등 확인 필요). 순환이 열린 fd를 쥔 실행과 겹치는 경우도 검토.
 5. `agent-admin` 소속 변경이 cron 세션에 반영되는지 실측.

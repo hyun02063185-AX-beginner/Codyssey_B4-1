@@ -14,7 +14,8 @@ OrbStack Ubuntu **Linux Machine**을 실습 서버로 사용하며, 여기서 �
 > - **환경변수 파일 적용(부분 완료):** `/etc/default/agent-app`(`root:root 0644`)에 `AGENT_HOME/PORT/UPLOAD_DIR/LOG_DIR` 적용·`agent-admin` 새 프로세스에서 로드 검증 PASS. `AGENT_KEY_PATH`는 **PENDING**(빈 값). 제공 Agent 원본은 **NOT FOUND**라 실행·`Agent READY`·15034 LISTEN 검증은 **미실시** → [Agent 실행환경 기록](docs/b4-1-agent-runtime.md)
 > - **monitor.sh 구현·1차 검증(Agent 없이 가능한 범위):** [bin/monitor.sh](bin/monitor.sh) → `/opt/agent-app/bin/monitor.sh`(`root:agent-admin 0750`). 프로세스 `PENDING`(식별 기준 미설정)·15034 미LISTEN → exit 1, UFW는 `agent-admin` 권한으로 `UNKNOWN`, CPU/MEM/DISK 수집·임계값·설정 오류(exit 2) 로직 PASS. **Agent 정상 판정·exit 0 실측·cron·로그 기록은 PENDING** → [monitor 기록](docs/b4-1-monitor.md)
 > - **monitor.log 누적 기록 구현·검증(작업 11):** 스크립트가 직접 `/var/log/agent-app/monitor.log`(`agent-admin:agent-core 0660`)에 append, 터미널 출력과 동일. 3회 연속 실행·접근 차단·로그 쓰기 실패 감지(exit 규칙 유지)·비밀 비기록 PASS. 로그 포맷은 임시 설계(공식 원문 대조 필요), **순환·cron·Agent 정상 기록은 미구현/PENDING** → [monitor 기록 §5.2](docs/b4-1-monitor.md#52-monitorlog-기록-테스트-작업-11-실측)
-> - **나머지 Mission Core는 미착수:** Agent 기동, 로그 순환, cron. Mission Core 전체 완료가 아닙니다.
+> - **로그 순환 구현·적용(작업 12):** `/etc/logrotate.d/agent-app`(logrotate, rename+create, `size 10M`=10 MiB **이상**, `rotate 9` → 활성 포함 최대 10개, `create 0660 agent-admin agent-core`, `su agent-admin agent-core`)[승인된 실습 설계]. 임시 환경 37건 PASS(경계·반복 12회·권한·실행 중 순환), 실제 로그는 순환·초기화하지 않음. **실제 `logrotate.timer`(일 1회) 발동 확인·엄격한 최대 크기 보장은 아님·cron은 PENDING** → [로그 순환 기록](docs/b4-1-log-rotation.md)
+> - **나머지 Mission Core는 미착수:** Agent 기동, cron. Mission Core 전체 완료가 아닙니다.
 
 ---
 
@@ -173,10 +174,10 @@ OrbStack Ubuntu **Linux Machine**을 실습 서버로 사용하며, 여기서 �
 
 #### 8) 로그
 - [x] [관리자료] `/var/log/agent-app/monitor.log`에 기록 — 스크립트가 직접 append(cron 리디렉션 비의존), `agent-admin:agent-core 0660`, 3회 누적·터미널과 동일 PASS ([상세](docs/b4-1-monitor.md#21-monitorlog-누적-기록-작업-11)). cron 환경 실측·Agent 정상 기록은 PENDING
-- [ ] [관리자료] 최대 10MB / 최대 10개로 순환 (logrotate는 기본 설치되어 있음 — 사용 여부 [확인 필요])
+- [x] [관리자료] 최대 10MB / 최대 10개로 순환 — logrotate 사용, 활성 1 + 순환본 9 = 최대 10개, 10 MiB 이상이면 순환 ([상세](docs/b4-1-log-rotation.md)). 검사는 일 1회라 **엄격한 최대 크기 보장은 아님**. 실제 타이머 발동·실제 크기 도달 순환은 PENDING, 크기·개수의 원문 대조 필요
 - [x] `agent-admin`이 로그에 쓸 수 있는지 확인(`sudo -u agent-admin`으로 실측 PASS). 실제 cron 세션에서의 확인은 cron 작업에서 PENDING
 - [ ] [확인 필요] 로그 라인 형식 — 현재 `YYYY-MM-DD HH:MM:SS [LEVEL] CATEGORY message` 임시 설계 형식, 공식 원문 대조 필요
-- [ ] 증빙: `tail` 결과(확보: 3회 실행 후 로그, [상세](docs/b4-1-monitor.md#52-monitorlog-기록-테스트-작업-11-실측)), 순환 설정 내용(미구현)
+- [ ] 증빙: `tail` 결과(확보: 3회 실행 후 로그, [상세](docs/b4-1-monitor.md#52-monitorlog-기록-테스트-작업-11-실측)), 순환 설정 내용(적용: `/etc/logrotate.d/agent-app`, [config/etc-logrotate.d-agent-app](config/etc-logrotate.d-agent-app))
 
 #### 9) cron
 - [ ] [관리자료] `agent-admin` 계정의 crontab에 매분(`* * * * *`) `monitor.sh` 등록
