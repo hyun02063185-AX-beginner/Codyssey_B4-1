@@ -1,7 +1,8 @@
 # B4-1 디렉터리 권한·ACL 설계 (작업 7)
 
 - 작성: 2026-11-13 / 기준 커밋 `d9b3da2`
-- **상태: 설계 초안 + ACL 동작 실습 검증(7-1, §10).** 실제 Agent 디렉터리 생성, `usermod`, 실제 경로 `chown`/`chmod`/`setfacl`은 아직 하지 않았습니다. 7-1에서 `acl` 패키지만 설치했고 `/tmp` 임시 실습 디렉터리는 정리했습니다. 검수 후 다음 작업에서 적용합니다.
+- **상태: 작업 8에서 승인된 실습 설계(P1/방법 X)를 실제 적용·검증함(§11).** §1~§9는 설계 시점(작업 7)의 기록이며, 일부 "확인 필요"는 §11에서 *승인된 실습 설계*로 결정되었습니다(공식 원문 대조 아님).
+- 값의 구분: **[원문]** 공식 원문 확인(현재 없음) / **[승인된 실습 설계]** 사용자 승인, 원문 미대조 / **[적용됨]** Ubuntu에 실제 반영 / **[실측]** 테스트 결과.
 - 출처 표기: `[관리자료]` 저장소 README 기준 / `[Notion]` Notion B4-1 페이지(unverified, 공식 원문과 1:1 대조 **아님**) / `[설계]` 이 문서의 제안 / `확인 필요`.
 
 ## 1. 요구사항 정리
@@ -221,3 +222,114 @@ FAIL 항목 없음. 설계에 반영한 결론:
 2. cron 계정의 로그 쓰기 방식 X/Y/Z, 및 `agent-admin`의 키 접근 허용 여부.
 3. Agent 실행 계정.
 4. `upload_files`/`api_keys` 절대경로와 `AGENT_HOME`.
+
+## 11. 실제 적용 및 검증 (작업 8)
+
+- 일시: 2026-11-13 / 기준 커밋 `05f2c33`
+- **공식 원문 확인 사항: 없음.** 아래 값은 모두 사용자가 승인한 `[승인된 실습 설계]`이며 공식 미션 원문과 대조되지 않았습니다. 제공 Agent 원본이 확보되면 재확인합니다.
+
+### 11.1 승인된 실습 설계 → 적용된 설정
+
+| 구분 | 값 | 상태 |
+|---|---|---|
+| 그룹 소속 (P1, 방법 X) | `agent-admin` ∈ `agent-common`, `agent-core` / `agent-dev` ∈ `agent-common` / `agent-test` 미소속 | [승인된 실습 설계] → [적용됨] |
+| 경로 | `/opt/agent-app`, `/opt/agent-app/upload_files`, `/opt/agent-app/api_keys` | [승인된 실습 설계] (원문 미확인) → [적용됨] |
+| 경로 | `/var/log/agent-app` | README·Notion 요약 일치, 원문 미대조 → [적용됨] |
+| `agent-admin`의 `api_keys` 접근 | 의도적 허용(방법 X의 결과) | [승인된 실습 설계] |
+
+**실제 사용자별 그룹 소속** (`usermod -aG`로 기존 소속 보존, sudo 미부여):
+
+```
+uid=1000(agent-admin) gid=1002(agent-admin) groups=1002(agent-admin),1000(agent-common),1001(agent-core)
+uid=1001(agent-dev)   gid=1003(agent-dev)   groups=1003(agent-dev),1000(agent-common)
+uid=1002(agent-test)  gid=1004(agent-test)  groups=1004(agent-test)
+agent-common:x:1000:agent-admin,agent-dev
+agent-core:x:1001:agent-admin
+```
+
+**디렉터리 소유권·mode·ACL** (`stat`/`getfacl` 실측):
+
+| 경로 | 소유자:그룹 | mode | ACL (access / default 동일) |
+|---|---|---|---|
+| `/opt/agent-app` | `root:root` | `0755` | 없음 |
+| `/opt/agent-app/upload_files` | `agent-admin:agent-common` | `2770` | `group:agent-common:rwx`, `mask::rwx`, `other::---` |
+| `/opt/agent-app/api_keys` | `root:agent-core` | `2770` | `group:agent-core:rwx`, `mask::rwx`, `other::---` |
+| `/var/log/agent-app` | `root:agent-core` | `2770` | `group:agent-core:rwx`, `mask::rwx`, `other::---` |
+
+`default:` 엔트리도 위와 같은 값(`default:user::rwx`, `default:group::rwx`, `default:group:<g>:rwx`, `default:mask::rwx`, `default:other::---`)입니다. `ls -ld`는 `drwxrws---+`(setgid `s`, ACL `+`)로 표시됩니다.
+
+사전 점검: 대상 경로 3곳 모두 없었고(`/opt`에는 OrbStack 기본 `orbstack-guest`만 존재), 기존 파일·심볼릭 링크 없음, 그룹 멤버 0명이었습니다. 덮어쓴 데이터 없음. `api_keys`에는 실제 키를 만들지 않았습니다.
+
+### 11.2 재현 명령 (교육장 Mac 초기화 후, 검증된 순서)
+
+```bash
+sudo apt-get install -y acl
+# 사용자·그룹은 12장 절차로 먼저 생성되어 있어야 함
+sudo usermod -aG agent-common,agent-core agent-admin
+sudo usermod -aG agent-common agent-dev                     # agent-test는 미가입 유지
+sudo install -d -o root       -g root         -m 0755 /opt/agent-app
+sudo install -d -o agent-admin -g agent-common -m 2770 /opt/agent-app/upload_files
+sudo install -d -o root       -g agent-core   -m 2770 /opt/agent-app/api_keys
+sudo install -d -o root       -g agent-core   -m 2770 /var/log/agent-app
+sudo setfacl -m  g:agent-common:rwx,m::rwx,o::--- /opt/agent-app/upload_files
+sudo setfacl -dm g:agent-common:rwx,m::rwx,o::--- /opt/agent-app/upload_files
+for d in /opt/agent-app/api_keys /var/log/agent-app; do
+  sudo setfacl -m  g:agent-core:rwx,m::rwx,o::--- "$d"
+  sudo setfacl -dm g:agent-core:rwx,m::rwx,o::--- "$d"
+done
+# 확인
+for u in agent-admin agent-dev agent-test; do id $u; done
+getent group agent-common agent-core
+sudo getfacl -p /opt/agent-app/upload_files /opt/agent-app/api_keys /var/log/agent-app
+sudo stat -c "%A %a %U:%G %n" /opt/agent-app /opt/agent-app/* /var/log/agent-app
+```
+
+순서: `usermod` → `install -d`(mode 2770) → `setfacl`(access, 이어서 default). 소속 변경은 이미 로그인 중인 세션에는 즉시 반영되지 않으므로(새 세션부터) 검증은 `sudo -u`로 새 프로세스를 띄워 수행했습니다.
+
+### 11.3 실제 사용자 접근 검증 [실측]
+
+각 테스트 전에 대상 디렉터리와 시드 파일이 실제로 존재함을 확인했고, 허용 계정이 먼저 성공했습니다(거부가 "경로 없음" 때문이 아님).
+
+| # | 계정 | `upload_files` | `api_keys` | `/var/log/agent-app` | 판정 |
+|---|---|---|---|---|---|
+| 1-3 | `agent-admin` | 쓰기/읽기/ls 성공 | 쓰기/읽기/ls 성공 | 쓰기/읽기/ls 성공 | PASS (9/9) |
+| 4 | `agent-dev` | 쓰기/읽기/ls 성공 | — | — | PASS (3/3) |
+| 5-6 | `agent-dev` | — | 쓰기/읽기/ls 모두 `Permission denied` | 쓰기/읽기/ls 모두 `Permission denied` | PASS (6/6) |
+| 7 | `agent-test` | 모두 거부 | 모두 거부 | 모두 거부 | PASS (9/9) |
+
+### 11.4 상속·mask·umask·상위 경로 [실측]
+
+| # | 항목 | 결과 | 판정 |
+|---|---|---|---|
+| 8a | 신규 파일 그룹 | `upload_files`의 신규 파일 그룹 `agent-common`, `api_keys`/로그의 신규 파일 그룹 `agent-core` (setgid 상속). 소유자는 작성자 | PASS |
+| 8b | default ACL 상속 | 신규 파일: `group:<g>:rwx`, `other::---`. 신규 하위 디렉터리: `drwxrws---` + access/default ACL 모두 상속 | PASS |
+| 8c | 멤버 간 상호 접근 | `agent-dev`가 만든 파일을 `agent-admin`이, `agent-admin` 파일을 `agent-dev`가 수정 가능 | PASS |
+| 9a | mask | 신규 **파일**은 `mask::rw-`(group·named `#effective:rw-`), 신규 **디렉터리**는 `mask::rwx` | PASS |
+| 9b | 명시적 mode 0644 파일 | `os.open(..., 0o644)`로 생성: `-rw-r-----`, `group:agent-common:rwx #effective:r--`, `mask::r--` → `agent-dev` **쓰기 거부**(읽기만 가능). `install -m 0644`로 만든 파일도 쓰기 거부, 이 경우 `ls`가 `-rw-r--r--`(other 읽기 비트 포함)로 보임 | PASS (기대: 거부) |
+| 9c | 보정 | 소유자가 `chmod g+w` → `mask::rw-`로 복구되어 `agent-dev` 쓰기 성공 | PASS |
+| 10 | 상위 탐색 | `/`, `/opt`, `/opt/agent-app`(755), `/var`, `/var/log`(775 `root:syslog`) 모두 other `x` 보유 → `agent-test`가 상위는 통과하고 `api_keys`에서만 거부 | PASS |
+
+결론: **default ACL만으로 그룹 쓰기가 항상 보장되지는 않습니다.** touch/`echo >`처럼 0666을 요청하는 프로그램은 `rw-rw----`가 되지만, 0644를 명시하는 프로그램은 mask가 `r--`로 낮아져 그룹 쓰기가 막힙니다. Agent·`monitor.sh`·로그 순환이 파일을 만드는 방식은 해당 구현 시점에 확인해야 합니다.
+
+참고(미테스트): `install -m 0644`로 만든 파일은 `other` 읽기 비트가 생기지만(위 9b), 부모 디렉터리의 `other::---`가 접근을 막기 때문에 디렉터리 밖으로 노출되지는 않습니다. 파일 단독의 other 접근 여부는 별도로 확인하지 않았습니다.
+
+### 11.5 회귀 검증 [실측]
+
+| 항목 | 결과 | 판정 |
+|---|---|---|
+| 기존 사용자 `hyun020631854123` | UID/GID/그룹(sudo 포함) 유지 | PASS |
+| Root SSH 차단 / `port 20022` | `permitrootlogin no`, `port 20022`, ssh active | PASS |
+| Mac → SSH 20022 접속 | 로그인 성공(`… 192.168.139.18 20022`), `ssh b4-lab@orb`도 성공 | PASS |
+| UFW | active, deny(in)/allow(out), 20022·15034 허용 4개 유지 | PASS |
+| `agent-*` sudo 권한 | `sudo -l -U`: 3계정 모두 `not allowed`, sudo 그룹 비소속 | PASS |
+| 정리 | 테스트 파일 전부 삭제(3개 디렉터리 항목 0개), `agent-*` 프로세스 0개, 임시 서버 없음 | PASS |
+
+### 11.6 남은 문제 및 Agent 원본 확보 시 재확인 항목
+
+- 공식 원문 대조: 그룹 소속, "agent-core만" 표현, 경로, mode, ACL 요구 → 원문 확보 후 차이가 있으면 조정(기존 소속·경로 변경이므로 영향 분석 후).
+- 제공 Agent의 실제 요구 경로(`AGENT_HOME`, `upload_files`, `api_keys`)와 실행 계정. 현재 경로는 `[승인된 실습 설계]`.
+- Agent 실행 계정이 `agent-common`/`agent-core` 어느 쪽에 필요한지(현재 `agent-dev`는 core 비소속이라 키·로그에 접근 불가).
+- `agent-admin`의 api_keys 접근은 의도적 허용. 원문이 이를 금지하면 방법 Y/Z로 전환 필요.
+- `monitor.log` 생성·로그 순환 방식에서 파일 mode(0644 명시 여부)와 `mv`의 mode 승계(§10 G)를 반드시 확인.
+- 소속 변경은 기존 세션에 즉시 반영되지 않음(cron·새 로그인 세션에서는 정상 반영 예상, cron 시점에 실측 필요).
+- `agent-*` 계정 SSH 접속은 여전히 미구성.
