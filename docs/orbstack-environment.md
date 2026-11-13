@@ -2,7 +2,7 @@
 
 B4-1 / B4-2 실습환경을 OrbStack Ubuntu Linux Machine으로 구성하는 이유와, 교육장 Mac 초기화 후 복구하는 방법을 정리합니다.
 
-> 이 문서는 **환경 설계 문서**입니다. Machine `b4-lab`은 생성·사전검증(9장)과 SSH 20022 구성·검증(10장)까지 완료했고, 그 외 Mission Core 설정(UFW, 사용자·그룹, 권한, 환경변수, Agent, `monitor.sh`, 로그, cron)은 아직 적용하지 않았습니다.
+> 이 문서는 **환경 설계 문서**입니다. Machine `b4-lab`은 생성·사전검증(9장)과 SSH 20022 구성·검증(10장), UFW 구성·검증(11장)까지 완료했고, 그 외 Mission Core 설정(사용자·그룹, 권한, 환경변수, Agent, `monitor.sh`, 로그, cron)은 아직 적용하지 않았습니다.
 > 명령 예시는 계획 단계의 참고용이며, 실제 적용 시 결과를 확인하고 이 문서를 갱신합니다.
 > 공식 요구사항 값과 설계 선택 값의 구분은 [README 3.2](../README.md#32-값의-구분)를 따릅니다.
 
@@ -79,7 +79,7 @@ OrbStack에는 자체 SSH 접속 경로가 있습니다. 이것은 **미션에�
 | 호스트키 (ED25519) | `SHA256:9vANHPcI25pqjcMgRCKMWJiwf4R6xAWdM6X7lIaqNx0` | `SHA256:bB06Z1oE97PdHnKfjoNofPahYxXLrt3PjpfZwTyHL78` (= `/etc/ssh/ssh_host_ed25519_key.pub`) |
 | 인증 키 | `~/.orbstack/ssh/id_ed25519` (OrbStack 자동 생성) | Machine 사용자의 `~/.ssh/authorized_keys` |
 | `sshd_config` 영향 | 받지 않음 — sshd 포트 변경·socket 비활성 후에도 접속 유지 확인 | 받음 — `Port 20022`, `PermitRootLogin no` |
-| UFW 영향 | (확인 필요 — UFW 작업 시 검증) | 받음 — `20022/tcp` 허용 필요 |
+| UFW 영향 | 받지 않음 — UFW 활성화 후에도 `orb -m`, `ssh b4-lab@orb` 유지 (11장) | 받음 — `20022/tcp` 허용 필요 |
 | 용도 | 관리용 접근, 설정 실수 시 복구 경로 | **미션 요구사항 충족·증빙 대상** |
 
 주의 사항:
@@ -87,7 +87,7 @@ OrbStack에는 자체 SSH 접속 경로가 있습니다. 이것은 **미션에�
 - `ssh b4-lab@orb`로 접속이 된다고 해서 **미션 SSH가 동작하는 것은 아닙니다.** 미션 증빙은 반드시 `-p 20022`로 Machine의 `sshd`에 접속한 결과로 남깁니다.
 - **`b4-lab.orb.local:22`는 Ubuntu sshd가 아닙니다.** 이 이름은 OrbStack 프록시 주소(`192.168.138.3`)로 해석되고, 22번에서는 OrbStack 관리 SSH가 응답합니다(호스트키가 32222와 동일). 따라서 "22번 미사용" 검증은 Machine 내부 `ss`와 Machine IP(`192.168.139.18:22` → Connection refused)로 판단합니다.
 - 반면 `b4-lab.orb.local:20022`는 Ubuntu sshd로 전달됩니다(호스트키가 Machine 호스트키와 동일, `SSH_CONNECTION` 서버 주소 `192.168.139.18`).
-- sshd 포트 변경 후에도 `orb -m b4-lab`, `ssh b4-lab@orb` 모두 유지됨을 확인했습니다. UFW 활성화 후에도 유지되는지는 UFW 작업에서 검증합니다.
+- sshd 포트 변경 후에도 `orb -m b4-lab`, `ssh b4-lab@orb` 모두 유지됨을 확인했습니다. UFW 활성화 후에도 유지됨을 11장에서 확인했습니다.
 - Machine IP(`192.168.139.18`)는 재시작 후에도 같았지만 고정 보장은 확인되지 않았으므로, 접속 주소는 `b4-lab.orb.local`을 우선 사용합니다.
 
 ## 6. Machine 기본 정보
@@ -296,3 +296,79 @@ Root 판정 근거: 10번에서 **같은 키가 일반 사용자로는 성공(11
 - **`PasswordAuthentication`:** 기본값 `yes`입니다. 공식 요구가 있는지 **확인 필요**.
 - **Mac 초기화 시:** `~/.ssh/b4-lab_ed25519`와 `~/.ssh/b4-lab_known_hosts`도 사라집니다. 키를 다시 만들고 공개키를 다시 등록해야 하며, Machine을 재생성하면 호스트키도 바뀝니다.
 - **bootstrap 반영 대상:** 10.4 절차 전체 (설치, 설정 조각, socket→service 전환, 검증).
+
+## 11. UFW 방화벽 구성 및 검증 기록
+
+- 일시: 2026-11-13 / 기준 커밋 `3bd9564`
+- 범위: ufw 설치·정책 적용만. SSH 설정, 사용자·그룹, 권한, Agent, `monitor.sh`, cron은 변경하지 않음.
+- 정책은 `[관리자료]`/`[설계]` 기준이며 공식 원문 대조는 완료되지 않았습니다.
+
+### 11.1 사전 점검
+
+- Machine `running`, IP `192.168.139.18`, `orb -m b4-lab` 정상, sshd `0.0.0.0:20022`·`[::]:20022` LISTEN.
+- Mac → `-p 20022` 접속 성공 (전용 키 `~/.ssh/b4-lab_ed25519`).
+- ufw 미설치였고 기존 iptables 규칙 없음(`INPUT/FORWARD/OUTPUT ACCEPT`) → 초기화할 것도, 영향받을 것도 없었음.
+
+### 11.2 적용 절차 (재설치 시 재현용, bootstrap 반영 대상)
+
+```bash
+sudo apt-get update && sudo apt-get install -y ufw   # ufw 0.36.2 (iptables 백엔드)
+sudo ufw default deny incoming
+sudo ufw default allow outgoing
+sudo ufw allow 20022/tcp comment 'SSH'               # 반드시 활성화 전에
+sudo ufw allow 15034/tcp comment 'Agent'
+sudo ufw show added                                  # 확인
+sudo ufw --force enable
+sudo ufw status verbose
+```
+
+`/etc/default/ufw`의 `IPV6=yes`(기본값)라서 v4·v6 규칙이 모두 생성됩니다. 활성화 시점에 기존 SSH 세션·`orb` 경로는 끊기지 않았습니다.
+
+적용 결과 (`ufw status verbose`):
+
+```
+Status: active
+Logging: on (low)
+Default: deny (incoming), allow (outgoing), deny (routed)
+
+20022/tcp        ALLOW IN  Anywhere        # SSH
+15034/tcp        ALLOW IN  Anywhere        # Agent
+20022/tcp (v6)   ALLOW IN  Anywhere (v6)   # SSH
+15034/tcp (v6)   ALLOW IN  Anywhere (v6)   # Agent
+```
+
+### 11.3 검증 방법
+
+Machine 내부에 임시 TCP 서버(`nc -l`, `0.0.0.0:15034`·`0.0.0.0:15035`)를 띄우고 Mac에서 **Machine IP `192.168.139.18`로 직접** 접속했습니다. macOS `nc -w`는 연결 타임아웃을 제한하지 못해 8초 `alarm`으로 끊었으며, 이때 종료는 "무응답(DROP)"을 뜻합니다. 테스트 서버는 검증 후 종료·제거했습니다(`ss`로 15034/15035 LISTEN 0건 확인).
+
+### 11.4 검증 결과
+
+| # | 검증 | 결과 | 판정 |
+|---|---|---|---|
+| 1 | UFW 실행 상태 | `active`, deny(in)/allow(out), 허용 4개 규칙(v4+v6), iptables `ufw-user-input`/`ufw6-user-input`에 ACCEPT 반영 | PASS |
+| 2a | Mac → Machine SSH 20022 (UFW 후) | 로그인 성공, `hostname=b4-lab`, `SSH_CONNECTION … 192.168.139.18 20022` | PASS |
+| 2b | `orb -m b4-lab`, `ssh b4-lab@orb` | 둘 다 성공 | PASS |
+| 2c | `ssh.service` 설정 유지 | `sshd -T`: `port 20022`, `permitrootlogin no`, 서비스 active | PASS |
+| 3 | 15034 허용 (IPv4, Machine IP / `b4-lab.orb.local`) | 연결 성공 (활성화 전·후 모두) | PASS |
+| 3v6 | 15034 허용 (IPv6, Machine 주소) | `Connection refused` — 방화벽을 통과해 호스트가 RST 응답(테스트 서버가 IPv4만 바인딩). 15035는 무응답과 대조 | PASS (규칙 통과 확인, 서버 응답은 해당 없음) |
+| 4 | 15035 차단 | 활성화 **전** Machine IP·`orb.local` 모두 연결 성공(서버 LISTEN 확인) → 활성화 **후** Machine IP(IPv4)·IPv6 모두 무응답(타임아웃), 서버는 계속 LISTEN | PASS |
+| 4b | TCP 22 (Machine IP) | 이전 `Connection refused` → UFW 후 무응답(DROP). 22는 원래 미사용이며 차단 방식만 달라짐 | 참고 |
+| 5 | OrbStack SSH vs Ubuntu SSH 구분 | 판정은 Machine IP·Machine 내부 `ss` 기준으로만 수행. `b4-lab.orb.local:22` 응답은 판정에서 제외 | PASS |
+| 6 | 재부팅 후 UFW 자동 복원 | 미실시. 활성화 직후 `ufw.service`가 `inactive (dead)`, `ConditionResult=no`로 보였음(원인 미확인, LXC 계열 drop-in 존재). 수동 `systemctl start ufw`는 정상 동작. `ENABLED=yes`이므로 복원될 가능성은 있으나 검증하지 않음 | INCONCLUSIVE |
+| 7 | UFW 차단 로그(`UFW BLOCK`) | `/var/log/ufw.log`·dmesg에 없음 (Machine 로그 구성 영향 추정). 차단 판정은 로그가 아닌 접속 결과 비교에 근거 | INCONCLUSIVE |
+
+FAIL 항목 없음.
+
+### 11.5 OrbStack 네트워크 제약
+
+- `b4-lab.orb.local`은 OrbStack 프록시 주소로 해석되며 22번은 OrbStack 관리 SSH가 응답합니다(5장). 이 주소의 22 응답은 UFW 판정 근거가 아닙니다.
+- 이번 검증에서 Mac → Machine IP(`192.168.139.18`) 경로는 UFW 규칙에 따라 실제로 허용·차단되어 패킷 필터링이 동작함을 확인했습니다.
+- `orb -m`, `ssh b4-lab@orb`는 UFW 활성화 후에도 정상이므로 UFW 오설정 시 복구 경로로 사용할 수 있습니다(필요 시 `sudo ufw disable`).
+- 차단은 REJECT가 아닌 DROP이라 클라이언트 입장에서 "타임아웃"으로 보입니다.
+
+### 11.6 남은 문제 및 다음 작업 주의
+
+- Machine 재시작 후 `sudo ufw status`로 활성 여부를 확인해야 합니다. 비활성이면 `sudo systemctl start ufw`/`sudo ufw enable`. 확인 전까지 `monitor.sh`의 방화벽 점검 검증은 이 점에 유의합니다.
+- Agent 설치 시 15034 허용 규칙은 이미 존재합니다. 실제 Agent 리슨 주소/프로토콜은 Agent 작업에서 확인합니다.
+- Mac IP(`192.168.139.3`)는 허용 규칙에 한정하지 않았습니다(요구사항이 포트 단위).
+- **bootstrap 반영 대상:** 11.2 절차 전체 + 재부팅 후 상태 확인.
