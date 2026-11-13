@@ -1,5 +1,7 @@
 # /etc/logrotate.d/agent-app  --  B4-1 monitor.log rotation
-# [approved lab design] size/rotate/owner are NOT verified against the official mission text.
+# Official requirement: max 10 MB per log, max 10 files kept. Interpretation used here: 10 MB = 10 MiB
+# (logrotate "10M" = 10 * 1024 * 1024 = 10485760 bytes). If a decimal 10 MB (10000000 B) is required,
+# change "size 10M" to "size 9M" (9 MiB + one day of growth stays below 10000000 B) or "size 9500k".
 #
 # Policy: rotate when the active log is 10 MiB (10485760 bytes) or MORE (logrotate 3.21 compares
 # with >=; verified: 10485759 B is not rotated, 10485760 B is); keep the active
@@ -17,7 +19,10 @@
 #   Rotation then runs as agent-admin (member of agent-core, can rename/create in the directory).
 #
 # Note: the size is only checked when logrotate runs (systemd logrotate.timer = daily). The log can
-#   therefore exceed 10 MiB between checks; this is NOT a strict maximum size guarantee.
+#   therefore exceed the threshold between checks; this is NOT a strict maximum size guarantee.
+#   Measured growth: 1 official record (63-73 B) per minute = 90-105 KB/day, so a rotated file is at most
+#   10 MiB + ~0.1 MB; the first rotation of an empty log happens after ~100-115 days.
+#   Total on disk: at most 10 files (active + .1 ... .9), uncompressed (nocompress), i.e. ~105 MB.
 /var/log/agent-app/monitor.log {
     su agent-admin agent-core
     size 10M

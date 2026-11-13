@@ -1,5 +1,8 @@
 # B4-1 요구사항 수행 내역서 (제출용)
 
+> **작업 20 현황(최신):** 정책 `size 10M`(=10 MiB=10485760 B)·`rotate 9`(활성+순환본 9=최대 10개)는 공식 요구(10MB·10개)에 맞는 것으로 판정해 **유지**했습니다(주석만 보강). 2026-11-13 현재 **타이머 발동 후 실제 순환(`logrotate.timer`)은 PENDING**입니다. 아래 본문의 "fd 9 유지", "`agent-dev`·`agent-test` 차단", "실행당 10줄" 서술은 당시 기록이며 [작업 20](b4-1-log-rotation.md#작업-20-운영-검증과-공식-요구사항-정합성)이 우선합니다.
+
+
 > **작업 19 현황(최신):** `agent-admin`은 `/etc/sudoers.d/90-b4-agent-admin-ufw-status`(root:root 0440)로 **정확히 `/usr/sbin/ufw status`만** 비밀번호 없이(`sudo -n`) 실행할 수 있고, `monitor.sh`는 UFW 활성 `OK` / 비활성 `WARNING`(exit 영향 없음) / 권한 거부 `UNKNOWN`을 구분합니다. 이 문서의 "sudo 없음 / UFW UNKNOWN / UFW 비활성 PENDING" 서술은 당시 기록이며 [monitor 기록 작업 19](b4-1-monitor.md#작업-19-ufw-상태-점검과-최소-권한)가 우선합니다. `agent-dev`·`agent-test`는 여전히 sudo 없음.
 
 
@@ -36,7 +39,7 @@
 | 9 | 방화벽 점검, 비활성 시 WARNING만 | 로직 PASS (스텁 검증) / 실제 비활성 상태 미시험 | §2.6 |
 | 10 | CPU/MEM/DISK 수집, 임계값 초과 시 WARNING | PASS (공식 임계값 20/10/80, 반올림 전 값으로 비교) | §2.7 |
 | 11 | `monitor.log` 지정 포맷 누적 기록 | PASS (작업 18: 공식 형식 1줄/실행; 과거 상세 로그와 공존) | §2.8 |
-| 12 | 로그 최대 10MB / 10개 | 설정·임시환경 PASS / **실제 타이머 발동 PENDING** | §2.9 |
+| 12 | 로그 최대 10MB / 10개 | 설정·서비스 순환·13회 연속·동시 실행 무손실 PASS(작업 20) / **타이머 발동 후 실제 순환 PENDING** | §2.9 |
 | 13 | agent-admin crontab 매분 실행, 로그 자동 증가 | PASS | §2.10 |
 | + | 환경 복구 자동화 (`bootstrap-orbstack.sh`) | PASS | §2.11 |
 
@@ -262,7 +265,7 @@ echo "$IP"
 | E15 | CPU/MEM/DISK | B (E12 출력에 포함) | ✅ | 📷 (E12와 동일 화면) |
 | E16 | `monitor.log` 누적 | A | ✅ [monitor §5.2](b4-1-monitor.md) | 📷 |
 | E17 | 로그 순환 설정 | A (`-d`는 dry-run) | ✅ [rotation §2–3](b4-1-log-rotation.md) | 📷 |
-| E18 | 로그 순환 실제 발동 | A | ⛔ 대기 중 | ⛔ 2026-11-14 00:00 KST 이후 |
+| E18 | 로그 순환 실제 발동 | A | ⛔ 대기 중 | ⛔ 2026-11-14 00:00~01:00 KST 이후 타이머 실행 기록 확인([작업 20 §4](b4-1-log-rotation.md#작업-20-운영-검증과-공식-요구사항-정합성)). 본환경 로그는 10 MiB 미만이라 순환 자체는 수개월 뒤 |
 | E19 | cron 등록 | A | ✅ [cron §1–2](b4-1-cron.md) | 📷 |
 | E20 | cron 자동 증가 | A (cron이 로그를 추가하는 것을 관찰) | ✅ [cron §3](b4-1-cron.md) | 📷 |
 | E21 | 환경 복구 점검 | A (`--no-run`: monitor 미실행, 임시 파일만) | ✅ [recovery §4](b4-1-recovery.md) | 📷 |

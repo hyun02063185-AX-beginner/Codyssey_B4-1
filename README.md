@@ -196,7 +196,7 @@ OrbStack Ubuntu **Linux Machine**을 실습 서버로 사용하며, 여기서 �
 
 #### 8) 로그
 - [x] [관리자료] `/var/log/agent-app/monitor.log`에 기록 — 스크립트가 직접 append(cron 리디렉션 비의존), `agent-admin:agent-core 0660`, 3회 누적·터미널과 동일 PASS ([상세](docs/b4-1-monitor.md#21-monitorlog-누적-기록-작업-11)). cron 환경 실측·Agent 정상 기록은 PENDING
-- [x] [관리자료] 최대 10MB / 최대 10개로 순환 — logrotate 사용, 활성 1 + 순환본 9 = 최대 10개, 10 MiB 이상이면 순환 ([상세](docs/b4-1-log-rotation.md)). 검사는 일 1회라 **엄격한 최대 크기 보장은 아님**. 실제 타이머 발동·실제 크기 도달 순환은 PENDING, 크기·개수의 원문 대조 필요
+- [x] [관리자료] 최대 10MB / 최대 10개로 순환 — logrotate `size 10M`(10 MiB), 활성 1 + 순환본 9 = 최대 10개, 일 1회 검사라 엄격한 최대 크기 보장은 아님(작업 20: 서비스 순환·13회 연속·동시 실행 무손실 PASS, **타이머 발동 후 실제 순환은 PENDING**) ([상세](docs/b4-1-log-rotation.md)). 검사는 일 1회라 **엄격한 최대 크기 보장은 아님**. 실제 타이머 발동·실제 크기 도달 순환은 PENDING, 크기·개수의 원문 대조 필요
 - [x] `agent-admin`이 로그에 쓸 수 있는지 확인(`sudo -u agent-admin`으로 실측 PASS). 실제 cron 세션에서의 확인은 cron 작업에서 PENDING
 - [x] 로그 라인 형식 — 공식 `[YYYY-MM-DD HH:MM:SS] PID:… CPU:…% MEM:…% DISK_USED:…%`(작업 18). 이전 상세 로그는 같은 파일에 그대로 남아 두 형식이 공존
 - [ ] 증빙: `tail` 결과(확보: 3회 실행 후 로그, [상세](docs/b4-1-monitor.md#52-monitorlog-기록-테스트-작업-11-실측)), 순환 설정 내용(적용: `/etc/logrotate.d/agent-app`, [config/etc-logrotate.d-agent-app](config/etc-logrotate.d-agent-app))

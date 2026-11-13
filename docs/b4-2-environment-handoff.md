@@ -1,5 +1,8 @@
 # B4-2 환경 인수인계
 
+> **작업 20 현황(최신):** 정책 `size 10M`(=10 MiB=10485760 B)·`rotate 9`(활성+순환본 9=최대 10개)는 공식 요구(10MB·10개)에 맞는 것으로 판정해 **유지**했습니다(주석만 보강). 2026-11-13 현재 **타이머 발동 후 실제 순환(`logrotate.timer`)은 PENDING**입니다. 아래 본문의 "fd 9 유지", "`agent-dev`·`agent-test` 차단", "실행당 10줄" 서술은 당시 기록이며 [작업 20](b4-1-log-rotation.md#작업-20-운영-검증과-공식-요구사항-정합성)이 우선합니다.
+
+
 > **작업 19 현황(최신):** `agent-admin`은 `/etc/sudoers.d/90-b4-agent-admin-ufw-status`(root:root 0440)로 **정확히 `/usr/sbin/ufw status`만** 비밀번호 없이(`sudo -n`) 실행할 수 있고, `monitor.sh`는 UFW 활성 `OK` / 비활성 `WARNING`(exit 영향 없음) / 권한 거부 `UNKNOWN`을 구분합니다. 이 문서의 "sudo 없음 / UFW UNKNOWN / UFW 비활성 PENDING" 서술은 당시 기록이며 [monitor 기록 작업 19](b4-1-monitor.md#작업-19-ufw-상태-점검과-최소-권한)가 우선합니다. `agent-dev`·`agent-test`는 여전히 sudo 없음.
 
 
