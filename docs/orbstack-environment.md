@@ -2,7 +2,7 @@
 
 B4-1 / B4-2 실습환경을 OrbStack Ubuntu Linux Machine으로 구성하는 이유와, 교육장 Mac 초기화 후 복구하는 방법을 정리합니다.
 
-> 이 문서는 **환경 설계 문서**입니다. Machine `b4-lab`은 생성·사전검증(9장)과 SSH 20022 구성·검증(10장), UFW 구성·검증(11장)까지 완료했고, 그 외 Mission Core 설정(사용자·그룹, 권한, 환경변수, Agent, `monitor.sh`, 로그, cron)은 아직 적용하지 않았습니다.
+> 이 문서는 **환경 설계 문서**입니다. Machine `b4-lab`은 생성·사전검증(9장)과 SSH 20022 구성·검증(10장), UFW 구성·검증(11장), 사용자·그룹 생성(12장, 그룹 소속 제외)까지 완료했고, 그 외 Mission Core 설정(권한, 환경변수, Agent, `monitor.sh`, 로그, cron)은 아직 적용하지 않았습니다.
 > 명령 예시는 계획 단계의 참고용이며, 실제 적용 시 결과를 확인하고 이 문서를 갱신합니다.
 > 공식 요구사항 값과 설계 선택 값의 구분은 [README 3.2](../README.md#32-값의-구분)를 따릅니다.
 
@@ -403,3 +403,68 @@ FAIL 항목 없음.
 임시 서버(`nc`)는 종료했고 LISTEN 0건 확인. 변경된 설정 없음(수정 불필요).
 
 **검증 범위**: OrbStack `orb restart b4-lab`까지입니다. Mac 재부팅이나 OrbStack 앱 재시작 후의 동작은 확인하지 않았습니다. 재시작 후에도 `sudo ufw status` 확인 습관은 유지하세요.
+
+## 12. 사용자·그룹 구성 및 검증 기록
+
+- 일시: 2026-11-13 / 기준 커밋 `f8cb725`
+- 범위: 사용자·그룹 **생성만**. 디렉터리 권한/ACL, Agent, 환경변수, `monitor.sh`, cron, SSH·UFW 변경 없음.
+
+### 12.1 요구사항 확인 상태
+
+| 항목 | 상태 | 비고 |
+|---|---|---|
+| 사용자 `agent-admin`, `agent-dev`, `agent-test` | 확정 `[관리자료]` | README 3.3 |
+| 그룹 `agent-common`, `agent-core` | 확정 `[관리자료]` | README 3.3 |
+| 사용자별 그룹 소속 | **미확정** | 공식 원문을 저장소·Mac에서 찾지 못했고 README에도 미기입. 추측 지정 금지 원칙에 따라 **미적용** |
+| UID/GID 값, 로그인 셸, 비밀번호/SSH 방식 | **미확정** | 아래 값은 Ubuntu 기본값(설계 선택)이며 공식 값이 아님 |
+
+사전 상태: `agent-*` 사용자·그룹 모두 없음(기존 사용자는 OrbStack 기본 사용자 `hyun020631854123` 하나).
+
+### 12.2 적용 절차 (재현용, bootstrap 반영 대상)
+
+```bash
+sudo groupadd agent-common
+sudo groupadd agent-core
+for u in agent-admin agent-dev agent-test; do
+  sudo useradd -m -s /bin/bash -c "B4-1 mission account" "$u"
+  sudo passwd -l "$u"          # 비밀번호 로그인 불가(잠금). 비밀번호는 설정하지 않음
+done
+# ※ 그룹 소속(usermod -aG)은 원문 확인 후 별도 작업에서 적용
+```
+
+설계 선택(공식 요구 아님): 기본 개인 그룹(`USERGROUPS_ENAB yes`), 홈 `/home/<user>`(`/etc/skel` 복사), 셸 `/bin/bash`, 비밀번호 잠금, sudo 미부여. 재설치 시 UID/GID는 생성 순서에 따라 결정됩니다. 비밀번호·키는 저장소에 기록하지 않았습니다.
+
+### 12.3 실제 결과
+
+```
+uid=1000(agent-admin) gid=1002(agent-admin) groups=1002(agent-admin)
+uid=1001(agent-dev)   gid=1003(agent-dev)   groups=1003(agent-dev)
+uid=1002(agent-test)  gid=1004(agent-test)  groups=1004(agent-test)
+agent-common:x:1000:
+agent-core:x:1001:
+```
+
+- `/etc/passwd`: 홈 `/home/agent-*`, 셸 `/bin/bash`.
+- 홈 디렉터리: `agent-*:agent-*` `750`(`drwxr-x---`), `.bashrc/.profile/.bash_logout` 존재.
+- 비밀번호 상태 `passwd -S`: 세 계정 모두 `L`(잠김).
+- UID/GID 번호가 일치하지 않는 것(예: agent-admin UID 1000 / GID 1002)은 그룹 2개를 먼저 만들어 GID 1000, 1001이 소진됐기 때문이며 기능상 문제 없음.
+
+### 12.4 검증 결과
+
+| # | 항목 | 결과 | 판정 |
+|---|---|---|---|
+| 1 | 사용자 3개 생성 (`id`) | 위 출력 | PASS |
+| 2 | 그룹 2개 생성 (`getent group`) | 위 출력 | PASS |
+| 3 | 홈 디렉터리·기본 권한 | 750, 소유자 일치 | PASS |
+| 4 | 불필요한 sudo 없음 | `sudo -l -U`: 3계정 모두 `not allowed`, `sudo` 그룹 미소속, sudoers에 agent 항목 없음 | PASS |
+| 5 | 기존 사용자 유지 | `hyun020631854123` UID/GID/그룹(sudo 포함)·홈 변경 없음 | PASS |
+| 6 | SSH 유지 | `port 20022`, `permitrootlogin no`, ssh active, Mac → 20022 접속 성공, `ssh b4-lab@orb` 성공 | PASS |
+| 7 | UFW 유지 | active, deny(in)/allow(out), 20022·15034 규칙 4개 동일 | PASS |
+| 8 | 사용자별 그룹 소속 | 미적용(원문 미확인) | 해당 없음 (미확정) |
+| 9 | `agent-*` 계정 SSH 접속 | 미실시. 비밀번호 잠금·authorized_keys 없음 → 접속 불가 상태 | 미검증 |
+
+### 12.5 남은 문제 및 다음 작업 주의
+
+- **원문 확인이 최우선:** 사용자↔그룹 소속(예: cron 실행 사용자 `agent-admin`이 `agent-core`에 속해야 로그에 쓸 수 있는지 등)은 원문을 확인한 뒤 `usermod -aG`로 추가하고 `id`·`getent`로 재검증합니다.
+- `agent-*` 계정의 SSH 접속 방식은 미정(10.6)이며 현재 접속할 수 없습니다. 필요하면 키 방식을 결정 후 구성합니다.
+- 셸·UID/GID에 공식 요구가 있으면 그에 맞춰 재조정이 필요할 수 있습니다(기존 계정 변경이므로 그때 영향 분석).
