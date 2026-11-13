@@ -120,7 +120,10 @@ for t in ss pgrep df awk date sleep; do
 done
 
 # ---------------------------------------------------------------- config
-say INFO START "user=$(id -un) uid=$EUID host=$(hostname) env_file=$ENV_FILE"
+# trigger: who started this run (crontab sets MONITOR_TRIGGER=cron); anything else is logged as given
+# (sanitized, max 16 chars), default "manual". groups: effective supplementary groups of this process.
+TRIG="${MONITOR_TRIGGER:-manual}"; TRIG="${TRIG//[^A-Za-z0-9_-]/_}"; TRIG="${TRIG:0:16}"
+say INFO START "user=$(id -un) uid=$EUID groups=$(id -Gn | tr ' ' ,) trigger=$TRIG host=$(hostname) env_file=$ENV_FILE"
 if [ ! -r "$ENV_FILE" ]; then
   LOG_STATE=disabled; say ERROR CONFIG "env file not readable: $ENV_FILE (log disabled: AGENT_LOG_DIR unknown)"; finish
 fi

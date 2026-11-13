@@ -15,7 +15,8 @@ OrbStack Ubuntu **Linux Machine**을 실습 서버로 사용하며, 여기서 �
 > - **monitor.sh 구현·1차 검증(Agent 없이 가능한 범위):** [bin/monitor.sh](bin/monitor.sh) → `/opt/agent-app/bin/monitor.sh`(`root:agent-admin 0750`). 프로세스 `PENDING`(식별 기준 미설정)·15034 미LISTEN → exit 1, UFW는 `agent-admin` 권한으로 `UNKNOWN`, CPU/MEM/DISK 수집·임계값·설정 오류(exit 2) 로직 PASS. **Agent 정상 판정·exit 0 실측·cron·로그 기록은 PENDING** → [monitor 기록](docs/b4-1-monitor.md)
 > - **monitor.log 누적 기록 구현·검증(작업 11):** 스크립트가 직접 `/var/log/agent-app/monitor.log`(`agent-admin:agent-core 0660`)에 append, 터미널 출력과 동일. 3회 연속 실행·접근 차단·로그 쓰기 실패 감지(exit 규칙 유지)·비밀 비기록 PASS. 로그 포맷은 임시 설계(공식 원문 대조 필요), **순환·cron·Agent 정상 기록은 미구현/PENDING** → [monitor 기록 §5.2](docs/b4-1-monitor.md#52-monitorlog-기록-테스트-작업-11-실측)
 > - **로그 순환 구현·적용(작업 12):** `/etc/logrotate.d/agent-app`(logrotate, rename+create, `size 10M`=10 MiB **이상**, `rotate 9` → 활성 포함 최대 10개, `create 0660 agent-admin agent-core`, `su agent-admin agent-core`)[승인된 실습 설계]. 임시 환경 37건 PASS(경계·반복 12회·권한·실행 중 순환), 실제 로그는 순환·초기화하지 않음. **실제 `logrotate.timer`(일 1회) 발동 확인·엄격한 최대 크기 보장은 아님·cron은 PENDING** → [로그 순환 기록](docs/b4-1-log-rotation.md)
-> - **나머지 Mission Core는 미착수:** Agent 기동, cron. Mission Core 전체 완료가 아닙니다.
+> - **cron 매분 자동 실행 적용·검증(작업 13):** `agent-admin` crontab에 `* * * * * MONITOR_TRIGGER=cron /opt/agent-app/bin/monitor.sh >/dev/null 2>&1`(관리: [scripts/monitor-cron.sh](scripts/monitor-cron.sh), 중복 등록 방지·기존 항목 보존·pause/resume). 실제 예약 실행 6회 이상 연속 확인(빠진 분 0), 로그 누적·`trigger=cron` 구분·그룹 반영·환경변수 직접 로드 PASS. 매 실행 `exit=1`은 Agent 부재의 정상 검출. **Agent 정상 기록(exit 0)·logrotate 타이머 실제 발동은 PENDING** → [cron 기록](docs/b4-1-cron.md)
+> - **나머지 Mission Core는 미착수:** Agent 기동(제공 Agent 미확보). Mission Core 전체 완료가 아닙니다.
 
 ---
 
@@ -180,10 +181,10 @@ OrbStack Ubuntu **Linux Machine**을 실습 서버로 사용하며, 여기서 �
 - [ ] 증빙: `tail` 결과(확보: 3회 실행 후 로그, [상세](docs/b4-1-monitor.md#52-monitorlog-기록-테스트-작업-11-실측)), 순환 설정 내용(적용: `/etc/logrotate.d/agent-app`, [config/etc-logrotate.d-agent-app](config/etc-logrotate.d-agent-app))
 
 #### 9) cron
-- [ ] [관리자료] `agent-admin` 계정의 crontab에 매분(`* * * * *`) `monitor.sh` 등록
-- [ ] cron 서비스 동작 확인 (사전검증 결과 cron **설치·active**)
-- [ ] 절대 경로 사용, 필요한 환경변수를 crontab 또는 스크립트에서 명시
-- [ ] 증빙: `sudo crontab -u agent-admin -l`, 매분 로그가 누적되는 결과
+- [x] [관리자료] `agent-admin` 계정의 crontab에 매분(`* * * * *`) `monitor.sh` 등록 ([cron 기록](docs/b4-1-cron.md))
+- [x] cron 서비스 동작 확인 (`cron 3.0pl1-184ubuntu2`, enabled·active, `agent-admin` 세션 정상 개설)
+- [x] 절대 경로 사용, 환경변수는 스크립트가 `/etc/default/agent-app`을 직접 로드(cron 환경에는 `AGENT_*` 없음을 관찰로 확인)
+- [x] 증빙: `sudo crontab -u agent-admin -l`, 매분 로그 누적(6회 이상, `trigger=cron`) — [cron 기록 §3](docs/b4-1-cron.md). 정상(exit 0) 기록은 Agent 확보 후 PENDING
 
 #### 10) 마무리
 - [ ] 수동 설정을 `scripts/bootstrap-orbstack.sh`로 재현 가능하게 정리

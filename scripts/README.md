@@ -1,6 +1,10 @@
 # scripts/
 
-B4-1 환경을 재현하기 위한 스크립트를 두는 디렉터리입니다. **현재는 비어 있습니다(문서만 존재).**
+B4-1 환경을 재현하기 위한 스크립트를 두는 디렉터리입니다.
+
+## 현재 파일
+
+- `monitor-cron.sh` — `agent-admin` crontab의 `monitor.sh` 매분 작업 관리(`install`/`pause`/`resume`/`remove`/`status`, Machine 안에서 root로 실행). 설명·검증: [docs/b4-1-cron.md](../docs/b4-1-cron.md). **bootstrap 스크립트는 아님**(아래 예정 파일은 아직 미작성).
 
 ## 예정 파일: `bootstrap-orbstack.sh` (아직 작성하지 않음)
 

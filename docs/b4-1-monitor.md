@@ -36,6 +36,7 @@ sudo -u agent-admin env -i PATH=/usr/bin:/bin /opt/agent-app/bin/monitor.sh; ech
 | 생성 | 파일이 없으면 열면서 생성(`umask 007`; 디렉터리 default ACL이 있으면 ACL 기준으로 `rw-rw----`). 심볼릭 링크 경로와 일반 파일이 아닌 경로는 거부 |
 | 권한(적용) | `-rw-rw---- agent-admin:agent-core` (0660), ACL 엔트리 없음(`group::rw-`, `other::---`). 소유자 `agent-admin`은 설계 결정이며 원문 미확인 |
 | 형식 | **임시 설계 형식**, 공식 로그 포맷은 [원문 미확인] — 대조 필요 |
+| START 필드(작업 13) | `groups=`(프로세스의 실효 보조 그룹), `trigger=`(`MONITOR_TRIGGER` 값, 기본 `manual`, cron은 `cron`; 영숫자·`_`·`-`, 16자로 제한). 판정 로직은 변경 없음 |
 | 비밀 | 고정 필드만 출력. `AGENT_KEY_PATH`가 설정돼 있어도 값은 출력·기록하지 않고 "설정됨(값은 기록하지 않음)"만 남김. 환경변수 전체를 덤프하지 않음 |
 | 로그 쓰기 실패 | `ERROR LOG`로 감지(열기 실패, 심볼릭 링크, 비일반 파일, 실행 중 쓰기 실패). 점검·화면 출력은 끝까지 수행하고 SUMMARY에 `log=FAILED`·`error≥1`. 종료 코드는 §4(장애가 있으면 1 우선, 그 외 2) |
 | 로그 경로를 알 수 없음 | env 파일을 읽을 수 없거나 `AGENT_LOG_DIR`이 비어 있으면 로그 비활성(`log=disabled`), 설정 오류이므로 exit 2 |
@@ -45,7 +46,7 @@ env 파일을 읽기 전에 발생한 줄(START 등)은 메모리에 보관했�
 ### 실제 출력 (agent-admin, env -i, 2026-11-13)
 
 ```
-[INFO] START user=agent-admin uid=1000 host=b4-lab env_file=/etc/default/agent-app
+[INFO] START user=agent-admin uid=1000 groups=agent-admin,agent-common,agent-core trigger=manual host=b4-lab env_file=/etc/default/agent-app
 [INFO] CONFIG AGENT_HOME=/opt/agent-app AGENT_PORT=15034 AGENT_UPLOAD_DIR=/opt/agent-app/upload_files AGENT_LOG_DIR=/var/log/agent-app
 [INFO] CONFIG AGENT_KEY_PATH is empty (PENDING in setup); not needed for monitoring, continuing
 [PENDING] PROCESS agent identification criteria not configured (AGENT_PROCESS_PATTERN unset); not assuming any python process is the Agent
@@ -245,5 +246,5 @@ Agent 확보 후: `/etc/default/agent-app`에 `AGENT_PROCESS_PATTERN=<Agent 명�
 1. 제공 Agent 확보 → `AGENT_PROCESS_PATTERN` 확정, 실제 프로세스·LISTEN·listener PID 검증, 정상 경로(exit 0) 실측. Agent 실행 계정이 `agent-admin`이 아니면 PID가 보이지 않아 `PENDING`이 되므로 계정 관계를 정할 것.
 2. UFW 점검 권한 방식 결정(§3): 현재 `agent-admin` 실행 시 `UNKNOWN`.
 3. 임계값·**로그 포맷**·WARNING 시 종료 코드·종료 코드 정의를 공식 원문과 대조(현재 모두 임시 설계).
-4. cron 등록(`agent-admin`, 매분) 및 cron 환경(PATH 최소)에서의 실행·기록 검증은 별도 작업. 로그 순환(10MB×10)은 작업 12에서 구현. **순환(작업 12에서 구현·[로그 순환 기록](b4-1-log-rotation.md)):** 아래는 구현 전 주의사항이며 `create 0660 agent-admin agent-core`로 해결·검증됨. `monitor.log`는 `agent-admin:agent-core 0660`이며 `mv`/rename은 mode를 승계하고 새 파일은 순환 도구가 만들면 소유자·그룹·mode가 달라질 수 있음(logrotate `create 0660 agent-admin agent-core` 등 확인 필요). 순환이 열린 fd를 쥔 실행과 겹치는 경우도 검토.
+4. cron 등록은 작업 13에서 완료([cron 기록](b4-1-cron.md)). 로그 순환(10MB×10)은 작업 12에서 구현. **순환(작업 12에서 구현·[로그 순환 기록](b4-1-log-rotation.md)):** 아래는 구현 전 주의사항이며 `create 0660 agent-admin agent-core`로 해결·검증됨. `monitor.log`는 `agent-admin:agent-core 0660`이며 `mv`/rename은 mode를 승계하고 새 파일은 순환 도구가 만들면 소유자·그룹·mode가 달라질 수 있음(logrotate `create 0660 agent-admin agent-core` 등 확인 필요). 순환이 열린 fd를 쥔 실행과 겹치는 경우도 검토.
 5. `agent-admin` 소속 변경이 cron 세션에 반영되는지 실측.

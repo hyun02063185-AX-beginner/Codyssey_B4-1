@@ -1,0 +1,5 @@
+# agent-admin crontab (managed block). Install with:  sudo scripts/monitor-cron.sh install   (inside the Machine)
+# Do not paste secrets here. monitor.sh loads /etc/default/agent-app itself and writes /var/log/agent-app/monitor.log.
+# BEGIN B4-1 monitor (managed by scripts/monitor-cron.sh; do not edit inside)
+* * * * * MONITOR_TRIGGER=cron /opt/agent-app/bin/monitor.sh >/dev/null 2>&1
+# END B4-1 monitor
