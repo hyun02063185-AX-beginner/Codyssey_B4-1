@@ -1,0 +1,117 @@
+# B4-1 환경 복구 자동화 (작업 14)
+
+- 일시: 2026-11-13 / 기준 커밋 `cb051d8`
+- 구성: [scripts/bootstrap-orbstack.sh](../scripts/bootstrap-orbstack.sh)(Mac에서 실행) → [scripts/machine-setup.sh](../scripts/machine-setup.sh)(Machine 안에서 root로 실행) + 저장소의 설정 파일([bin/monitor.sh](../bin/monitor.sh), [config/](../config/), [scripts/monitor-cron.sh](../scripts/monitor-cron.sh))
+- **Mac에서는 sudo를 쓰지 않습니다.** 권한이 필요한 작업은 모두 `orb -m <machine> sudo …`로 Machine 안에서만 수행합니다.
+- 값의 구분: **[승인된 실습 설계]** 설정값 전반(공식 원문 미대조) / **[실측]** 이 문서의 테스트 결과 / **PENDING** 제공 Agent 필요.
+
+## 1. 무엇이 복구되고 무엇이 사라지는가
+
+| 구분 | 내용 |
+|---|---|
+| **GitHub로 재현되는 설정** | ① Ubuntu 24.04 Machine 생성 ② SSH 20022 + Root 차단 ③ UFW(deny in/allow out, 20022·15034/tcp) ④ 사용자 3·그룹 2·소속 ⑤ `/opt/agent-app` 구조·ACL ⑥ `/etc/default/agent-app` ⑦ `monitor.sh` 배포 ⑧ `monitor.log` 파일·권한 ⑨ logrotate 설정 ⑩ `agent-admin` 매분 cron |
+| **교육장 Mac 초기화로 사라지고 GitHub로 복구되지 않는 것** | 기존 Machine과 그 안의 **모든 데이터**: `monitor.log`와 순환본(과거 기록), `upload_files`·`api_keys`의 파일, 저장소에 없는 `/etc/default/agent-app` 변경(예: 나중에 추가할 `AGENT_PROCESS_PATTERN`·`AGENT_KEY_PATH`), 직접 만든 crontab 항목, 사용자 비밀번호. Mac의 SSH 키쌍(`~/.ssh/b4-lab_ed25519`)과 known_hosts, **push하지 않은 로컬 커밋** |
+| **애초에 저장소에 넣지 않는 것** | SSH 개인키·API 키·비밀번호(스크립트가 생성·복사·저장하지 않음), 제공 Agent 원본(미확보, **PENDING**) |
+
+## 2. 절차 A — 처음 쓰는(초기화된) Mac에서 새 Machine 구성
+
+전제: OrbStack 설치. Mac 쪽 sudo 불필요.
+
+```bash
+git clone https://github.com/hyun02063185-AX-beginner/Codyssey_B4-1.git
+cd Codyssey_B4-1
+scripts/bootstrap-orbstack.sh create     # orb create ubuntu:noble b4-lab (이미 있으면 건드리지 않음)
+scripts/bootstrap-orbstack.sh check      # (선택) 읽기 전용 차이 확인 — 새 Machine에서는 차이가 많은 것이 정상
+scripts/bootstrap-orbstack.sh apply      # 설치. 소요 약 40초(패키지 다운로드 포함). 실패하면 해당 단계에서 멈춤
+scripts/bootstrap-orbstack.sh verify --wait-cron 240    # 상태 확인 + Mac 쪽 네트워크 검증 + 예약 실행 확인
+# 한 번에: scripts/bootstrap-orbstack.sh all
+```
+
+다른 이름의 Machine: `--machine NAME`(기본 `b4-lab`).
+
+SSH 실제 로그인 시험(선택): 키는 사용자가 직접 만든 것을 씁니다(스크립트는 키를 만들지 않음).
+
+```bash
+ssh-keygen -t ed25519 -f ~/.ssh/b4-lab_ed25519 -C b4-lab         # 이미 있으면 생략
+scripts/bootstrap-orbstack.sh verify --ssh-pubkey ~/.ssh/b4-lab_ed25519.pub
+```
+공개키만 Machine 기본 사용자의 `authorized_keys`에 추가하고 개인키는 Mac에 남습니다.
+
+## 3. 절차 B — 이미 구성된 Machine에서 점검·복구
+
+```bash
+scripts/bootstrap-orbstack.sh check                       # 읽기 전용: 단계별 OK / DIFF, 종료 코드 0(일치) / 1(차이)
+scripts/bootstrap-orbstack.sh apply                       # 이미 B4-1 데이터가 있으면 [STOP]으로 거부(보호)
+scripts/bootstrap-orbstack.sh apply --allow-existing      # 차이가 있는 단계만 복구
+scripts/bootstrap-orbstack.sh snapshot                    # 정규화된 상태 출력(두 Machine을 diff로 비교)
+```
+
+`apply`는 단계마다 먼저 **check**를 하고, 차이가 있는 단계에서만 변경한 뒤 **다시 check**로 확인합니다(`CHG` → `OK applied and verified`). 실패하면 그 단계에서 멈추고 이후 단계는 실행하지 않습니다.
+
+| 단계 | 하는 일 (이미 맞으면 아무것도 하지 않음) |
+|---|---|
+| `preflight` | Ubuntu 24.04·systemd·저장소 파일 확인 (고칠 수 없는 항목이면 실패) |
+| `packages` | `openssh-server ufw acl cron logrotate iproute2 procps` 중 없는 것만 설치 |
+| `ssh` | `/etc/ssh/sshd_config.d/10-b4-mission.conf`(Port 20022, PermitRootLogin no) 설치 → `sshd -t` 통과 시에만 `ssh.socket` 비활성·`ssh.service` 활성·재시작. `sshd -t` 실패 시 되돌리고 **실행 중인 sshd는 건드리지 않음**. 실효값(`sshd -T`)과 LISTEN으로 최종 확인. OrbStack 관리 SSH(`orb -m`)와는 별개라 영향 없음 |
+| `ufw` | deny incoming / allow outgoing, **20022/tcp 허용을 먼저** 추가(없으면 활성화 거부) → 15034/tcp → `ufw --force enable`, `ufw.service` enabled. 허용 포트 집합이 정확히 {20022, 15034}인지 확인(**다른 규칙은 보고만, 삭제하지 않음**) |
+| `accounts` | 그룹 먼저(GID 1000·1001), 사용자 3명(`useradd -m -s /bin/bash`, **생성할 때만** 비밀번호 잠금), `usermod -aG`로 소속 추가(기존 소속 보존). sudo 권한은 부여하지 않으며, 있으면 차이로 보고 |
+| `dirs` | `/opt/agent-app`(root:root 755), `upload_files`(agent-admin:agent-common 2770), `api_keys`·`/var/log/agent-app`(root:agent-core 2770) + access·default ACL |
+| `envfile` | `/etc/default/agent-app`이 **없을 때만** 생성(root:root 0644). 있고 값이 다르면 **덮어쓰지 않고 실패**(`AGENT_KEY_PATH`는 값이 있어도 허용) |
+| `monitor` | `bin/monitor.sh`를 `/opt/agent-app/bin/monitor.sh`(root:agent-admin 0750)로 배포 |
+| `logfile` | `monitor.log`가 없을 때만 생성(agent-admin:agent-core 0660). 있으면 소유자·mode만 맞추고 **내용은 절대 수정·삭제하지 않음** |
+| `logrotate` | `/etc/logrotate.d/agent-app` 설치, `logrotate -d` 오류 없음, `logrotate.timer` 활성 |
+| `cron` | `cron` 서비스 활성 + `monitor-cron.sh install`(관리 블록만 교체, **다른 crontab 항목 보존**, 중복 없음) |
+| `verify` | `agent-admin`으로 `monitor.sh`를 **임시 로그**로 1회 실행(실제 `monitor.log` 무변경). exit 0 또는 1은 정상 동작(현재 Agent 부재의 exit 1은 **예상된 장애 감지**), exit 2는 실패 |
+| `agent` | **PENDING** 안내만 출력(Agent를 설치·모의하지 않음) |
+
+한계: 일시 중지(`pause`)한 cron은 `apply`가 다시 켭니다. `ssh`·`ufw` 단계에서 충돌하는 다른 설정은 자동으로 지우지 않고 실패로 보고합니다.
+
+## 4. 새 Machine 재구축 검증 [실측]
+
+기존 `b4-lab`은 **삭제·초기화하지 않고** 읽기 전용 `check`/`snapshot`만 실행했습니다. 별도 Machine `b4-recovery-test`(ubuntu:noble, 24.04.5, x86_64)를 새로 만들어 검증했습니다(Machine 생성 약 21초, 설치 약 42초).
+
+| # | 항목 | 결과 | 판정 |
+|---|---|---|---|
+| 1 | 설치 전 상태 | `check`: ok 1 / diff 11 — sshd·ufw·acl 없음, 사용자·디렉터리·파일 없음 | 기준선 |
+| 2 | GitHub(저장소) 파일만으로 최초 설치 | `apply`: unchanged 2 / changed 10 / **failed 0**(소요 ≈ 42초) | PASS |
+| 3 | 반복 실행 | 데이터가 있는 Machine에 `--allow-existing` 없이 → `[STOP]`(보호). 2회차 `apply --allow-existing`: **12단계 모두 변경 없음**. 전후 지문(파일 mtime·inode·sha256, UFW 규칙, crontab, UID/GID, ACL, ssh·cron 서비스 시작 시각) **완전 동일**, 관리 블록 1개 | PASS |
+| 4 | `b4-lab`과의 동일성 | `snapshot` 109줄을 비교: 차이는 **호스트 이름이 들어간 sudo 안내 문구 3줄뿐**. UID/GID, 그룹 소속, 디렉터리 소유·mode·ACL, 파일 해시·권한, sshd 실효값, UFW, crontab, 패키지 버전 모두 동일. 아래 5~6 오류 시험을 모두 마친 뒤 다시 비교해도 동일 | PASS |
+| 5 | SSH | 새 Machine IP:20022가 `SSH-2.0-OpenSSH_9.6p1 Ubuntu-3ubuntu13.20`로 응답(OrbStack SSH 아님), IP:22 접근 불가, **Mac에서 실제 로그인 성공**(`ssh -p 20022`, 개인키는 Mac에만 존재), `orb -m` 관리 경로 정상 | PASS |
+| 6 | Root 차단 | `sshd -T` 실효값 `permitrootlogin no`. 테스트용으로 root에 **공개키**를 잠시 허가한 뒤 root 로그인 시도 → 거부, sshd 로그 `ROOT LOGIN REFUSED`(PermitRootLogin에 의한 차단이며 단순 인증 실패가 아님), 임시 키 제거. 일반 사용자는 같은 키로 로그인 성공 | PASS |
+| 7 | UFW 실제 동작 | Mac에서 새 Machine IP로: 15034 → `refused`(방화벽 통과, 서버 없음), 15035 → `timeout`(UFW가 차단), 22 → 접근 불가. 가짜 서버를 만들지 않음 | PASS |
+| 8 | 사용자·그룹·ACL | `check` 12단계 OK. agent-test 비소속, sudo 없음 | PASS |
+| 9 | 환경변수·monitor | `monitor.sh`가 `agent-admin`으로 실행, `groups=agent-admin,agent-common,agent-core`, `exit=1` + `PENDING PROCESS`·`FAIL PORT`(예상된 장애 감지) | PASS |
+| 10 | cron 실제 예약 실행 | `trigger=cron`의 `START`~`SUMMARY`가 매분 기록, 대기 중 새 예약 실행 3회 확인(+journal에 `(agent-admin) CMD`) | PASS |
+| 11 | 로그·logrotate | `monitor.log` `agent-admin:agent-core 660`, `/etc/logrotate.d/agent-app` 동일, `logrotate -d` 오류 없음, `logrotate.timer` 활성 | PASS |
+
+### 오류 상황과 복구 [실측, `b4-recovery-test`에서 주입]
+
+| 상황 | 동작 | 판정 |
+|---|---|---|
+| 충돌하는 sshd 조각(`00-conflict.conf`: `PermitRootLogin yes`, 먼저 읽혀 우선 적용됨) | `ssh` 단계 **FAIL**("실효값이 여전히 다름"), 이후 단계 미실행, exit 1. 조각 제거 후 `apply` → 정상 | PASS |
+| 잘못된 sshd 지시어(`sshd -t` 실패) | 설치한 조각을 되돌리고 **FAIL**, 이후 단계 미실행. 그 뒤에도 `ssh.service` active·20022 LISTEN·`orb -m` 정상(실행 중인 sshd 무영향) | PASS |
+| `/etc/default/agent-app` 값 충돌(`AGENT_PORT=9999`) + `monitor.sh` 변조 | `envfile` 단계 **FAIL**(덮어쓰지 않음, 값 9999 그대로), 이후 `monitor` 단계는 **실행되지 않음**(변조 그대로). 값을 되돌리고 `apply` → `monitor` 복구 | PASS |
+| 드리프트(cron 블록 삭제, logrotate 설정 삭제, `agent-dev`를 `agent-common`에서 제거, `api_keys` mode 2777, `monitor.log` mode 666) | `check`가 5개 단계의 DIFF 보고(exit 1), `apply`가 5개 단계 복구, 재`check` 12 OK. **로그 앞 20줄 해시 동일(보존)**, **직접 넣은 다른 crontab 항목 보존**, 관리 블록 1개 | PASS |
+| 불허 그룹 멤버(`agent-test`를 `agent-core`에 추가) | `accounts` 단계 **FAIL**("수동으로 제거"), **자동 삭제하지 않음**(멤버 그대로). 수동 `gpasswd -d` 후 `apply` 정상 | PASS |
+
+## 5. 검증 중 발견한 문제와 수정
+
+- **오탐 1건(내 검사의 결함):** 첫 `b4-lab` `check`가 `envfile`을 DIFF로 보고했습니다. 환경변수 파일 **주석**의 "no secrets" 문구가 비밀 패턴(`secret`)에 걸린 것이라, 주석을 제외하고 값만 검사하도록 고쳤습니다(이후 `b4-lab` `check`: 12단계 모두 OK).
+- **스크립트 결함 2건:** ① cron 대기 루프가 `grep -c … || echo 0`로 "0"을 두 번 출력해 산술 오류 ② root 거부를 "허가되지 않은 키로 시도 → `ROOT LOGIN REFUSED` 로그"로 판정하던 잘못된 가정(sshd는 root에게 허가된 키일 때만 그 로그를 남김). 각각 고쳤고, 후자는 Mac 쪽 검증을 "시도 거부 + 실효값 확인"으로 낮추고 위 6번처럼 공개키를 잠시 허가한 수동 시험으로 `ROOT LOGIN REFUSED`를 별도 증명했습니다.
+- **측정 표기:** 첫 설치의 프로세스 종료 코드는 셸 `time` 파이프 때문에 출력되지 않았습니다. 결과는 요약줄(`failed=0`)과 이어진 2회차 `apply`·`check`로 확인했습니다.
+- **발견된 동작(문서화):** 충돌하는 `00-*.conf`가 있으면 `ssh` 단계는 재시작까지 한 뒤 실효값 불일치로 FAIL합니다(자동 삭제는 하지 않음). 보안상 잠시 Root 허용 설정으로 재시작될 수 있으므로 FAIL 메시지를 보면 즉시 충돌 파일을 제거해야 합니다.
+
+## 6. 아직 복구·검증하지 못하는 것 (PENDING / 의존성)
+
+| 항목 | 이유 |
+|---|---|
+| **제공 Agent** (설치, 실행 계정, Boot Sequence 5단계, `Agent READY`, `0.0.0.0:15034` LISTEN) | 원본 미확보. 복구 대상에서 제외(`agent` 단계는 PENDING 출력만). 확보 후 `AGENT_PROCESS_PATTERN`·`AGENT_KEY_PATH`를 정하고 정상(exit 0) 경로를 cron 환경에서 실측해야 함 |
+| 공식 미션 원문 대조 | 모든 값이 `[승인된 실습 설계]`/`[관리자료]`. 원문과 다르면 `config/`·스크립트를 수정하고 재검증 |
+| `logrotate.timer`의 실제 발동, 10 MiB 도달 순환 | 시간 의존(다음 00:00 KST 이후). 이 작업에서는 확인하지 않음 |
+| 새 Machine에서의 장기 동작 | 약 5분의 cron 관찰만 수행 |
+| 패키지 버전 | 재구축 시점의 Ubuntu 저장소 버전을 설치함(이번에는 `b4-lab`과 동일했으나 고정하지는 않음) |
+| `agent-*` 계정 SSH 접속 | 미구성(비밀번호 잠금, 키 없음) — 복구 대상 아님 |
+
+## 7. 검증용 Machine 정리
+
+`b4-recovery-test`는 검증 후 **중지**만 했고 삭제하지 않았습니다(사용자가 결과를 확인할 수 있도록). 불필요하면 `orb delete b4-recovery-test`로 지웁니다(이 Machine에만 해당, `b4-lab`은 영향 없음). 다시 쓰려면 `orb start b4-recovery-test`.

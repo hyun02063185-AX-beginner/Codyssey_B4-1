@@ -2,7 +2,7 @@
 
 B4-1 / B4-2 실습환경을 OrbStack Ubuntu Linux Machine으로 구성하는 이유와, 교육장 Mac 초기화 후 복구하는 방법을 정리합니다.
 
-> 이 문서는 **환경 설계 문서**입니다. Machine `b4-lab`은 생성·사전검증(9장)과 SSH 20022 구성·검증(10장), UFW 구성·검증(11장), 사용자·그룹 생성(12장), 그룹 소속·디렉터리 권한/ACL 적용([권한 설계 11장](b4-1-permission-plan.md#11-실제-적용-및-검증-작업-8)), 환경변수 파일 적용([Agent 실행환경](b4-1-agent-runtime.md), `AGENT_KEY_PATH` PENDING)까지, `monitor.sh` 구현·1차 검증([monitor 기록](b4-1-monitor.md), Agent 관련 항목 PENDING), `monitor.log` 누적 기록(작업 11), 로그 순환 설정([로그 순환 기록](b4-1-log-rotation.md), 작업 12), cron 매분 실행([cron 기록](b4-1-cron.md), 작업 13)까지 진행했고, 그 외 Mission Core 설정(Agent 기동, 로그, cron)은 아직 적용하지 않았습니다.
+> 이 문서는 **환경 설계 문서**입니다. Machine `b4-lab`은 생성·사전검증(9장)과 SSH 20022 구성·검증(10장), UFW 구성·검증(11장), 사용자·그룹 생성(12장), 그룹 소속·디렉터리 권한/ACL 적용([권한 설계 11장](b4-1-permission-plan.md#11-실제-적용-및-검증-작업-8)), 환경변수 파일 적용([Agent 실행환경](b4-1-agent-runtime.md), `AGENT_KEY_PATH` PENDING)까지, `monitor.sh` 구현·1차 검증([monitor 기록](b4-1-monitor.md), Agent 관련 항목 PENDING), `monitor.log` 누적 기록(작업 11), 로그 순환 설정([로그 순환 기록](b4-1-log-rotation.md), 작업 12), cron 매분 실행([cron 기록](b4-1-cron.md), 작업 13), 복구 자동화([복구 자동화](b4-1-recovery.md), 작업 14)까지 진행했고, 그 외 Mission Core 설정(Agent 기동, 로그, cron)은 아직 적용하지 않았습니다.
 > 명령 예시는 계획 단계의 참고용이며, 실제 적용 시 결과를 확인하고 이 문서를 갱신합니다.
 > 공식 요구사항 값과 설계 선택 값의 구분은 [README 3.2](../README.md#32-값의-구분)를 따릅니다.
 
@@ -123,30 +123,29 @@ orb delete <machine-name>                      # Machine 삭제
 [Mac 초기화]
      │
      ▼
-1. OrbStack 동작 확인 ── orb version / orb list
-     │                    (OrbStack이 없으면 교육장 안내에 따라 재설치)
+1. OrbStack 동작 확인 ── orb version / orb list   (없으면 교육장 안내에 따라 재설치)
      ▼
 2. 저장소 clone ─────── git clone https://github.com/hyun02063185-AX-beginner/Codyssey_B4-1.git
-     │
      ▼
-3. Machine 존재 확인 ── orb list
-     │   ├─ 있음 → 4로 (필요 시 재검증만)
-     │   └─ 없음 → orb create ubuntu:noble b4-lab
+3. 복구 실행 (Mac에서 sudo 불필요)
+     ├─ Machine 없음 → scripts/bootstrap-orbstack.sh all          (create + apply + verify)
+     └─ Machine 있음 → scripts/bootstrap-orbstack.sh check        (읽기 전용 점검)
+                       scripts/bootstrap-orbstack.sh apply --allow-existing   (차이만 복구)
      ▼
-4. bootstrap 실행 ───── scripts/bootstrap-orbstack.sh (작성 이후)
-     │
+4. 재검증 ──────────── scripts/bootstrap-orbstack.sh verify --wait-cron 240
+     │                    (SSH는 반드시 -p 20022 경로, Machine IP 기준)
      ▼
-5. 재검증 ──────────── README의 Mission Core 체크리스트 기준으로 확인
-     │                    (SSH는 반드시 -p 20022 경로로 확인)
-     ▼
-6. B4-2 진행
+5. B4-2 진행
 ```
+
+- 구현·검증 결과, 단계별 동작, 오류·복구 절차, 사라지는 데이터와 재현되는 설정의 구분: **[docs/b4-1-recovery.md](b4-1-recovery.md)** (작업 14).
+- 제공 Agent 원본은 저장소에 없으며 복구 대상이 아닙니다(PENDING). 확보 후 `AGENT_PROCESS_PATTERN`·`AGENT_KEY_PATH`를 정해 `config/`에 반영해야 재현됩니다.
 
 작업 습관:
 
 - Machine 안에서 설정을 바꾸면 **같은 세션 안에** 스크립트/문서에 반영하고 commit·push 합니다.
-- 비밀값(비밀번호, 개인키 등)은 저장소에 커밋하지 않습니다. 복구 시 다시 입력하는 방식으로 설계합니다.
-- `bootstrap-orbstack.sh`는 여러 번 실행해도 같은 결과가 나오도록(idempotent) 작성합니다.
+- 비밀값(비밀번호, 개인키 등)은 저장소에 커밋하지 않습니다. 복구 시 다시 입력/생성하는 방식입니다(스크립트가 만들지 않음).
+- `bootstrap-orbstack.sh`는 여러 번 실행해도 같은 결과가 나오도록(idempotent) 작성되었고 이를 실측했습니다.
 
 ## 8. B4-1 → B4-2 재사용
 
@@ -154,7 +153,7 @@ orb delete <machine-name>                      # Machine 삭제
 - B4-2는 B4-1에서 구성한 **Linux 환경과 `monitor.sh`** 가 그대로 있다는 전제로 진행합니다.
 - 같은 Mac 세션 안이라면 기존 Machine을 그대로 사용합니다.
 - Mac이 초기화된 경우 7장의 흐름으로 B4-1 종료 상태를 복구한 뒤 B4-2를 시작합니다.
-- 따라서 B4-1의 완료 조건에는 "Mission Core 충족"뿐 아니라 **"고정한 Ubuntu 버전의 새 Machine에서 bootstrap으로 동일 상태 재현 가능"** 이 포함됩니다.
+- 따라서 B4-1의 완료 조건에는 "Mission Core 충족"뿐 아니라 **"고정한 Ubuntu 버전의 새 Machine에서 bootstrap으로 동일 상태 재현 가능"** 이 포함됩니다. (재현 검증 완료: [복구 자동화](b4-1-recovery.md), 제공 Agent 관련 항목은 PENDING)
 
 ## 9. 기본 실행환경 사전검증 기록
 

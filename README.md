@@ -5,18 +5,22 @@ OrbStack Ubuntu **Linux Machine**을 실습 서버로 사용하며, 여기서 �
 
 - B4-2 저장소: https://github.com/hyun02063185-AX-beginner/Codyssey_B4-2
 
-> **현재 상태 (2026-11-11)**
-> - OrbStack Ubuntu Machine `b4-lab`(Ubuntu 24.04.5 LTS, x86_64) 생성 및 기본 실행환경 사전검증 완료 → [검증 기록](docs/orbstack-environment.md#9-기본-실행환경-사전검증-기록)
-> - **SSH 완료:** TCP 20022 단독 사용, Root 원격 로그인 차단, Mac에서 실제 접속 검증 → [SSH 검증 기록](docs/orbstack-environment.md#10-ssh-20022-구성-및-검증-기록)
-> - **UFW 완료:** 기본 deny(in)/allow(out), 20022·15034/tcp만 허용, Machine IP 기준 실제 허용·차단 검증 재시작 후 자동 복원 검증 완료 → [UFW 검증 기록](docs/orbstack-environment.md#11-ufw-방화벽-구성-및-검증-기록)
-> - **사용자·그룹 생성 완료:** `agent-admin/dev/test`, `agent-common/core` 생성 → [12장](docs/orbstack-environment.md#12-사용자그룹-구성-및-검증-기록) (생성 시점에는 소속 미적용이었고, 현재 소속은 바로 아래 항목 참고)
-> - **그룹 소속·디렉터리 권한/ACL 적용 완료([승인된 실습 설계], 공식 원문 미대조):** `agent-admin`∈common+core, `agent-dev`∈common, `agent-test` 미가입. `/opt/agent-app/{upload_files,api_keys}`, `/var/log/agent-app` 생성·ACL 적용, 계정별 허용/차단 실측 PASS → [권한 설계·적용 기록](docs/b4-1-permission-plan.md#11-실제-적용-및-검증-작업-8)
-> - **환경변수 파일 적용(부분 완료):** `/etc/default/agent-app`(`root:root 0644`)에 `AGENT_HOME/PORT/UPLOAD_DIR/LOG_DIR` 적용·`agent-admin` 새 프로세스에서 로드 검증 PASS. `AGENT_KEY_PATH`는 **PENDING**(빈 값). 제공 Agent 원본은 **NOT FOUND**라 실행·`Agent READY`·15034 LISTEN 검증은 **미실시** → [Agent 실행환경 기록](docs/b4-1-agent-runtime.md)
-> - **monitor.sh 구현·1차 검증(Agent 없이 가능한 범위):** [bin/monitor.sh](bin/monitor.sh) → `/opt/agent-app/bin/monitor.sh`(`root:agent-admin 0750`). 프로세스 `PENDING`(식별 기준 미설정)·15034 미LISTEN → exit 1, UFW는 `agent-admin` 권한으로 `UNKNOWN`, CPU/MEM/DISK 수집·임계값·설정 오류(exit 2) 로직 PASS. **Agent 정상 판정·exit 0 실측·cron·로그 기록은 PENDING** → [monitor 기록](docs/b4-1-monitor.md)
-> - **monitor.log 누적 기록 구현·검증(작업 11):** 스크립트가 직접 `/var/log/agent-app/monitor.log`(`agent-admin:agent-core 0660`)에 append, 터미널 출력과 동일. 3회 연속 실행·접근 차단·로그 쓰기 실패 감지(exit 규칙 유지)·비밀 비기록 PASS. 로그 포맷은 임시 설계(공식 원문 대조 필요), **순환·cron·Agent 정상 기록은 미구현/PENDING** → [monitor 기록 §5.2](docs/b4-1-monitor.md#52-monitorlog-기록-테스트-작업-11-실측)
-> - **로그 순환 구현·적용(작업 12):** `/etc/logrotate.d/agent-app`(logrotate, rename+create, `size 10M`=10 MiB **이상**, `rotate 9` → 활성 포함 최대 10개, `create 0660 agent-admin agent-core`, `su agent-admin agent-core`)[승인된 실습 설계]. 임시 환경 37건 PASS(경계·반복 12회·권한·실행 중 순환), 실제 로그는 순환·초기화하지 않음. **실제 `logrotate.timer`(일 1회) 발동 확인·엄격한 최대 크기 보장은 아님·cron은 PENDING** → [로그 순환 기록](docs/b4-1-log-rotation.md)
-> - **cron 매분 자동 실행 적용·검증(작업 13):** `agent-admin` crontab에 `* * * * * MONITOR_TRIGGER=cron /opt/agent-app/bin/monitor.sh >/dev/null 2>&1`(관리: [scripts/monitor-cron.sh](scripts/monitor-cron.sh), 중복 등록 방지·기존 항목 보존·pause/resume). 실제 예약 실행 6회 이상 연속 확인(빠진 분 0), 로그 누적·`trigger=cron` 구분·그룹 반영·환경변수 직접 로드 PASS. 매 실행 `exit=1`은 Agent 부재의 정상 검출. **Agent 정상 기록(exit 0)·logrotate 타이머 실제 발동은 PENDING** → [cron 기록](docs/b4-1-cron.md)
-> - **나머지 Mission Core는 미착수:** Agent 기동(제공 Agent 미확보). Mission Core 전체 완료가 아닙니다.
+> **현재 상태 (2026-11-13)** — Mission Core 중 **제공 Agent가 필요한 부분을 제외하고 구현·검증 완료**. Mission Core 전체 완료는 아닙니다.
+>
+> | 영역 | 상태 | 상세 |
+> |---|---|---|
+> | Ubuntu Machine `b4-lab` (24.04.5, x86_64) | 완료 | [환경 문서 9장](docs/orbstack-environment.md#9-기본-실행환경-사전검증-기록) |
+> | SSH 20022 + Root 차단 | 완료(Mac 실제 접속·`ROOT LOGIN REFUSED` 확인) | [10장](docs/orbstack-environment.md#10-ssh-20022-구성-및-검증-기록) |
+> | UFW (deny in / allow out, 20022·15034) | 완료(실제 허용·차단, `orb restart` 후 복원 확인) | [11장](docs/orbstack-environment.md#11-ufw-방화벽-구성-및-검증-기록) |
+> | 사용자 3·그룹 2·소속, `/opt/agent-app` 권한·ACL | 완료 — **[승인된 실습 설계]**(공식 원문 미대조) | [권한 설계·적용](docs/b4-1-permission-plan.md) |
+> | 환경변수 `/etc/default/agent-app` | `AGENT_HOME/PORT/UPLOAD_DIR/LOG_DIR` 완료, **`AGENT_KEY_PATH` PENDING**(Agent 필요) | [Agent 실행환경](docs/b4-1-agent-runtime.md) |
+> | `monitor.sh` (프로세스·포트·UFW·CPU/MEM/DISK) | 구현·배포·검증. Agent 부재 시 `exit 1`이 **예상된 장애 감지 결과** | [monitor 기록](docs/b4-1-monitor.md) |
+> | `monitor.log` 기록 · 10MB/10개 순환(logrotate) | 완료(순환은 임시 환경에서 검증, 실제 타이머 발동은 PENDING) | [monitor 기록](docs/b4-1-monitor.md), [로그 순환](docs/b4-1-log-rotation.md) |
+> | `agent-admin` cron 매분 자동 실행 | 완료(예약 실행 연속 확인, `trigger=cron`) | [cron 기록](docs/b4-1-cron.md) |
+> | **환경 복구 자동화** (`bootstrap-orbstack.sh`) | **완료** — 새 Machine `b4-recovery-test`에 GitHub 파일만으로 재구축, `b4-lab`과 동일 확인, 반복 실행 안전 | [복구 자동화](docs/b4-1-recovery.md) |
+> | **제공 Agent** 설치·기동 (Boot Sequence, `Agent READY`, 0.0.0.0:15034 LISTEN) | **PENDING** — 원본 미확보 | [Agent 실행환경](docs/b4-1-agent-runtime.md) |
+>
+> 남은 의존성: ① **제공 Agent 원본** ② **공식 미션 원문 대조**(모든 설정값은 [승인된 실습 설계]/[관리자료]) ③ logrotate 타이머의 실제 발동 확인(다음 00:00 KST 이후).
 
 ---
 
@@ -38,17 +42,30 @@ OrbStack Ubuntu **Linux Machine**을 실습 서버로 사용하며, 여기서 �
 
 ```
 .
-├── README.md                     # 미션 개요, 환경, Mission Core 체크리스트, 복구 흐름 요약
-├── docs/
-│   └── orbstack-environment.md   # OrbStack 역할, Container vs Machine, 버전 고정, SSH 구분, 복구 흐름, 사전검증 기록
-└── scripts/
-    └── README.md                 # scripts/ 디렉터리 용도, 향후 bootstrap-orbstack.sh 역할
+├── README.md                          # 개요, 현재 상태, Mission Core 체크리스트, 복구 절차 요약
+├── bin/
+│   └── monitor.sh                     # 점검 스크립트 원본 → 배포 /opt/agent-app/bin/monitor.sh
+├── config/                            # Machine에 설치되는 설정 파일 (비밀정보 없음)
+│   ├── sshd-b4-mission.conf           # /etc/ssh/sshd_config.d/10-b4-mission.conf
+│   ├── etc-default-agent-app.example  # /etc/default/agent-app
+│   ├── etc-logrotate.d-agent-app      # /etc/logrotate.d/agent-app
+│   └── crontab-agent-admin.example    # agent-admin crontab 예시
+├── scripts/
+│   ├── bootstrap-orbstack.sh          # (Mac) Machine 생성·적용·점검·검증 — 복구 자동화 진입점
+│   ├── machine-setup.sh               # (Machine 안, root) 단계별 check/apply/snapshot
+│   ├── monitor-cron.sh                # agent-admin cron 작업 install/pause/resume/remove/status
+│   └── README.md
+└── docs/
+    ├── orbstack-environment.md        # OrbStack 역할, 버전 고정, SSH 구분, 사전검증·SSH·UFW·사용자 기록
+    ├── b4-1-permission-plan.md        # 권한·ACL 설계와 적용·검증
+    ├── b4-1-agent-runtime.md          # 환경변수·Agent 실행 준비(Agent NOT FOUND)
+    ├── b4-1-monitor.md                # monitor.sh·monitor.log 구현·검증
+    ├── b4-1-log-rotation.md           # logrotate 순환 설계·검증
+    ├── b4-1-cron.md                   # cron 매분 실행 검증
+    └── b4-1-recovery.md               # 환경 복구 자동화와 재구축 검증
 ```
 
-향후 추가 예정(아직 없음):
-
-- `scripts/bootstrap-orbstack.sh` — 교육장 Mac 초기화 후 OrbStack Ubuntu Machine을 같은 상태로 재구성하는 스크립트. 역할과 범위는 [scripts/README.md](scripts/README.md) 참고.
-- `monitor.sh` — Mission Core 산출물. 저장소 `bin/monitor.sh` → 배포 `/opt/agent-app/bin/monitor.sh`.
+**아직 없는 것:** 제공 Agent(원본 미확보). 저장소에는 Agent를 포함하지 않으며, 대체 구현도 하지 않습니다.
 
 ## 3. B4-1 Mission Core 체크리스트
 
@@ -57,7 +74,7 @@ OrbStack Ubuntu **Linux Machine**을 실습 서버로 사용하며, 여기서 �
 - **제공 Python 앱(Agent)은 수정 대상이 아니라 실행 대상입니다.** 앱 코드는 고치지 않고, 앱이 요구하는 사용자·권한·환경변수·포트 조건을 Linux 환경 쪽에서 맞춥니다.
 - **`monitor.sh`는 Bash로 작성합니다.** (shebang `#!/bin/bash` 또는 `#!/usr/bin/env bash`)
 - 제공 바이너리/앱의 architecture·실행 조건은 추정하지 않고 실제 확인(`uname -m`, `file`, 실행 결과)한 값만 기록합니다.
-- 모든 설정은 수동으로 먼저 수행·검증한 뒤 `scripts/bootstrap-orbstack.sh`로 옮깁니다.
+- 모든 설정은 수동으로 먼저 수행·검증한 뒤 `scripts/bootstrap-orbstack.sh`로 옮겼고(작업 14), 새 Machine에서 재현됨을 확인했습니다.
 
 ### 3.2 값의 구분과 출처
 
@@ -94,7 +111,7 @@ OrbStack Ubuntu **Linux Machine**을 실습 서버로 사용하며, 여기서 �
 | `monitor.sh` 점검 항목 | 프로세스, 포트, 방화벽, CPU / MEM / DISK | [관리자료] | 출력 형식·임계값은 [확인 필요] |
 | `monitor.sh` 실패 처리 | 프로세스·포트 점검 실패 → `exit 1` / 방화벽 비활성 → `WARNING` | [관리자료] | WARNING 시 종료 코드는 [확인 필요] |
 | 로그 파일 | `/var/log/agent-app/monitor.log` | [관리자료] | 로그 라인 형식은 [확인 필요] |
-| 로그 순환 | 최대 10MB, 최대 10개 | [관리자료] | 구현 방식(logrotate / 스크립트 내부)은 [확인 필요] |
+| 로그 순환 | 최대 10MB, 최대 10개 | [관리자료] | logrotate 사용·활성 1 + 순환본 9 = 최대 10개·10 MiB 이상에서 순환은 [승인된 실습 설계]. 크기는 일 1회 검사라 엄격한 최대 크기가 아님 |
 | cron | `agent-admin` 계정으로 매분 실행 | [관리자료] | |
 | Ubuntu 버전 | 24.04 LTS (`ubuntu:noble`) | [설계] | 원문 지정 버전이 있으면 그 값을 따름 → 확인 필요 |
 | Machine 이름 | `b4-lab` | [설계] | |
@@ -118,7 +135,7 @@ OrbStack Ubuntu **Linux Machine**을 실습 서버로 사용하며, 여기서 �
 - [x] [관리자료] `api_keys` — `agent-core` R/W: `/opt/agent-app/api_keys` `root:agent-core 2770`+ACL (경로·mode는 [승인된 실습 설계], 원문 확인 필요)
 - [x] [관리자료] `/var/log/agent-app` — `agent-core` R/W: `root:agent-core 2770`+ACL (mode는 [승인된 실습 설계], 원문 확인 필요)
 - [x] 그룹 외 사용자가 접근할 수 없는지 확인 (`sudo -u`로 agent-dev/agent-test 거부 실측)
-- [ ] 증빙: `ls -ld <경로>`, `stat <경로>`
+- [x] 증빙: `ls -ld`, `stat`, `getfacl` ([권한 설계 11장](docs/b4-1-permission-plan.md))
 
 #### 3) SSH
 상세 절차·결과: [docs 10장](docs/orbstack-environment.md#10-ssh-20022-구성-및-검증-기록) (2026-11-11)
@@ -134,7 +151,7 @@ OrbStack Ubuntu **Linux Machine**을 실습 서버로 사용하며, 여기서 �
 - [x] 증빙: root에 유효 키를 임시 등록해도 거부, sshd 로그 `ROOT LOGIN REFUSED` → 설정에 의한 차단 (임시 키 제거 완료)
 - [x] OrbStack 관리 SSH(`ssh b4-lab@orb`, `orb -m`)와 구분해 증빙, 관리 경로 유지 확인 ([docs 5장](docs/orbstack-environment.md#5-orbstack-내부-ssh-vs-미션-ssh))
 - [x] `orb restart b4-lab` 후 설정 유지 확인
-- [ ] [확인 필요] `agent-*` 사용자의 SSH 접속 방식 (사용자 생성 작업에서 결정)
+- [ ] [확인 필요] `agent-*` 사용자의 SSH 접속 방식 (현재 비밀번호 잠금·키 없음 = 접속 불가, 원문 확인 후 결정)
 - [ ] [확인 필요] `PasswordAuthentication` 공식 요구 여부
 
 #### 4) 방화벽 (UFW)
@@ -187,23 +204,38 @@ OrbStack Ubuntu **Linux Machine**을 실습 서버로 사용하며, 여기서 �
 - [x] 증빙: `sudo crontab -u agent-admin -l`, 매분 로그 누적(6회 이상, `trigger=cron`) — [cron 기록 §3](docs/b4-1-cron.md). 정상(exit 0) 기록은 Agent 확보 후 PENDING
 
 #### 10) 마무리
-- [ ] 수동 설정을 `scripts/bootstrap-orbstack.sh`로 재현 가능하게 정리
-- [ ] 새 Machine에서 bootstrap 실행 → 위 체크리스트 재검증
-- [ ] 제출 요구사항(스크린샷, 출력 결과 등) 정리
+- [x] 수동 설정을 `scripts/bootstrap-orbstack.sh`로 재현 가능하게 정리 (작업 14, [복구 자동화](docs/b4-1-recovery.md))
+- [x] 새 Machine(`b4-recovery-test`)에서 bootstrap 실행 → 재검증 PASS(`b4-lab`과 동일, 반복 실행 안전). Agent 관련 항목은 PENDING
+- [ ] 제출 요구사항(스크린샷, 출력 결과 등) 정리 — 공식 제출 원문 미확인
 - [ ] B4-2에서 사용할 값(Machine 이름, 사용자, 포트, `monitor.sh` 경로) 기록
 
-## 4. 교육장 Mac 초기화 후 복구 흐름 (요약)
+## 4. 교육장 Mac 초기화 후 복구 (요약)
 
-Mac이 초기화되면 OrbStack Machine과 그 안의 설정이 모두 사라질 수 있습니다.
-따라서 **"상태의 원본은 이 GitHub 저장소"** 라는 원칙으로 작업합니다.
+**"상태의 원본은 이 GitHub 저장소"** 입니다. Mac 쪽에서는 sudo를 쓰지 않고, 필요한 권한 작업은 Machine 안에서만 수행합니다. 자세한 설명·검증 결과는 [docs/b4-1-recovery.md](docs/b4-1-recovery.md).
 
-1. OrbStack 실행 확인 (`orb version`)
-2. 이 저장소를 다시 clone
-3. `orb list`로 `b4-lab` 확인 → 없으면 `orb create ubuntu:noble b4-lab`
-4. `scripts/bootstrap-orbstack.sh` 실행 (작성 이후)
-5. 체크리스트 기준으로 상태 재검증
+| | 초기화로 사라짐 | GitHub로 재현됨 |
+|---|---|---|
+| 내용 | 기존 Machine과 그 안의 데이터(`monitor.log`·순환본, 업로드 파일, 저장소에 없는 수동 변경), 사용자 비밀번호, Mac의 SSH 키쌍, push하지 않은 로컬 커밋 | OrbStack Machine 생성, SSH 20022·Root 차단, UFW, 사용자·그룹·소속, `/opt/agent-app` 권한·ACL, 환경변수 파일, `monitor.sh`, `monitor.log` 권한, logrotate, `agent-admin` cron |
+| 복구 불가(저장소에 없음) | SSH 개인키·API 키·비밀번호, **제공 Agent 원본(PENDING)** | |
 
-상세 절차는 [docs/orbstack-environment.md](docs/orbstack-environment.md#7-교육장-mac-초기화-후-복구-흐름)를 참고합니다.
+**절차 A — 처음 쓰는 Mac에서 새 Machine 구성**
+
+```bash
+git clone https://github.com/hyun02063185-AX-beginner/Codyssey_B4-1.git && cd Codyssey_B4-1
+scripts/bootstrap-orbstack.sh all          # = create + apply + verify (소요 약 1분 + cron 확인 대기)
+# 단계별: create → apply → verify --wait-cron 240
+```
+
+**절차 B — 이미 구성된 Machine 점검·복구**
+
+```bash
+scripts/bootstrap-orbstack.sh check                    # 읽기 전용: 단계별 OK/DIFF
+scripts/bootstrap-orbstack.sh apply --allow-existing   # 차이가 있는 단계만 복구(기존 로그·다른 crontab 항목 보존, 삭제 없음)
+```
+
+- 다른 이름의 Machine: `--machine NAME`. 기존 `b4-lab`을 삭제·초기화하는 기능은 없습니다.
+- 반복 실행해도 같은 결과(idempotent)이며, 단계가 실패하면 그 단계에서 멈춥니다.
+- 상세: [환경 문서 7장](docs/orbstack-environment.md#7-교육장-mac-초기화-후-복구-흐름).
 
 ## 5. B4-1과 B4-2의 관계
 

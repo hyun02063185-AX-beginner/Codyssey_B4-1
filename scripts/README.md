@@ -4,30 +4,17 @@ B4-1 환경을 재현하기 위한 스크립트를 두는 디렉터리입니다.
 
 ## 현재 파일
 
-- `monitor-cron.sh` — `agent-admin` crontab의 `monitor.sh` 매분 작업 관리(`install`/`pause`/`resume`/`remove`/`status`, Machine 안에서 root로 실행). 설명·검증: [docs/b4-1-cron.md](../docs/b4-1-cron.md). **bootstrap 스크립트는 아님**(아래 예정 파일은 아직 미작성).
+| 파일 | 실행 위치 | 역할 |
+|---|---|---|
+| `bootstrap-orbstack.sh` | **Mac** (sudo 불필요) | Machine 생성(`create`), 읽기 전용 점검(`check`), 적용(`apply`), 상태 출력(`snapshot`), Mac 쪽 네트워크·SSH·cron 검증(`verify`), 전체(`all`). 기존 Machine 삭제·초기화 기능 없음 |
+| `machine-setup.sh` | Machine 안, root | 단계별 `check`/`apply`/`snapshot`. 보통 `bootstrap-orbstack.sh`가 필요한 파일과 함께 전송해 실행 |
+| `monitor-cron.sh` | Machine 안, root | `agent-admin` crontab의 `monitor.sh` 매분 작업 `install`/`pause`/`resume`/`remove`/`status` |
 
-## 예정 파일: `bootstrap-orbstack.sh` (아직 작성하지 않음)
+사용법·검증 결과·한계: [docs/b4-1-recovery.md](../docs/b4-1-recovery.md), cron 관리: [docs/b4-1-cron.md](../docs/b4-1-cron.md).
 
-### 위치
-`scripts/bootstrap-orbstack.sh`
+## 범위와 원칙
 
-### 역할
-교육장 Mac 초기화 등으로 OrbStack Ubuntu Machine이 사라졌을 때, **B4-1 종료 시점과 동일한 Linux 환경을 다시 만드는 것**.
-
-### 예정 범위
-- Mission Core를 **수동으로 먼저 수행·검증한 뒤**, 그 절차를 옮겨 담습니다. (스크립트가 미션을 대신 풀어주는 용도가 아님)
-- Machine 내부 설정: 사용자/그룹, 권한, 환경변수, SSH(20022), UFW(20022/15034), Agent 기동, `monitor.sh`(Bash) 배치, 로그, cron 등록
-- 제공 Python 앱은 **수정하지 않고** 배치·실행만 함
-- 여러 번 실행해도 결과가 같도록 idempotent하게 작성
-- 실행 전 사전 점검: 대상 Machine 존재 여부, **고정한 Ubuntu 버전과 일치하는지**, `uname -m` 출력 기록
-- 구체적인 값은 [README 3.3 요구사항 요약표](../README.md#33-요구사항-요약표)를 단일 기준으로 사용
-
-### 범위 밖
-- macOS host 설정 (host `sudo` 사용 불가)
-- 비밀번호·개인키 등 비밀값 저장
-- 제공 바이너리 architecture 추정 — 실제 `file` 결과로 확인한 값만 사용
-
-### 실행 위치 (작성 시 확정)
-- host에서 `orb` 명령으로 Machine에 명령을 전달하는 방식, 또는
-- Machine 내부에서 저장소 경로의 스크립트를 직접 실행하는 방식
-중 하나로 정하고, 이 문서에 기록합니다.
+- 구체적인 값은 [README 3.3 요구사항 요약표](../README.md#33-요구사항-요약표)와 `config/` 파일이 기준이며, 공식 원문 대조 전 값은 [승인된 실습 설계]입니다.
+- 여러 번 실행해도 결과가 같고(idempotent), 단계가 실패하면 그 단계에서 멈춥니다.
+- 비밀정보·SSH 개인키·API 키는 생성·복사·저장하지 않습니다. 기존 로그·다른 crontab 항목은 삭제하지 않습니다.
+- 제공 Python 앱(Agent)은 포함·수정·대체 구현하지 않으며 복구 대상에서 제외됩니다(PENDING).
