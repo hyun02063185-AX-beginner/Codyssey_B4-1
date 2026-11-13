@@ -2,7 +2,7 @@
 
 - 일시: 2026-11-13 / 기준 커밋 `dec6b17` (작업 10-1 판정 보완: 기준 `cd4606c`, §3·§4·§5.1·§6 갱신)
 - 소스: [bin/monitor.sh](../bin/monitor.sh) (Bash 전용) → 배포: `/opt/agent-app/bin/monitor.sh`
-- 범위: 점검 스크립트 구현·1차 검증. **cron 등록, 로그 파일 기록, 로그 순환, bootstrap은 포함하지 않음**(다음 작업). 제공 Agent는 없고 대체 구현도 하지 않음.
+- 범위: 점검 스크립트 구현·1차 검증. 작업 11에서 `monitor.log` 누적 기록 추가(§2.1, §5.2). **cron 등록, 로그 순환, bootstrap은 포함하지 않음**(다음 작업). 제공 Agent는 없고 대체 구현도 하지 않음.
 - 값의 구분: **[설계 기본값]** 이 작업에서 정한 임시값(공식 요구 아님) / **[원문 미확인]** / **[실측]**.
 
 ## 1. 배포 위치·권한 (설계 결정, 원문 미확인)
@@ -23,7 +23,24 @@ sudo -u agent-admin env -i PATH=/usr/bin:/bin /opt/agent-app/bin/monitor.sh; ech
 - `/etc/default/agent-app`을 **스크립트가 직접 `source`** 합니다(`MONITOR_ENV_FILE`로 다른 파일 지정 가능). 로그인 셸·`.bashrc`에 의존하지 않으므로 `env -i`에서도 동작합니다.
 - 필수 변수: `AGENT_HOME`, `AGENT_PORT`(정수 1~65535), `AGENT_UPLOAD_DIR`, `AGENT_LOG_DIR`. 하나라도 없거나 잘못되면 점검 없이 종료 코드 2.
 - `AGENT_KEY_PATH`는 비어 있어도 됩니다(모니터링에 불필요, 안내 메시지만 출력).
-- 출력은 stdout만 사용합니다. 라인 형식은 `YYYY-MM-DD HH:MM:SS [LEVEL] CATEGORY message`이며 **로그 포맷의 공식 지정은 [원문 미확인]** 이라 임시 형식입니다.
+- 출력은 **stdout과 `$AGENT_LOG_DIR/monitor.log` 양쪽**에 동일한 텍스트로 나갑니다(작업 11, §2.1). 라인 형식은 `YYYY-MM-DD HH:MM:SS [LEVEL] CATEGORY message`이며 **로그 포맷의 공식 지정은 [원문 미확인]** 이라 임시 형식입니다.
+
+### 2.1 monitor.log 누적 기록 (작업 11)
+
+| 항목 | 내용 |
+|---|---|
+| 경로 | `$AGENT_LOG_DIR/monitor.log` = `/var/log/agent-app/monitor.log`. 테스트용 재정의 `MONITOR_LOG_FILE` |
+| 기록 주체 | **스크립트 자신**이 파일 디스크립터(fd 9, append 모드)로 기록. cron 출력 리디렉션에 의존하지 않음 |
+| 내용 | stdout에 나간 모든 줄(START~SUMMARY)과 **동일한 텍스트**. SUMMARY에 `log=<경로>`/`FAILED`/`disabled` 필드 추가 |
+| 덮어쓰기 | 없음. `>>`(append)로만 열며 truncate·초기화 코드 없음. 기존 로그의 앞부분은 실행 전후로 바이트 단위 동일함을 검증 |
+| 생성 | 파일이 없으면 열면서 생성(`umask 007`; 디렉터리 default ACL이 있으면 ACL 기준으로 `rw-rw----`). 심볼릭 링크 경로와 일반 파일이 아닌 경로는 거부 |
+| 권한(적용) | `-rw-rw---- agent-admin:agent-core` (0660), ACL 엔트리 없음(`group::rw-`, `other::---`). 소유자 `agent-admin`은 설계 결정이며 원문 미확인 |
+| 형식 | **임시 설계 형식**, 공식 로그 포맷은 [원문 미확인] — 대조 필요 |
+| 비밀 | 고정 필드만 출력. `AGENT_KEY_PATH`가 설정돼 있어도 값은 출력·기록하지 않고 "설정됨(값은 기록하지 않음)"만 남김. 환경변수 전체를 덤프하지 않음 |
+| 로그 쓰기 실패 | `ERROR LOG`로 감지(열기 실패, 심볼릭 링크, 비일반 파일, 실행 중 쓰기 실패). 점검·화면 출력은 끝까지 수행하고 SUMMARY에 `log=FAILED`·`error≥1`. 종료 코드는 §4(장애가 있으면 1 우선, 그 외 2) |
+| 로그 경로를 알 수 없음 | env 파일을 읽을 수 없거나 `AGENT_LOG_DIR`이 비어 있으면 로그 비활성(`log=disabled`), 설정 오류이므로 exit 2 |
+
+env 파일을 읽기 전에 발생한 줄(START 등)은 메모리에 보관했다가 로그를 연 뒤 기록하므로 로그에도 START부터 남습니다. 동시에 여러 번 실행돼도 줄 단위 append라 줄이 섞이거나 깨지지 않습니다(§5.2).
 
 ### 실제 출력 (agent-admin, env -i, 2026-11-13)
 
@@ -94,7 +111,7 @@ root로 실행하면 실제 상태를 판정합니다([실측] `ufw active` → 
 |---|---|
 | `0` | Agent 프로세스 확인(`OK`) **그리고** `0.0.0.0:<포트>` LISTEN **그리고** 소유 PID가 Agent 프로세스와 일치(`OK`). WARNING/UNKNOWN은 있어도 0 |
 | `1` | 실제 장애 또는 확인 불가: 프로세스 `FAIL`/식별 기준 미설정 `PENDING`, 포트 LISTEN 없음, 잘못된 바인딩(loopback·특정 IP), PID 불일치, 소유 PID 확인 불가 `PENDING`, IPv6 와일드카드만(IPv4 미확인) `PENDING` |
-| `2` | 모니터링 자체의 오류만 있는 경우: 설정 오류(env 파일 없음, 잘못된 포트·임계값), 필수 명령 없음, 수치 수집 실패, `ufw status` 예상 외 실패 |
+| `2` | 모니터링 자체의 오류만 있는 경우: 설정 오류(env 파일 없음, 잘못된 포트·임계값), 필수 명령 없음, 수치 수집 실패, `ufw status` 예상 외 실패, **로그 열기/쓰기 실패** |
 
 - 장애(1)와 모니터링 오류(2)가 함께 있으면 **1이 우선**합니다.
 - 방화벽 비활성은 `WARNING`이며 종료 코드에 영향 없음(README: "WARNING 시 종료 코드 [확인 필요]" → 0으로 정함).
@@ -164,6 +181,34 @@ root로 실행하면 실제 상태를 판정합니다([실측] `ufw active` → 
 
 **여전히 PENDING(실제 Agent 필요):** 실제 Agent 프로세스 식별·`AGENT_PROCESS_PATTERN` 확정, Agent의 실제 `0.0.0.0:15034` 바인딩·소유 PID 일치, 실제 정상(exit 0) Health Check, Agent 실행 계정과 모니터 실행 계정 간 PID 가시성, 실제 UFW 비활성 상태의 WARNING, cron 환경 실행. `[::]` 와일드카드가 IPv4로 도달 가능한지는 실제 Agent 소켓에서 확인해야 합니다.
 
+### 5.2 monitor.log 기록 테스트 (작업 11) [실측]
+
+판정 로직은 그대로이며 로그 기록만 추가했습니다. "정상" 경로가 필요한 로그 실패 테스트는 §5.1의 입력 파일(`MONITOR_SS_FILE`)과 stand-in `sshd` PID를 사용한 로직 전용 입력입니다(Agent 아님, 가짜 Agent·서버 없음).
+
+| # | 항목 | 결과 | 판정 |
+|---|---|---|---|
+| 1 | `bash -n`(저장소·배포본), 배포본 == 저장소 | 통과, 동일 | PASS |
+| 2 | 로그 생성·권한 | 실제 `/var/log/agent-app/monitor.log`가 없어서 `install -o agent-admin -g agent-core -m 0660`으로 생성(기존 로그가 있으면 건드리지 않는 조건부 절차). `-rw-rw---- agent-admin:agent-core`, `other::---` | PASS |
+| 3 | `agent-admin` 연속 3회 실행 | 매회 exit 1, 매회 정확히 10줄 추가(총 30줄), 직전 로그 prefix 바이트 단위 동일(sha256), 각 회차 터미널 출력 = 로그에 추가된 10줄(`diff` 일치) | PASS (3×3) |
+| 4 | 타임스탬프·SUMMARY | 3개 SUMMARY가 모두 `exit=1`, `log=/var/log/agent-app/monitor.log`, 타임스탬프 서로 다르고 오름차순, 모든 줄이 `YYYY-MM-DD HH:MM:SS [LEVEL]`로 시작 | PASS |
+| 5 | 장애 기록 | `[PENDING] PROCESS`(식별 기준 미설정), `[FAIL] PORT tcp/15034 not LISTEN`이 로그에 기록. 종료 코드 1 유지 | PASS |
+| 6 | 접근 차단 | 로그 파일 존재 확인 후 `agent-dev`·`agent-test`: 읽기·쓰기·디렉터리 목록 모두 거부. `agent-admin` 읽기 가능 | PASS |
+| 7 | 기존 로그 보존 | 센티널 2줄이 든 임시 로그에 실행 → 센티널이 맨 앞에 그대로, 실행 결과가 뒤에 추가 | PASS |
+| 8 | 자동 생성(실제 로그 디렉터리, 별도 파일명) | 소유 `agent-admin`, 그룹 `agent-core`(setgid 상속), `-rw-rw----`, mask `rw-`(default ACL 적용) → 검증 후 테스트 파일 삭제 | PASS |
+| 9 | 로그 쓰기 실패 | ① 로그 디렉터리 없음 + Agent 부재 → `ERROR LOG`, **exit 1 우선**, `log=FAILED` ② 같은 실패 + 정상(로직 전용) → exit 2 `MONITOR_ERROR`(대조군: 쓰기 가능 로그면 exit 0) ③ 읽기 전용 로그 → exit 2, 파일 불변 ④ 심볼릭 링크 → 거부·exit 2·대상 불변 ⑤ 디렉터리 경로 → 거부·exit 2 ⑥ 실행 중 쓰기 실패(`/dev/full`, ENOSPC) → `ERROR LOG write … failed`, 점검 출력은 끝까지 유지, exit 2 ⑦ 같은 실패 + Agent 부재 → exit 1 | PASS (8) |
+| 10 | 로그 비활성 | `AGENT_LOG_DIR` 빈 값 / env 파일 없음 → exit 2, `log=disabled` | PASS (2) |
+| 11 | 비밀정보 | 센티널 값(`AGENT_KEY_PATH`·`AGENT_API_KEY`·`AGENT_PASSWORD`)을 env에 넣고 실행 → stdout·로그에 센티널 없음(로그를 `sudo`로 읽어 검증), "값은 기록하지 않음" 문구만 기록. 실제 `monitor.log`에도 비밀형 문자열 없음(`key`가 들어간 줄은 "AGENT_KEY_PATH is empty" 안내뿐) | PASS |
+| 12 | 동시 실행 6개 | 줄 수 합(60) = 로그 줄 수, 깨진 줄 없음, SUMMARY 6개 | PASS |
+| 13 | 회귀: 판정 로직 | 작업 10-1 스위트 재실행 **42 PASS / 0 FAIL**. 작업 10 스위트 40 PASS / 3 FAIL — 3건은 작업 10-1에서 이미 설명한 것과 동일(하네스 패턴 오기 1건 + 판정 강화에 따른 의도된 변경 2건), 이번 변경과 무관 | PASS |
+| 14 | 회귀: 환경 | SSH 20022(Mac 접속·`ssh b4-lab@orb`), `permitrootlogin no`, UFW active·규칙 유지, 그룹 소속, 디렉터리 소유·mode·ACL(`/var/log/agent-app`의 `group:agent-core:rwx`·default 포함), `agent-*` sudo 없음, `/etc/default/agent-app` 644 유지 | PASS |
+| 15 | 정리 | 임시 파일·`agent-*` 프로세스 0개, 회귀 스위트는 임시 로그로 우회해 실제 로그 오염 없음(전후 40줄) | PASS |
+
+**테스트 하네스 오류(스크립트 결함 아님) 2건:** ① `sudo wc -l < $LOG`의 리다이렉션을 일반 사용자 셸이 열어 읽기 실패(줄 수 비교가 공란) ② `agent-admin` 소유 0660 임시 로그를 `sudo` 없이 `grep`해 읽기 자체가 실패 — 이 때문에 "센티널 없음" 검사가 **읽기 실패로 우연히 참**이 되어 첫 결과는 유효하지 않았습니다. 두 항목은 `sudo`로 읽도록 고쳐 다시 실행했고(대조: 로그가 비어 있지 않음을 먼저 확인) 위 표는 재실행 결과입니다.
+
+**실제 `monitor.log` 현재 상태:** 이 검증으로 생성된 4회분(40줄, Agent 부재 상황의 `exit=1` 기록)이 들어 있습니다. 새 파일이었으므로 덮어쓴 기존 내용은 없으며, 삭제·초기화하지 않았습니다. cron이 이어서 누적합니다.
+
+**PENDING:** 실제 Agent가 있는 정상(exit 0) 기록, cron 환경(최소 PATH, `agent-admin` crontab)에서의 기록과 그룹 소속 반영, 로그 순환(10MB×10)과 순환 후 파일 mode, 디스크 부족 등 실환경의 쓰기 실패, 공식 로그 포맷 대조.
+
 ## 6. Mac 초기화 후 재설치·배포
 
 전제: 사용자·그룹·권한(권한 설계 11장), `/etc/default/agent-app`(Agent 실행환경 4장) 구성 완료.
@@ -180,6 +225,8 @@ orb -m b4-lab bash -c '
   sudo chown root:agent-admin /opt/agent-app/bin/monitor.sh &&
   sudo chmod 0750 /opt/agent-app/bin/monitor.sh' < bin/monitor.sh
 
+# 로그 파일: 없을 때만 생성 (기존 로그는 건드리지 않음). 스크립트가 없으면 자동 생성도 하지만 소유자를 고정하려면 사전 생성
+orb -m b4-lab bash -c 'sudo test -e /var/log/agent-app/monitor.log || sudo install -o agent-admin -g agent-core -m 0660 /dev/null /var/log/agent-app/monitor.log'
 # 검증 1: 배포본 == 저장소 파일 (Machine의 파일을 stdout으로 받아 Mac에서 비교)
 orb -m b4-lab sudo cat /opt/agent-app/bin/monitor.sh | cmp - bin/monitor.sh && echo IDENTICAL
 # 보조: SHA-256 (두 값이 같아야 함)
@@ -197,6 +244,6 @@ Agent 확보 후: `/etc/default/agent-app`에 `AGENT_PROCESS_PATTERN=<Agent 명�
 
 1. 제공 Agent 확보 → `AGENT_PROCESS_PATTERN` 확정, 실제 프로세스·LISTEN·listener PID 검증, 정상 경로(exit 0) 실측. Agent 실행 계정이 `agent-admin`이 아니면 PID가 보이지 않아 `PENDING`이 되므로 계정 관계를 정할 것.
 2. UFW 점검 권한 방식 결정(§3): 현재 `agent-admin` 실행 시 `UNKNOWN`.
-3. 임계값·로그 포맷·WARNING 시 종료 코드·종료 코드 정의를 공식 원문과 대조.
-4. cron 등록(`agent-admin`, 매분) 및 cron 환경(PATH 최소)에서의 실행 검증, `monitor.log` 기록(그룹 쓰기 mode 주의: 권한 설계 11.4), 로그 순환(10MB×10)은 별도 작업.
+3. 임계값·**로그 포맷**·WARNING 시 종료 코드·종료 코드 정의를 공식 원문과 대조(현재 모두 임시 설계).
+4. cron 등록(`agent-admin`, 매분) 및 cron 환경(PATH 최소)에서의 실행·기록 검증, 로그 순환(10MB×10)은 별도 작업. **순환 시 주의:** `monitor.log`는 `agent-admin:agent-core 0660`이며 `mv`/rename은 mode를 승계하고 새 파일은 순환 도구가 만들면 소유자·그룹·mode가 달라질 수 있음(logrotate `create 0660 agent-admin agent-core` 등 확인 필요). 순환이 열린 fd를 쥔 실행과 겹치는 경우도 검토.
 5. `agent-admin` 소속 변경이 cron 세션에 반영되는지 실측.

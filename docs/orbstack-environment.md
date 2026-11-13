@@ -2,7 +2,7 @@
 
 B4-1 / B4-2 실습환경을 OrbStack Ubuntu Linux Machine으로 구성하는 이유와, 교육장 Mac 초기화 후 복구하는 방법을 정리합니다.
 
-> 이 문서는 **환경 설계 문서**입니다. Machine `b4-lab`은 생성·사전검증(9장)과 SSH 20022 구성·검증(10장), UFW 구성·검증(11장), 사용자·그룹 생성(12장), 그룹 소속·디렉터리 권한/ACL 적용([권한 설계 11장](b4-1-permission-plan.md#11-실제-적용-및-검증-작업-8)), 환경변수 파일 적용([Agent 실행환경](b4-1-agent-runtime.md), `AGENT_KEY_PATH` PENDING)까지, `monitor.sh` 구현·1차 검증([monitor 기록](b4-1-monitor.md), Agent 관련 항목 PENDING)까지 진행했고, 그 외 Mission Core 설정(Agent 기동, 로그, cron)은 아직 적용하지 않았습니다.
+> 이 문서는 **환경 설계 문서**입니다. Machine `b4-lab`은 생성·사전검증(9장)과 SSH 20022 구성·검증(10장), UFW 구성·검증(11장), 사용자·그룹 생성(12장), 그룹 소속·디렉터리 권한/ACL 적용([권한 설계 11장](b4-1-permission-plan.md#11-실제-적용-및-검증-작업-8)), 환경변수 파일 적용([Agent 실행환경](b4-1-agent-runtime.md), `AGENT_KEY_PATH` PENDING)까지, `monitor.sh` 구현·1차 검증([monitor 기록](b4-1-monitor.md), Agent 관련 항목 PENDING), `monitor.log` 누적 기록(작업 11)까지 진행했고, 그 외 Mission Core 설정(Agent 기동, 로그, cron)은 아직 적용하지 않았습니다.
 > 명령 예시는 계획 단계의 참고용이며, 실제 적용 시 결과를 확인하고 이 문서를 갱신합니다.
 > 공식 요구사항 값과 설계 선택 값의 구분은 [README 3.2](../README.md#32-값의-구분)를 따릅니다.
 

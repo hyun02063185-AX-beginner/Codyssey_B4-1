@@ -3,7 +3,10 @@
 # Deploy path: $AGENT_HOME/bin/monitor.sh   (/opt/agent-app/bin/monitor.sh)
 #
 # Checks: Agent process, TCP LISTEN, UFW state, CPU/MEM/DISK.
-# Output: stdout only (log file / cron / rotation are separate tasks).
+# Output: stdout AND appended to $AGENT_LOG_DIR/monitor.log (written by this script itself;
+#         override path: MONITOR_LOG_FILE). Log format is a temporary design format
+#         [official format unconfirmed]. cron registration / log rotation are separate tasks.
+#         No secret values are ever printed or logged (only fixed fields, never AGENT_KEY_PATH's value).
 #
 # Exit codes:
 #   0  healthy: Agent process confirmed AND 0.0.0.0:PORT LISTEN AND the listener PID is
@@ -11,7 +14,7 @@
 #   1  health check failed or cannot be confirmed (process missing, process identification
 #      not configured [PENDING], port not LISTEN / wrong bind / PID mismatch / owner or
 #      IPv4 reachability unconfirmed [PENDING])
-#   2  monitoring/config error (bad config, missing tool, collection failure)
+#   2  monitoring/config error (bad config, missing tool, collection failure, log write failure)
 #      -- only when no confirmed failure (exit 1 takes precedence)
 #
 # Config is loaded explicitly from /etc/default/agent-app (override: MONITOR_ENV_FILE).
@@ -25,21 +28,86 @@ ENV_FILE="${MONITOR_ENV_FILE:-/etc/default/agent-app}"
 FAILS=0; WARNS=0; UNKNOWNS=0; PENDINGS=0; ERRORS=0
 
 ts()  { date '+%Y-%m-%d %H:%M:%S'; }
-say() { # level category message
-  printf '%s [%s] %s %s\n' "$(ts)" "$1" "$2" "$3"
+
+# ---- logging -------------------------------------------------------------
+# Every line printed to stdout is also appended to monitor.log by this script itself
+# (no reliance on cron redirection). Lines produced before the log path is known are
+# buffered and flushed once the log is opened. The log is opened in append mode only
+# (never truncated). Log problems are reported as ERROR (exit 2 unless a real failure
+# already makes the exit code 1) - they never silently pass.
+# LOG_STATE: pending (path not known yet) | ok | failed | disabled
+LOG_STATE=pending; LOG_FILE=""; LOG_BUF=()
+umask 007   # new log file: 0660 (when the directory has no default ACL)
+
+log_write() { # line  (state ok: append via fd 9; pending: buffer)
+  case "$LOG_STATE" in
+    pending) LOG_BUF+=("$1");;
+    ok) if ! printf '%s\n' "$1" >&9 2>/dev/null; then
+          LOG_STATE=failed; say ERROR LOG "write to $LOG_FILE failed; log is incomplete from this line on"
+        fi;;
+  esac
+}
+bump() {
   case "$1" in
     FAIL) FAILS=$((FAILS+1));; WARNING) WARNS=$((WARNS+1));;
     UNKNOWN) UNKNOWNS=$((UNKNOWNS+1));; PENDING) PENDINGS=$((PENDINGS+1));;
     ERROR) ERRORS=$((ERRORS+1));;
   esac
 }
+say() { # level category message  -> stdout + log (identical text)
+  local msg="${3//$'\n'/ }" line
+  line="$(ts) [$1] $2 $msg"
+  printf '%s\n' "$line"
+  bump "$1"
+  log_write "$line"
+}
+init_log() {
+  local dir="${AGENT_LOG_DIR:-}" err
+  LOG_FILE="${MONITOR_LOG_FILE:-}"
+  [ -z "$LOG_FILE" ] && [ -n "$dir" ] && LOG_FILE="$dir/monitor.log"
+  if [ -z "$LOG_FILE" ]; then LOG_STATE=disabled; return; fi
+  if [ -L "$LOG_FILE" ]; then
+    LOG_STATE=failed; say ERROR LOG "refusing symlink log path: $LOG_FILE"; return
+  fi
+  if [ -e "$LOG_FILE" ] && [ ! -f "$LOG_FILE" ] && [ "${MONITOR_LOG_ALLOW_SPECIAL:-0}" != 1 ]; then
+    LOG_STATE=failed; say ERROR LOG "log path exists but is not a regular file: $LOG_FILE"; return
+  fi
+  # open for append (creates the file if missing; never truncates)
+  err=$( { : >>"$LOG_FILE"; } 2>&1 ) || {
+    LOG_STATE=failed; say ERROR LOG "cannot open log for append: ${err##*: }"; return; }
+  { exec 9>>"$LOG_FILE"; } 2>/dev/null || { LOG_STATE=failed; say ERROR LOG "cannot open log fd: $LOG_FILE"; return; }
+  LOG_STATE=ok
+  local l
+  for l in "${LOG_BUF[@]}"; do
+    [ "$LOG_STATE" = ok ] && log_write "$l"
+  done
+  LOG_BUF=()
+}
+summary_line() {
+  local lg
+  case "$LOG_STATE" in ok) lg="$LOG_FILE";; failed) lg="FAILED";; *) lg="disabled";; esac
+  printf '%s [INFO] SUMMARY result=%s exit=%s fail=%s pending=%s warning=%s unknown=%s error=%s log=%s' \
+    "$(ts)" "$1" "$2" "$FAILS" "$PENDINGS" "$WARNS" "$UNKNOWNS" "$ERRORS" "$lg"
+}
+verdict() {
+  if [ $((FAILS+PENDINGS)) -gt 0 ]; then V_CODE=1; V_RESULT=UNHEALTHY
+  elif [ "$ERRORS" -gt 0 ]; then V_CODE=2; V_RESULT=MONITOR_ERROR
+  else V_CODE=0; V_RESULT=HEALTHY; fi
+}
 finish() {
-  local code result
-  if [ $((FAILS+PENDINGS)) -gt 0 ]; then code=1; result=UNHEALTHY
-  elif [ "$ERRORS" -gt 0 ]; then code=2; result=MONITOR_ERROR
-  else code=0; result=HEALTHY; fi
-  say INFO SUMMARY "result=$result exit=$code fail=$FAILS pending=$PENDINGS warning=$WARNS unknown=$UNKNOWNS error=$ERRORS"
-  exit "$code"
+  local line
+  verdict; line=$(summary_line "$V_RESULT" "$V_CODE")
+  if [ "$LOG_STATE" = ok ]; then
+    # the summary must reach the log too; if that write fails the verdict is recomputed
+    if ! printf '%s\n' "$line" >&9 2>/dev/null; then
+      LOG_STATE=failed
+      local el; el="$(ts) [ERROR] LOG write to $LOG_FILE failed while writing SUMMARY"
+      printf '%s\n' "$el"; ERRORS=$((ERRORS+1))
+      verdict; line=$(summary_line "$V_RESULT" "$V_CODE")
+    fi
+  fi
+  printf '%s\n' "$line"
+  exit "$V_CODE"
 }
 is_uint()  { [[ "${1:-}" =~ ^[0-9]+$ ]]; }
 is_pct()   { [[ "${1:-}" =~ ^[0-9]+(\.[0-9]+)?$ ]] && awk -v v="$1" 'BEGIN{exit !(v>=0 && v<=100)}'; }
@@ -54,10 +122,11 @@ done
 # ---------------------------------------------------------------- config
 say INFO START "user=$(id -un) uid=$EUID host=$(hostname) env_file=$ENV_FILE"
 if [ ! -r "$ENV_FILE" ]; then
-  say ERROR CONFIG "env file not readable: $ENV_FILE"; finish
+  LOG_STATE=disabled; say ERROR CONFIG "env file not readable: $ENV_FILE (log disabled: AGENT_LOG_DIR unknown)"; finish
 fi
 # shellcheck disable=SC1090
 set -a; . "$ENV_FILE"; set +a
+init_log
 
 cfg_bad=0
 for v in AGENT_HOME AGENT_PORT AGENT_UPLOAD_DIR AGENT_LOG_DIR; do
@@ -80,6 +149,8 @@ is_pos "$CPU_INTERVAL" || { say ERROR CONFIG "MONITOR_CPU_INTERVAL invalid (0<x<
 say INFO CONFIG "AGENT_HOME=$AGENT_HOME AGENT_PORT=$AGENT_PORT AGENT_UPLOAD_DIR=$AGENT_UPLOAD_DIR AGENT_LOG_DIR=$AGENT_LOG_DIR"
 if [ -z "${AGENT_KEY_PATH:-}" ]; then
   say INFO CONFIG "AGENT_KEY_PATH is empty (PENDING in setup); not needed for monitoring, continuing"
+else
+  say INFO CONFIG "AGENT_KEY_PATH is set (value intentionally not printed or logged)"
 fi
 
 # ---------------------------------------------------------------- A. Agent process
