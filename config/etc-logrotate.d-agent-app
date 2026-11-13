@@ -6,9 +6,9 @@
 # file + at most 9 rotated files (monitor.log, monitor.log.1 ... monitor.log.9 = 10 files max).
 #
 # Why rename+create (default) and NOT copytruncate:
-#   monitor.sh opens monitor.log in append mode (fd 9) for the duration of one run (~2 s) and
-#   reopens it on every run. After a rename the running instance keeps writing to the renamed
-#   file (its whole run stays together, nothing lost); the next run opens the new active file.
+#   monitor.sh opens monitor.log only for its single official-record append at the end of a run
+#   (open, one short write, close; no descriptor is held while it runs). After a rename the next run simply
+#   opens/creates the new active file; a record is never split across files.
 #   copytruncate copies then truncates, which can lose lines written between the two steps and
 #   splits a running instance's output across two files.
 #

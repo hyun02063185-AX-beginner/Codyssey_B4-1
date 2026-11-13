@@ -1,5 +1,8 @@
 # B4-1 Agent 실행환경 준비 (작업 9)
 
+> **작업 18 현황(최신):** 제공 Agent는 확보·실행 검증 완료(Boot 5/5, `Agent READY`, 0.0.0.0:15034). `AGENT_PROCESS_PATTERN=^/opt/agent-app/bin/agent-app-linux-x86` 설정으로 Agent 실행 중 `monitor.sh`는 `HEALTHY exit 0`, 중지 시 `exit 1`. `monitor.log`는 **공식 형식 1줄/실행**(`[시각] PID:… CPU:…% MEM:…% DISK_USED:…%`)이며 상세 Health Check는 콘솔에만 출력. 과거 상세 로그(10줄/실행)는 그대로 남아 있어 한 파일에 두 형식이 공존. 아래 본문 중 "Agent NOT FOUND / `AGENT_KEY_PATH` PENDING / 임시 로그 형식"은 당시 기록이며 [Agent 실행 기록](b4-1-agent-runtime.md#작업-18-agent-정상-모니터링공식-로그-형식)이 우선합니다.
+
+
 > **작업 16 정정:** 그룹 소속(common = admin·dev·test, core = admin·dev), monitor.sh 소유권(agent-dev:agent-core 0750), 경고 임계값(20/10/80), `AGENT_KEY_PATH`(`/opt/agent-app/api_keys/t_secret.key`)는 공식 요구에 맞게 변경됐습니다. 이 문서의 해당 값은 당시 기록이며 현행 값은 [공식 정합성 수정](b4-1-official-alignment.md)을 따릅니다.
 
 - 일시: 2026-11-13 / 기준 커밋 `86678af`
@@ -199,3 +202,20 @@ stderr 출력은 없었고(stdout/stderr를 함께 기록), 이후 `[INFO]` 로�
 | `0.0.0.0:15034` LISTEN, 소유 PID | PASS |
 | 정상 종료·잔여 프로세스 없음 | PASS |
 | `monitor.sh` 프로세스 판정 | PENDING (`AGENT_PROCESS_PATTERN` 미설정) |
+
+---
+
+# 작업 18: Agent 정상 모니터링(공식 로그 형식)
+
+`AGENT_PROCESS_PATTERN=^/opt/agent-app/bin/agent-app-linux-x86`를 환경 파일에 반영했고(작업 17에서 부모 PID·자식 PID 일치, 소켓 소유 = 자식 확인), 작업 17의 `PENDING`이던 `monitor.sh` 프로세스 판정이 해결됐습니다.
+
+| 상황 | `monitor.sh` | 비고 |
+|---|---|---|
+| Agent 실행 중 (두 Machine) | `HEALTHY exit 0`, `PID:<자식>` 기록 | cron 예약 실행 4회 연속 공식 형식 기록 |
+| Agent 중지 | `UNHEALTHY exit 1`, `PID:N/A` 기록 | 포트 LISTEN 없음도 FAIL |
+
+자세한 변경·검증은 [monitor 기록 작업 18](b4-1-monitor.md#작업-18-공식-로그-형식agent-정상-모니터링). Agent는 검증 후 SIGINT로 종료했으며 상주 서비스로 구성하지 않았습니다(종료 후 잔여 프로세스 없음, 15034 해제).
+
+**증빙으로 남기는 불일치:** 과제 설명은 `AGENT_KEY_PATH`가 `/opt/agent-app/api_keys/t_secret.key` 파일이라고 했지만 실제 제공 Agent는 디렉터리 `/opt/agent-app/api_keys`와 그 안의 `secret.key`를 요구합니다(작업 17 표 참고). 설정은 Agent 요구에 맞췄습니다.
+
+남은 항목: UFW 비활성 경고 검증, 로그 보존 정책 추가 조정(후속 작업).

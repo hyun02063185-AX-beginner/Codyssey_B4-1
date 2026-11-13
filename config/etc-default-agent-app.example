@@ -9,3 +9,7 @@ AGENT_LOG_DIR=/var/log/agent-app
 # Key DIRECTORY (the provided Agent requires exactly this path and reads <dir>/secret.key).
 # secret.key holds the official practice string (agent_api_key_test), never a real secret.
 AGENT_KEY_PATH=/opt/agent-app/api_keys
+# Identifies the provided Agent for monitor.sh: extended regex for `pgrep -f`, ANCHORED at the start of the
+# command line so wrappers (sudo/runuser/env/bash -c ...) and editors that merely mention the path do not match.
+# Parent and child process of the Agent both match; monitor.sh then requires the LISTEN socket owner to be one of them.
+AGENT_PROCESS_PATTERN=^/opt/agent-app/bin/agent-app-linux-x86

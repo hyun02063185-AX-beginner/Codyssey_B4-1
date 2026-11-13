@@ -1,5 +1,8 @@
 # B4-1 요구사항 수행 내역서 (제출용)
 
+> **작업 18 현황(최신):** 제공 Agent는 확보·실행 검증 완료(Boot 5/5, `Agent READY`, 0.0.0.0:15034). `AGENT_PROCESS_PATTERN=^/opt/agent-app/bin/agent-app-linux-x86` 설정으로 Agent 실행 중 `monitor.sh`는 `HEALTHY exit 0`, 중지 시 `exit 1`. `monitor.log`는 **공식 형식 1줄/실행**(`[시각] PID:… CPU:…% MEM:…% DISK_USED:…%`)이며 상세 Health Check는 콘솔에만 출력. 과거 상세 로그(10줄/실행)는 그대로 남아 있어 한 파일에 두 형식이 공존. 아래 본문 중 "Agent NOT FOUND / `AGENT_KEY_PATH` PENDING / 임시 로그 형식"은 당시 기록이며 [Agent 실행 기록](b4-1-agent-runtime.md#작업-18-agent-정상-모니터링공식-로그-형식)이 우선합니다.
+
+
 - 기준: GitHub `main` (작업 15 시점, 작성 2026-11-13). 저장소: https://github.com/hyun02063185-AX-beginner/Codyssey_B4-1
 - 실습 환경: OrbStack Linux Machine `b4-lab` (Ubuntu 24.04.5 LTS, x86_64)
 - 요구사항 목록의 출처: Notion B4-1 페이지의 "Mission Core" 13개 항목. 이 목록은 **기존 Codyssey 관리자료의 요약**이며 공식 미션 원문과 직접 대조하지 않았습니다.
@@ -23,13 +26,13 @@
 | 2 | UFW 활성, TCP 20022/15034만 인바운드 허용 | PASS (설계값) | §2.2 |
 | 3 | 계정 3개·그룹 2개 구성 | PASS (설계값: 소속) | §2.3 |
 | 4 | upload_files / api_keys / `/var/log/agent-app` 권한·ACL | PASS (설계값: 경로·mode) | §2.3 |
-| 5 | 환경변수 5개 | **4개 PASS / `AGENT_KEY_PATH` PENDING** | §2.4 |
-| 6 | 제공 앱 실행: Boot Sequence 5단계 `[OK]`, `Agent READY`, `0.0.0.0:15034` LISTEN | **PENDING** (Agent 원본 NOT FOUND) | §2.5 |
+| 5 | 환경변수 5개 | **PASS** (작업 17: `AGENT_KEY_PATH=/opt/agent-app/api_keys`, 과제 설명의 파일 경로와 불일치 — 아래 참고) | §2.4 |
+| 6 | 제공 앱 실행: Boot Sequence 5단계 `[OK]`, `Agent READY`, `0.0.0.0:15034` LISTEN | **PASS** (작업 17, 두 Machine) | §2.5 |
 | 7 | `$AGENT_HOME/bin/monitor.sh` Bash 구현, 소유자/권한 | PASS (설계값: 소유자·mode) | §2.6 |
-| 8 | 프로세스·TCP 15034 Health Check, 실패 시 `exit 1` | 로직 PASS / **Agent 정상 판정 PENDING** | §2.6 |
+| 8 | 프로세스·TCP 15034 Health Check, 실패 시 `exit 1` | **PASS** (작업 18: Agent 실행 시 exit 0, 중지 시 exit 1) | §2.6 |
 | 9 | 방화벽 점검, 비활성 시 WARNING만 | 로직 PASS (스텁 검증) / 실제 비활성 상태 미시험 | §2.6 |
-| 10 | CPU/MEM/DISK 수집, 임계값 초과 시 WARNING | PASS (임계값 80%는 설계 기본값) | §2.7 |
-| 11 | `monitor.log` 지정 포맷 누적 기록 | PASS (포맷은 임시 설계) | §2.8 |
+| 10 | CPU/MEM/DISK 수집, 임계값 초과 시 WARNING | PASS (공식 임계값 20/10/80, 반올림 전 값으로 비교) | §2.7 |
+| 11 | `monitor.log` 지정 포맷 누적 기록 | PASS (작업 18: 공식 형식 1줄/실행; 과거 상세 로그와 공존) | §2.8 |
 | 12 | 로그 최대 10MB / 10개 | 설정·임시환경 PASS / **실제 타이머 발동 PENDING** | §2.9 |
 | 13 | agent-admin crontab 매분 실행, 로그 자동 증가 | PASS | §2.10 |
 | + | 환경 복구 자동화 (`bootstrap-orbstack.sh`) | PASS | §2.11 |
@@ -103,14 +106,14 @@
 | `AGENT_PORT` | `15034` | PASS | 관리자료 |
 | `AGENT_UPLOAD_DIR` | `/opt/agent-app/upload_files` | PASS | 승인된 실습 설계 |
 | `AGENT_LOG_DIR` | `/var/log/agent-app` | PASS | 관리자료 |
-| `AGENT_KEY_PATH` | *(빈 값)* | **PENDING** | 제공 앱이 파일/디렉터리 중 무엇을 요구하는지 알 수 없어 추측하지 않음 |
+| `AGENT_KEY_PATH` | *(당시 빈 값 → 현재 `/opt/agent-app/api_keys`)* | **PASS(작업 17)** — 실제 Agent는 디렉터리 `…/api_keys` 안의 `secret.key`를 요구함. 과제 설명(`t_secret.key` 파일 경로)과 불일치하며 이 사실을 증빙으로 남김 | 제공 앱이 파일/디렉터리 중 무엇을 요구하는지 알 수 없어 추측하지 않음 |
 
 - 확인 명령: `orb -m b4-lab cat /etc/default/agent-app`
 - 실측: `agent-admin`의 `env -i` 새 프로세스에서 `set -a; . /etc/default/agent-app; set +a`로 5개 전달 확인, systemd `EnvironmentFile=` 호환 확인. **로그인 셸·cron 환경에는 자동으로 들어가지 않으므로** `monitor.sh`가 파일을 직접 로드함(cron 환경에 `AGENT_*` 없음을 관찰로 확인).
 - **"로드 검증 PASS"는 "Agent가 이 변수를 사용함"의 증명이 아닙니다.** Agent 사용 여부는 PENDING.
 - 증빙: [b4-1-agent-runtime.md §2–3](b4-1-agent-runtime.md)
 
-### 2.5 제공 Agent 실행 — **PENDING (미검증)**
+### 2.5 제공 Agent 실행 — **PASS (작업 17, 아래 표는 당시 PENDING 기록)**
 
 | 요구 | 상태 |
 |---|---|
@@ -144,7 +147,7 @@
 - 2026-11-13 17:53 실제 cron 실행 로그: `CPU usage=0.0%`, `MEM usage=3.7%`, `DISK usage=0.4%` (모두 `[OK]`, `threshold 80% [design default]`).
 - 임계값 초과 `WARNING`은 [b4-1-monitor.md §5](b4-1-monitor.md)의 임계값 하향 시험으로 확인.
 
-### 2.8 `monitor.log` 기록 — PASS (포맷은 임시 설계)
+### 2.8 `monitor.log` 기록 — PASS (작업 18에서 공식 형식으로 변경, 아래는 당시 상세 형식 기록)
 
 - 경로 `/var/log/agent-app/monitor.log`, `agent-admin:agent-core 0660`. 스크립트가 직접 append(cron 리디렉션에 의존하지 않음).
 - 형식 `YYYY-MM-DD HH:MM:SS [LEVEL] CATEGORY message` — **공식 "지정 포맷"과 대조하지 못한 임시 설계**.
@@ -196,7 +199,7 @@
 
 | # | 항목 | 상태 | 해소 조건 |
 |---|---|---|---|
-| P1 | 제공 Python Agent 원본 | **NOT FOUND** | 원본 파일 확보 |
+| P1 | 제공 Agent | **해결(작업 17·18)** | 실행·모니터링 검증 완료 |
 | P2 | `AGENT_KEY_PATH` | 미확정(빈 값) | Agent가 요구하는 경로·형태 확인 |
 | P3 | Agent Boot Sequence 5단계 / `Agent READY` | 미검증 | Agent 실행 |
 | P4 | 실제 `0.0.0.0:15034` LISTEN | 미검증 | Agent 실행 |
@@ -248,10 +251,10 @@ echo "$IP"
 | E7 | 디렉터리 권한·ACL | A | ✅ [permission §11.1](b4-1-permission-plan.md) | 📷 |
 | E8 | 사용자별 허용/거부 | **C** | ✅ [permission §11.3](b4-1-permission-plan.md) | 📷 |
 | E9 | 환경변수 | A | ✅ [runtime §2–3](b4-1-agent-runtime.md) | 📷 |
-| E10 | Agent 기동 / READY / 15034 LISTEN | — | ⛔ | ⛔ Agent 원본 필요 |
+| E10 | Agent 기동 / READY / 15034 LISTEN | [작업 17](b4-1-agent-runtime.md#작업-17-제공-agent-실행-및-boot-sequence-검증) | ✅ | 작업 17·18 실행 기록 |
 | E11 | `monitor.sh` 소스·배치·권한 | A | ✅ [monitor §1](b4-1-monitor.md) | 📷 |
 | E12 | `monitor.sh` 실행 + `echo $?` (장애 감지 exit 1) | **B** | ✅ [monitor §2, §5](b4-1-monitor.md) | 📷 |
-| E13 | `monitor.sh` 정상(exit 0) | — | ⛔ | ⛔ Agent 원본 필요 |
+| E13 | `monitor.sh` 정상(exit 0) | [작업 18](b4-1-agent-runtime.md#작업-18-agent-정상-모니터링공식-로그-형식) | ✅ | Agent 실행 중 `HEALTHY exit 0` |
 | E14 | 방화벽 WARNING | **D** (UFW를 꺼야 함) | 스텁 검증만 ✅ [monitor §5](b4-1-monitor.md) | 누락 — 실제 UFW 비활성 시험은 하지 않음 |
 | E15 | CPU/MEM/DISK | B (E12 출력에 포함) | ✅ | 📷 (E12와 동일 화면) |
 | E16 | `monitor.log` 누적 | A | ✅ [monitor §5.2](b4-1-monitor.md) | 📷 |

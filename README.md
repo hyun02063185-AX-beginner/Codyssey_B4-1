@@ -14,7 +14,7 @@ OrbStack Ubuntu **Linux Machine**을 실습 서버로 사용하며, 여기서 �
 > | UFW (deny in / allow out, 20022·15034) | 완료(실제 허용·차단, `orb restart` 후 복원 확인) | [11장](docs/orbstack-environment.md#11-ufw-방화벽-구성-및-검증-기록) |
 > | 사용자 3·그룹 2·소속, `/opt/agent-app` 권한·ACL | 완료 — 그룹 소속은 **공식 구성으로 정정**(작업 16) | [공식 정합성 수정](docs/b4-1-official-alignment.md) |
 > | 환경변수 `/etc/default/agent-app` | `AGENT_HOME/PORT/UPLOAD_DIR/LOG_DIR` 완료, `AGENT_KEY_PATH=/opt/agent-app/api_keys`(키 디렉터리, 안에 `secret.key`; 작업 17에서 Agent 요구에 맞게 정정) | [Agent 실행환경](docs/b4-1-agent-runtime.md) |
-> | `monitor.sh` (프로세스·포트·UFW·CPU/MEM/DISK) | 구현·배포·검증. Agent 부재 시 `exit 1`이 **예상된 장애 감지 결과** | [monitor 기록](docs/b4-1-monitor.md) |
+> | `monitor.sh` (프로세스·포트·UFW·CPU/MEM/DISK) | 구현·배포·검증. Agent 실행 중 `exit 0`, 중지 시 `exit 1`(작업 18). 공식 임계값 20/10/80 | [monitor 기록](docs/b4-1-monitor.md) |
 > | `monitor.log` 기록 · 10MB/10개 순환(logrotate) | 완료(순환은 임시 환경에서 검증, 실제 타이머 발동은 PENDING) | [monitor 기록](docs/b4-1-monitor.md), [로그 순환](docs/b4-1-log-rotation.md) |
 > | `agent-admin` cron 매분 자동 실행 | 완료(예약 실행 연속 확인, `trigger=cron`) | [cron 기록](docs/b4-1-cron.md) |
 > | **환경 복구 자동화** (`bootstrap-orbstack.sh`) | **완료** — 새 Machine `b4-recovery-test`에 GitHub 파일만으로 재구축, `b4-lab`과 동일 확인, 반복 실행 안전 | [복구 자동화](docs/b4-1-recovery.md) |
@@ -22,7 +22,7 @@ OrbStack Ubuntu **Linux Machine**을 실습 서버로 사용하며, 여기서 �
 >
 > **제출 문서:** [요구사항 수행 내역서](docs/b4-1-final-evidence.md)(항목별 PASS/PENDING·증빙 목록) · [B4-2 인수인계](docs/b4-2-environment-handoff.md)
 >
-> 남은 의존성: ① **제공 Agent 원본** ② **공식 미션 원문 대조**(모든 설정값은 [승인된 실습 설계]/[관리자료]) ③ logrotate 타이머의 실제 발동 확인(다음 00:00 KST 이후).
+> 남은 의존성: ① **공식 미션 원문 대조**(남은 설정값은 [승인된 실습 설계]/[관리자료]) ② logrotate 타이머의 실제 발동 확인(다음 00:00 KST 이후).
 
 ---
 
@@ -60,7 +60,7 @@ OrbStack Ubuntu **Linux Machine**을 실습 서버로 사용하며, 여기서 �
 └── docs/
     ├── orbstack-environment.md        # OrbStack 역할, 버전 고정, SSH 구분, 사전검증·SSH·UFW·사용자 기록
     ├── b4-1-permission-plan.md        # 권한·ACL 설계와 적용·검증
-    ├── b4-1-agent-runtime.md          # 환경변수·Agent 실행 준비(Agent NOT FOUND)
+    ├── b4-1-agent-runtime.md          # 환경변수·Agent 실행·정상 모니터링 기록(작업 17·18)
     ├── b4-1-monitor.md                # monitor.sh·monitor.log 구현·검증
     ├── b4-1-log-rotation.md           # logrotate 순환 설계·검증
     ├── b4-1-cron.md                   # cron 매분 실행 검증
@@ -69,7 +69,7 @@ OrbStack Ubuntu **Linux Machine**을 실습 서버로 사용하며, 여기서 �
     └── b4-2-environment-handoff.md    # B4-2 환경 인수인계
 ```
 
-**아직 없는 것:** 제공 Agent(원본 미확보). 저장소에는 Agent를 포함하지 않으며, 대체 구현도 하지 않습니다.
+**저장소에 없는 것:** 제공 Agent 바이너리·ZIP(수동 배포, 파일명·해시·방법만 [기록](docs/b4-1-agent-runtime.md)). 대체 구현은 하지 않습니다.
 
 ## 3. B4-1 Mission Core 체크리스트
 
@@ -171,7 +171,7 @@ OrbStack Ubuntu **Linux Machine**을 실습 서버로 사용하며, 여기서 �
 #### 5) 환경변수
 - [x] `AGENT_HOME`, `AGENT_PORT`, `AGENT_UPLOAD_DIR`, `AGENT_LOG_DIR` 정의 — `/etc/default/agent-app`, 값은 [승인된 실습 설계]/[관리자료](원문 대조 필요)
 - [x] `AGENT_KEY_PATH=/opt/agent-app/api_keys`(디렉터리), `api_keys/secret.key` 내용은 공식 실습 문자열 `agent_api_key_test` 한 줄(`root:agent-core 0640`; 실제 비밀키 아님). 제공 Agent 실행은 PENDING
-- [ ] 환경변수를 실제 Agent가 사용하는지 검증 (Agent NOT FOUND)
+- [x] 환경변수를 실제 Agent가 사용하는지 검증 — 작업 17: Agent가 `AGENT_KEY_PATH`를 디렉터리로 검증(과제 설명의 `t_secret.key` 파일 경로는 거부됨)
 - [ ] [확인 필요] 각 변수의 값과 적용 위치(로그인 셸 / Agent 실행 환경 / cron 환경) — 파일 로드 방식은 검증됨, 원문 대조·Agent·cron 적용은 미완 — **cron은 로그인 셸 환경변수를 상속하지 않음에 주의**
 - [ ] 증빙: Agent·`monitor.sh` 실행 환경에서 실제 값 출력
 
@@ -185,20 +185,20 @@ OrbStack Ubuntu **Linux Machine**을 실습 서버로 사용하며, 여기서 �
 
 #### 7) `monitor.sh` (Bash)
 - [x] Bash로 작성, `bash -n` 문법 검사 PASS → [bin/monitor.sh](bin/monitor.sh), 상세 [docs/b4-1-monitor.md](docs/b4-1-monitor.md)
-- [ ] [관리자료] 점검: Agent 프로세스 — 구현됨, 식별 기준(`AGENT_PROCESS_PATTERN`) **PENDING**(Agent 없음). 실제 Agent 판정 미검증
+- [x] [관리자료] 점검: Agent 프로세스 — `AGENT_PROCESS_PATTERN=^/opt/agent-app/bin/agent-app-linux-x86`, 실제 Agent(부모·자식 PID) 판정 PASS(작업 18)
 - [ ] [관리자료] 점검: 포트(15034 LISTEN) — 구현. 미LISTEN·바인딩(0.0.0.0 vs localhost/IPv6)·소유 PID 일치/불일치/확인 불가 판정 fixture 검증 PASS(작업 10-1). Agent의 실제 LISTEN은 PENDING
 - [x] [관리자료] 점검: 방화벽 상태 — 구현. root 실행 시 실제 판정 PASS, `agent-admin`(sudo 없음)은 `UNKNOWN`
 - [x] [관리자료] 점검: CPU / MEM / DISK 사용량 — 수집·계산 PASS, 경고 임계값 CPU>20% / MEM>10% / DISK>80%(공식, 경계 `>` 엄격)
 - [x] [관리자료] 프로세스·포트 점검 실패 시 `exit 1` (식별 기준 미설정도 exit 1, 설정·수집 오류는 exit 2)
 - [x] [관리자료] 방화벽 비활성 시 `WARNING` 출력 — 로직은 스텁 출력으로 검증, 실제 UFW 비활성 상태는 미검증
 - [x] 배치 경로·소유자·권한: `/opt/agent-app/bin/monitor.sh` `agent-dev:agent-core 0750`(공식, 작업 16; cron 계정 `agent-admin`은 `agent-core` 그룹 권한으로 실행). 출력 형식은 임시 형식
-- [ ] 증빙: 정상(exit 0) / 프로세스 중지 / 방화벽 비활성 각 상황의 출력과 `echo $?` — 현재는 Agent 부재 상황(exit 1)만 실측, 정상은 PENDING
+- [x] 증빙: 정상(exit 0, Agent 실행 중) / 프로세스 중지(exit 1) 실측(작업 18). 방화벽 비활성 상황은 PENDING(후속)
 
 #### 8) 로그
 - [x] [관리자료] `/var/log/agent-app/monitor.log`에 기록 — 스크립트가 직접 append(cron 리디렉션 비의존), `agent-admin:agent-core 0660`, 3회 누적·터미널과 동일 PASS ([상세](docs/b4-1-monitor.md#21-monitorlog-누적-기록-작업-11)). cron 환경 실측·Agent 정상 기록은 PENDING
 - [x] [관리자료] 최대 10MB / 최대 10개로 순환 — logrotate 사용, 활성 1 + 순환본 9 = 최대 10개, 10 MiB 이상이면 순환 ([상세](docs/b4-1-log-rotation.md)). 검사는 일 1회라 **엄격한 최대 크기 보장은 아님**. 실제 타이머 발동·실제 크기 도달 순환은 PENDING, 크기·개수의 원문 대조 필요
 - [x] `agent-admin`이 로그에 쓸 수 있는지 확인(`sudo -u agent-admin`으로 실측 PASS). 실제 cron 세션에서의 확인은 cron 작업에서 PENDING
-- [ ] [확인 필요] 로그 라인 형식 — 현재 `YYYY-MM-DD HH:MM:SS [LEVEL] CATEGORY message` 임시 설계 형식, 공식 원문 대조 필요
+- [x] 로그 라인 형식 — 공식 `[YYYY-MM-DD HH:MM:SS] PID:… CPU:…% MEM:…% DISK_USED:…%`(작업 18). 이전 상세 로그는 같은 파일에 그대로 남아 두 형식이 공존
 - [ ] 증빙: `tail` 결과(확보: 3회 실행 후 로그, [상세](docs/b4-1-monitor.md#52-monitorlog-기록-테스트-작업-11-실측)), 순환 설정 내용(적용: `/etc/logrotate.d/agent-app`, [config/etc-logrotate.d-agent-app](config/etc-logrotate.d-agent-app))
 
 #### 9) cron
@@ -209,7 +209,7 @@ OrbStack Ubuntu **Linux Machine**을 실습 서버로 사용하며, 여기서 �
 
 #### 10) 마무리
 - [x] 수동 설정을 `scripts/bootstrap-orbstack.sh`로 재현 가능하게 정리 (작업 14, [복구 자동화](docs/b4-1-recovery.md))
-- [x] 새 Machine(`b4-recovery-test`)에서 bootstrap 실행 → 재검증 PASS(`b4-lab`과 동일, 반복 실행 안전). Agent 관련 항목은 PENDING
+- [x] 새 Machine(`b4-recovery-test`)에서 bootstrap 실행 → 재검증 PASS(`b4-lab`과 동일, 반복 실행 안전). Agent는 수동 배포·실행 검증(작업 17·18)
 - [x] 제출 수행 내역서·증빙 목록 정리 → [b4-1-final-evidence.md](docs/b4-1-final-evidence.md) (공식 제출 원문은 미확인; 터미널 캡처 자체는 사용자가 찍어야 함, 목록은 §4)
 - [x] B4-2에서 사용할 값(Machine 이름, 사용자, 포트, `monitor.sh` 경로) 기록 → [b4-2-environment-handoff.md](docs/b4-2-environment-handoff.md)
 

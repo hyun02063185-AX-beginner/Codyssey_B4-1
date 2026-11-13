@@ -265,11 +265,12 @@ check_envfile() {
   if [ ! -f "$ENV_FILE" ]; then reason "$ENV_FILE missing"; return; fi
   stat_is "$ENV_FILE" "root:root 644" || reason "$ENV_FILE != root:root 644"
   local k exp
-  for k in AGENT_HOME AGENT_PORT AGENT_UPLOAD_DIR AGENT_LOG_DIR AGENT_KEY_PATH; do
+  for k in AGENT_HOME AGENT_PORT AGENT_UPLOAD_DIR AGENT_LOG_DIR AGENT_KEY_PATH AGENT_PROCESS_PATTERN; do
     exp=$(sed -n "s/^$k=//p" "$SRC/config/etc-default-agent-app.example" | tail -1)
     [ "$(env_val $k)" = "$exp" ] || reason "$ENV_FILE: $k='$(env_val $k)' expected '$exp'"
   done
-  [ "$(grep -c '^AGENT_KEY_PATH=' "$ENV_FILE")" -le 1 ] || reason "$ENV_FILE: AGENT_KEY_PATH defined more than once"
+  for k in AGENT_KEY_PATH AGENT_PROCESS_PATTERN; do
+    [ "$(grep -c "^$k=" "$ENV_FILE")" -le 1 ] || reason "$ENV_FILE: $k defined more than once"; done
   # AGENT_KEY_PATH only holds a PATH (it contains the word 'secret' in file names such as secret.key): exclude that
   # one variable from the keyword scan; every other line is still scanned.
   grep -v '^[[:space:]]*#' "$ENV_FILE" | grep -v '^AGENT_KEY_PATH=' | grep -qiE '(secret|password|token|BEGIN .*PRIVATE)' && reason "$ENV_FILE contains secret-looking values"
@@ -278,20 +279,24 @@ check_envfile() {
 apply_envfile() {
   need_src
   if [ ! -e "$ENV_FILE" ]; then install -o root -g root -m 0644 "$SRC/config/etc-default-agent-app.example" "$ENV_FILE"; return; fi
-  # existing file: never overwritten. Every current value/line is preserved; ONLY AGENT_KEY_PATH is set to the
-  # official path (replace the single existing line in place, or append it when missing). Backup kept only on change.
-  local want tmp bak; want=$(sed -n 's/^AGENT_KEY_PATH=//p' "$SRC/config/etc-default-agent-app.example" | tail -1)
-  [ -n "$want" ] || return 1
-  if [ "$(env_val AGENT_KEY_PATH)" != "$want" ] || [ "$(grep -c '^AGENT_KEY_PATH=' "$ENV_FILE")" -gt 1 ]; then
-    install -d -m 0700 "$SSH_BACKUP_DIR" || return 1
-    bak="$SSH_BACKUP_DIR/agent-app.env.$(date +%Y%m%d-%H%M%S).bak"; cp -p "$ENV_FILE" "$bak" || return 1
-    tmp=$(mktemp "$ENV_FILE.XXXXXX") || return 1
-    if grep -q '^AGENT_KEY_PATH=' "$ENV_FILE"; then
-      awk -v w="AGENT_KEY_PATH=$want" '/^AGENT_KEY_PATH=/{ if(!d){print w; d=1}; next } {print}' "$ENV_FILE" > "$tmp"
-    else { cat "$ENV_FILE"; [ -z "$(tail -c1 "$ENV_FILE")" ] || echo; echo "AGENT_KEY_PATH=$want"; } > "$tmp"; fi
-    chown root:root "$tmp" && chmod 0644 "$tmp" && mv -f "$tmp" "$ENV_FILE" || { rm -f "$tmp"; return 1; }
-    echo "      AGENT_KEY_PATH updated in $ENV_FILE (other lines untouched); backup: $bak" >&2
-  fi
+  # existing file: never overwritten. Every current line is preserved; ONLY the managed keys
+  # (AGENT_KEY_PATH, AGENT_PROCESS_PATTERN) are set to the repo values: the single existing line is replaced in
+  # place, or the key is appended when missing. One backup per run, only when something changes.
+  local k want tmp bak="" n; install -d -m 0700 "$SSH_BACKUP_DIR" || return 1
+  for k in AGENT_KEY_PATH AGENT_PROCESS_PATTERN; do
+    want=$(sed -n "s/^$k=//p" "$SRC/config/etc-default-agent-app.example" | tail -1)
+    [ -n "$want" ] || return 1
+    n=$(grep -c "^$k=" "$ENV_FILE")
+    if [ "$(env_val $k)" != "$want" ] || [ "$n" -gt 1 ]; then
+      [ -n "$bak" ] || { bak="$SSH_BACKUP_DIR/agent-app.env.$(date +%Y%m%d-%H%M%S).bak"; cp -p "$ENV_FILE" "$bak" || return 1; }
+      tmp=$(mktemp "$ENV_FILE.XXXXXX") || return 1
+      if [ "$n" -ge 1 ]; then
+        awk -v k="$k" -v w="$k=$want" 'index($0,k"=")==1{ if(!d){print w; d=1}; next } {print}' "$ENV_FILE" > "$tmp"
+      else { cat "$ENV_FILE"; [ -z "$(tail -c1 "$ENV_FILE")" ] || echo; echo "$k=$want"; } > "$tmp"; fi
+      chown root:root "$tmp" && chmod 0644 "$tmp" && mv -f "$tmp" "$ENV_FILE" || { rm -f "$tmp"; return 1; }
+      echo "      $k updated in $ENV_FILE (other lines untouched); backup: $bak" >&2
+    fi
+  done
   # any other difference is reported by the re-check (not auto-merged)
 }
 
@@ -395,7 +400,8 @@ check_verify() {
     1) note "monitor.sh exit=1 = expected failure detection while the provided Agent is absent: $sum";;
     *) reason "monitor.sh exit=$rc (monitoring/config error): $sum";;
   esac
-  [ "$(wc -l < "$t/m.log" 2>/dev/null)" = "$(wc -l < "$t/out")" ] || reason "temp log lines != terminal lines"
+  # temp log: exactly ONE official record per run
+  [ "$(wc -l < "$t/m.log" 2>/dev/null)" = 1 ] && grep -qE '^\[[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9:]{8}\] PID:([0-9]+|N/A) CPU:[0-9.]+% MEM:[0-9.]+% DISK_USED:[0-9.]+%$' "$t/m.log" || reason "temp log is not exactly one official-format record"
   grep -q 'groups=.*agent-core' "$t/out" || reason "monitor.sh process lacks agent-core group"
   rm -rf --one-file-system -- "$t"
 }
@@ -405,8 +411,8 @@ apply_verify() { return 1; }
 check_agent() {
   note "provided Agent is never stored in the repo or installed by this script; deploy by hand (docs/b4-1-agent-runtime.md)"
   note "provided Agent binary: $( [ -f $AGENT_HOME/bin/agent-app-linux-x86 ] && stat -c '%U:%G %a' $AGENT_HOME/bin/agent-app-linux-x86 || echo 'not deployed (never stored in the repo; see docs/b4-1-agent-runtime.md)')"
-  note "PENDING: AGENT_PROCESS_PATTERN is $( [ -n "$(env_val AGENT_PROCESS_PATTERN 2>/dev/null)" ] && echo set || echo 'unset (monitor.sh reports PENDING PROCESS, exit 1)')"
-  note "PENDING: listening 0.0.0.0:$AGENT_PORT, Boot Sequence"
+  note "Agent process: $(pgrep -u agent-admin -f "$(env_val AGENT_PROCESS_PATTERN 2>/dev/null)" 2>/dev/null | tr '\n' ' ' | sed 's/ $//' | grep . || echo 'not running (not a resident service; started by hand for tests)')"
+  note "Boot Sequence / LISTEN 0.0.0.0:$AGENT_PORT are verified by running the Agent by hand (docs/b4-1-agent-runtime.md), not by check"
 }
 apply_agent() { return 0; }
 

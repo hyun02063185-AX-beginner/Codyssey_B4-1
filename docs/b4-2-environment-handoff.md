@@ -1,12 +1,15 @@
 # B4-2 환경 인수인계
 
+> **작업 18 현황(최신):** 제공 Agent는 확보·실행 검증 완료(Boot 5/5, `Agent READY`, 0.0.0.0:15034). `AGENT_PROCESS_PATTERN=^/opt/agent-app/bin/agent-app-linux-x86` 설정으로 Agent 실행 중 `monitor.sh`는 `HEALTHY exit 0`, 중지 시 `exit 1`. `monitor.log`는 **공식 형식 1줄/실행**(`[시각] PID:… CPU:…% MEM:…% DISK_USED:…%`)이며 상세 Health Check는 콘솔에만 출력. 과거 상세 로그(10줄/실행)는 그대로 남아 있어 한 파일에 두 형식이 공존. 아래 본문 중 "Agent NOT FOUND / `AGENT_KEY_PATH` PENDING / 임시 로그 형식"은 당시 기록이며 [Agent 실행 기록](b4-1-agent-runtime.md#작업-18-agent-정상-모니터링공식-로그-형식)이 우선합니다.
+
+
 B4-2는 B4-1에서 만든 Linux 환경과 `monitor.sh`를 **그대로 재사용**합니다. 이 문서는 B4-2 작업자가 바로 쓸 수 있는 값·명령·주의사항만 모았습니다. 근거와 실측은 [b4-1-final-evidence.md](b4-1-final-evidence.md)와 각 상세 문서에 있습니다.
 
 - B4-2 저장소: https://github.com/hyun02063185-AX-beginner/Codyssey_B4-2
 - 이 저장소: https://github.com/hyun02063185-AX-beginner/Codyssey_B4-1
 - 인수인계 시점: 2026-11-13 (작업 15)
 
-> **먼저 읽을 것.** 제공 Python Agent 원본이 없어서, 아래의 "Agent가 필요한 항목"(§10)은 **아직 쓸 수 없습니다.** 모든 값은 공식 원문과 대조되지 않았습니다 — [관리자료] 또는 [승인된 실습 설계]입니다.
+> **먼저 읽을 것.** 제공 Agent는 작업 17·18에서 실행·모니터링 검증을 마쳤습니다(바이너리는 저장소에 없음, 수동 배포). 모든 값은 공식 원문과 대조되지 않았습니다 — [관리자료] 또는 [승인된 실습 설계]입니다.
 
 ## 1. Machine
 
@@ -25,7 +28,7 @@ B4-2는 B4-1에서 만든 Linux 환경과 `monitor.sh`를 **그대로 재사용*
 | 포트 | 용도 | 상태 |
 |---|---|---|
 | TCP **20022** | Ubuntu sshd (미션 SSH). UFW 허용 | LISTEN (`0.0.0.0`, `[::]`) |
-| TCP **15034** | Agent 포트. UFW 허용 | **LISTEN 없음** (Agent 부재; Mac에서 접속 시 refused) |
+| TCP **15034** | Agent 포트. UFW 허용 | Agent 실행 중에만 LISTEN(상주 서비스 아님). 중지 상태에서는 refused |
 | TCP 22 | 미사용 | UFW drop (timeout) |
 | 그 외 인바운드 | UFW default deny | 차단 (아웃바운드는 allow) |
 
@@ -90,7 +93,7 @@ AGENT_KEY_PATH=/opt/agent-app/api_keys   # 키 디렉터리. 안의 secret.key =
 | 항목 | 값 |
 |---|---|
 | 로그 | `/var/log/agent-app/monitor.log`, `agent-admin:agent-core 0660` |
-| 형식 | `YYYY-MM-DD HH:MM:SS [LEVEL] CATEGORY message` (**임시 설계**, 공식 형식과 미대조). 1회 실행 = 10줄, 마지막이 `SUMMARY result=… exit=…` |
+| 형식 | **공식(작업 18):** `[YYYY-MM-DD HH:MM:SS] PID:… CPU:…% MEM:…% DISK_USED:…%` 1줄/실행(Agent 없으면 `PID:N/A`). 작업 17 이전 기록은 `YYYY-MM-DD HH:MM:SS [LEVEL] CATEGORY message` 상세 형식이 그대로 남아 있음. 1회 실행 = 10줄, 마지막이 `SUMMARY result=… exit=…` |
 | 구분 | `START … trigger=cron\|manual` 로 cron/수동 구분 |
 | 순환 | `/etc/logrotate.d/agent-app`: `size 10M`, `rotate 9`(활성+순환본 9=최대 10개), `create 0660 agent-admin agent-core`, `su agent-admin agent-core`, rename+create |
 | 발동 | 기존 `logrotate.timer` 일 1회(00:00 KST) |
@@ -153,11 +156,11 @@ scripts/bootstrap-orbstack.sh snapshot                  # 상태 스냅샷 (Mach
 
 | 항목 | 지금 상태 |
 |---|---|
-| 제공 Agent 설치·실행 (실행 계정·명령·Python 요구 확인) | 원본 **NOT FOUND** — 임의 생성 금지 |
+| 제공 Agent 설치·실행 (실행 계정·명령·Python 요구 확인) | **완료(작업 17)** — `/opt/agent-app/bin/agent-app-linux-x86`(`root:agent-core 0750`) 수동 배포, `agent-admin`으로 실행 |
 | `AGENT_KEY_PATH` 값 | 확정(작업 17): `/opt/agent-app/api_keys` (디렉터리, 안에 `secret.key`) |
-| `AGENT_PROCESS_PATTERN` 설정 → 프로세스 점검 판정 | 미설정 → `PENDING PROCESS` |
-| Boot Sequence 5단계 `[OK]`, `Agent READY` | 미검증 |
-| `0.0.0.0:15034` LISTEN, 소유 PID 일치 | 미검증 |
+| `AGENT_PROCESS_PATTERN` 설정 → 프로세스 점검 판정 | **설정됨(작업 18)** `^/opt/agent-app/bin/agent-app-linux-x86` → Agent 실행 시 exit 0 |
+| Boot Sequence 5단계 `[OK]`, `Agent READY` | PASS(작업 17) |
+| `0.0.0.0:15034` LISTEN, 소유 PID 일치 | PASS(작업 17·18) |
 | `monitor.sh` exit 0 (정상 Health Check) | 미검증 |
 | B4-2의 `agent-leak-app` 등 장애 분석 대상 | **B4-1 Agent 파일의 존재 증거가 아님** — 별도로 확보 필요 |
 | 공식 원문과의 값 대조(포트·권한·임계값·로그 형식·소속) | 미완료 — 값이 바뀌면 이 문서와 [b4-1-final-evidence.md](b4-1-final-evidence.md)를 함께 갱신 |

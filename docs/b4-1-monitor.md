@@ -1,5 +1,8 @@
 # B4-1 monitor.sh 구현 및 1차 검증 (작업 10)
 
+> **작업 18 현황(최신):** 제공 Agent는 확보·실행 검증 완료(Boot 5/5, `Agent READY`, 0.0.0.0:15034). `AGENT_PROCESS_PATTERN=^/opt/agent-app/bin/agent-app-linux-x86` 설정으로 Agent 실행 중 `monitor.sh`는 `HEALTHY exit 0`, 중지 시 `exit 1`. `monitor.log`는 **공식 형식 1줄/실행**(`[시각] PID:… CPU:…% MEM:…% DISK_USED:…%`)이며 상세 Health Check는 콘솔에만 출력. 과거 상세 로그(10줄/실행)는 그대로 남아 있어 한 파일에 두 형식이 공존. 아래 본문 중 "Agent NOT FOUND / `AGENT_KEY_PATH` PENDING / 임시 로그 형식"은 당시 기록이며 [Agent 실행 기록](b4-1-agent-runtime.md#작업-18-agent-정상-모니터링공식-로그-형식)이 우선합니다.
+
+
 > **작업 16 정정:** 그룹 소속(common = admin·dev·test, core = admin·dev), monitor.sh 소유권(agent-dev:agent-core 0750), 경고 임계값(20/10/80), `AGENT_KEY_PATH`(`/opt/agent-app/api_keys/t_secret.key`)는 공식 요구에 맞게 변경됐습니다. 이 문서의 해당 값은 당시 기록이며 현행 값은 [공식 정합성 수정](b4-1-official-alignment.md)을 따릅니다.
 
 - 일시: 2026-11-13 / 기준 커밋 `dec6b17` (작업 10-1 판정 보완: 기준 `cd4606c`, §3·§4·§5.1·§6 갱신)
@@ -25,7 +28,7 @@ sudo -u agent-admin env -i PATH=/usr/bin:/bin /opt/agent-app/bin/monitor.sh; ech
 - `/etc/default/agent-app`을 **스크립트가 직접 `source`** 합니다(`MONITOR_ENV_FILE`로 다른 파일 지정 가능). 로그인 셸·`.bashrc`에 의존하지 않으므로 `env -i`에서도 동작합니다.
 - 필수 변수: `AGENT_HOME`, `AGENT_PORT`(정수 1~65535), `AGENT_UPLOAD_DIR`, `AGENT_LOG_DIR`. 하나라도 없거나 잘못되면 점검 없이 종료 코드 2.
 - `AGENT_KEY_PATH`는 비어 있어도 됩니다(모니터링에 불필요, 안내 메시지만 출력).
-- 출력은 **stdout과 `$AGENT_LOG_DIR/monitor.log` 양쪽**에 동일한 텍스트로 나갑니다(작업 11, §2.1). 라인 형식은 `YYYY-MM-DD HH:MM:SS [LEVEL] CATEGORY message`이며 **로그 포맷의 공식 지정은 [원문 미확인]** 이라 임시 형식입니다.
+- (작업 11 당시) 출력은 stdout과 monitor.log 양쪽에 동일한 텍스트로 나갔습니다. **작업 18부터 monitor.log에는 공식 형식 1줄/실행만 기록**하고 상세 출력은 stdout 전용입니다. 라인 형식은 `YYYY-MM-DD HH:MM:SS [LEVEL] CATEGORY message`이며 **로그 포맷의 공식 지정은 [원문 미확인]** 이라 임시 형식입니다.
 
 ### 2.1 monitor.log 누적 기록 (작업 11)
 
@@ -37,7 +40,7 @@ sudo -u agent-admin env -i PATH=/usr/bin:/bin /opt/agent-app/bin/monitor.sh; ech
 | 덮어쓰기 | 없음. `>>`(append)로만 열며 truncate·초기화 코드 없음. 기존 로그의 앞부분은 실행 전후로 바이트 단위 동일함을 검증 |
 | 생성 | 파일이 없으면 열면서 생성(`umask 007`; 디렉터리 default ACL이 있으면 ACL 기준으로 `rw-rw----`). 심볼릭 링크 경로와 일반 파일이 아닌 경로는 거부 |
 | 권한(적용) | `-rw-rw---- agent-admin:agent-core` (0660), ACL 엔트리 없음(`group::rw-`, `other::---`). 소유자 `agent-admin`은 설계 결정이며 원문 미확인 |
-| 형식 | **임시 설계 형식**, 공식 로그 포맷은 [원문 미확인] — 대조 필요 |
+| 형식 | **공식 형식(작업 18)** `[YYYY-MM-DD HH:MM:SS] PID:… CPU:…% MEM:…% DISK_USED:…%`. 작업 17 이전 상세 형식 줄은 파일에 그대로 공존 |
 | START 필드(작업 13) | `groups=`(프로세스의 실효 보조 그룹), `trigger=`(`MONITOR_TRIGGER` 값, 기본 `manual`, cron은 `cron`; 영숫자·`_`·`-`, 16자로 제한). 판정 로직은 변경 없음 |
 | 비밀 | 고정 필드만 출력. `AGENT_KEY_PATH`가 설정돼 있어도 값은 출력·기록하지 않고 "설정됨(값은 기록하지 않음)"만 남김. 환경변수 전체를 덤프하지 않음 |
 | 로그 쓰기 실패 | `ERROR LOG`로 감지(열기 실패, 심볼릭 링크, 비일반 파일, 실행 중 쓰기 실패). 점검·화면 출력은 끝까지 수행하고 SUMMARY에 `log=FAILED`·`error≥1`. 종료 코드는 §4(장애가 있으면 1 우선, 그 외 2) |
@@ -250,3 +253,38 @@ Agent 확보 후: `/etc/default/agent-app`에 `AGENT_PROCESS_PATTERN=<Agent 명�
 3. 임계값·**로그 포맷**·WARNING 시 종료 코드·종료 코드 정의를 공식 원문과 대조(현재 모두 임시 설계).
 4. cron 등록(작업 13)과 로그 순환(작업 12)은 완료됐고 `create 0660 agent-admin agent-core`로 `monitor.log`의 소유자·그룹·mode가 유지됨을 검증했습니다([cron 기록](b4-1-cron.md), [로그 순환 기록](b4-1-log-rotation.md)). 남은 것은 실제 `logrotate.timer` 발동 확인(PENDING)입니다.
 5. (해결) `agent-admin` 소속 변경이 cron 세션에 반영됨 — 작업 13에서 cron 프로세스의 `groups=agent-admin,agent-common,agent-core`로 실측([cron 기록](b4-1-cron.md)).
+
+---
+
+## 작업 18: 공식 로그 형식·Agent 정상 모니터링
+
+### 변경
+| 항목 | 내용 |
+|---|---|
+| `AGENT_PROCESS_PATTERN` | `/etc/default/agent-app`에 `^/opt/agent-app/bin/agent-app-linux-x86` 설정(예시 파일·`machine-setup.sh` envfile 단계 반영; 기존 줄은 보존하고 이 키만 교체/추가, 변경 시에만 백업) |
+| `monitor.log` | 실행당 **1줄**: `[YYYY-MM-DD HH:MM:SS] PID:<n\|N/A> CPU:<n>% MEM:<n>% DISK_USED:<n>%` |
+| 콘솔 | 상세 Health Check·WARNING 설명 유지(+ `LOG record appended` 한 줄) |
+| PID 값 | 확인된 Agent PID. LISTEN 소켓 소유 PID(자식)를 우선, 없으면 일치한 PID 중 가장 앞. Agent가 없으면 `N/A`(만들어내지 않음) |
+| 측정 실패 | 해당 필드 `N/A`(ERROR는 콘솔·exit 2 정책 유지). 설정·필수 명령 오류처럼 리소스 단계 전에 끝나는 실행은 기록 없음 |
+| 로그 열기 | 실행 끝에서 **열기→한 번 write→닫기**. 실행 내내 fd를 들고 있지 않아 logrotate 이름 변경과 충돌하지 않고, 동시 실행은 O_APPEND 한 줄 write라 줄이 섞이지 않음 |
+| 임계값 비교 | **반올림 전 값**으로 `>` 비교(예: 실제 20.04%는 `20.0% (raw 20.040000)`로 WARNING, 정확히 20은 OK). 로그 값은 소수 첫째 자리 |
+
+패턴은 `^`로 시작해 `sudo`/`runuser`/`env`/`bash -c` 같은 래퍼 프로세스를 제외하고, 부모·자식 두 프로세스가 모두 일치합니다. 일치한 PID와 LISTEN 소켓 소유 PID가 같아야 PORT OK이며, 다른 프로세스가 15034를 잡으면 FAIL입니다. 다른 계정이 Agent를 실행해 PID가 보이지 않으면 PENDING(보수적 판정)입니다.
+
+### 파일 혼재
+`monitor.log`에는 **작업 17 이전의 상세 로그**(`… [INFO] START …`, 실행당 10줄)와 **작업 18 이후의 공식 형식 로그**가 함께 있습니다. 기존 내용은 삭제·변환하지 않았습니다. logrotate 설정(10M/9개)과 소유권(`agent-admin:agent-core 660`)은 그대로입니다. 공식 형식 줄은 실행당 약 60 B라 로그 증가량이 크게 줄었습니다.
+
+### 검증 결과 (`b4-recovery-test` → `b4-lab`, 결과 동일)
+| 항목 | 결과 |
+|---|---|
+| 경계/반올림 | MEM 10.0%·CPU 20.0%(정확히 임계값) → OK / 10.04%·20.04% → WARNING |
+| 동시 실행 | 20개 병렬 → 20줄, 20줄 모두 정규식 일치 |
+| 순환 중 실행 | 임시 디렉터리(실제 로그와 같은 소유권·모드·`su agent-admin agent-core`)에서 실행 8회 사이 `logrotate -f` 2회 → 순환본 포함 8줄, 전부 유효, 새 파일 `agent-admin:agent-core 660` |
+| 쓰기 실패 | 읽기 전용 로그 → `ERROR LOG cannot open log for append`, `log=FAILED`, exit 2 |
+| Agent 실행 중 수동 | `PROCESS OK pid=[부모 자식]`, `PORT owner pid=[자식] matches` → `HEALTHY exit 0`, 기록 `PID:<자식>` |
+| Agent 실행 중 cron | 200초 동안 매분 4회, 전부 공식 형식, 같은 PID, CPU 3.7~5.7% / MEM 5.0~5.9% / DISK 0.4% |
+| Agent 중지(SIGINT) 후 | `FAIL PROCESS`, `FAIL PORT`, **exit 1**, 기록 `PID:N/A`, 다음 cron 줄도 `PID:N/A` |
+| 회귀 | `monitor.log` `660 agent-admin:agent-core`, ACL 유지, crontab 항목 1개, `monitor.sh` `agent-dev:agent-core 750`, `logrotate -d` 오류 0, 기존 상세 로그 보존 |
+| 재실행 | `bootstrap apply` 2회차 `unchanged=13 changed=0`, `check`는 verify 단계에서 "임시 로그 = 공식 형식 정확히 1줄"을 검사 |
+
+Agent 실행 중 CPU/MEM이 임계값(20/10)을 넘으면 콘솔에는 WARNING이 나오지만 로그 줄 형식과 exit 0은 유지됩니다(이번 측정에서는 Agent의 부하 단계 초기라 모두 임계값 이하).
