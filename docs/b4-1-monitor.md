@@ -2,6 +2,9 @@
 
 > **작업 18 현황(최신):** 제공 Agent는 확보·실행 검증 완료(Boot 5/5, `Agent READY`, 0.0.0.0:15034). `AGENT_PROCESS_PATTERN=^/opt/agent-app/bin/agent-app-linux-x86` 설정으로 Agent 실행 중 `monitor.sh`는 `HEALTHY exit 0`, 중지 시 `exit 1`. `monitor.log`는 **공식 형식 1줄/실행**(`[시각] PID:… CPU:…% MEM:…% DISK_USED:…%`)이며 상세 Health Check는 콘솔에만 출력. 과거 상세 로그(10줄/실행)는 그대로 남아 있어 한 파일에 두 형식이 공존. 아래 본문 중 "Agent NOT FOUND / `AGENT_KEY_PATH` PENDING / 임시 로그 형식"은 당시 기록이며 [Agent 실행 기록](b4-1-agent-runtime.md#작업-18-agent-정상-모니터링공식-로그-형식)이 우선합니다.
 
+> **작업 19 현황(최신):** `agent-admin`은 `/etc/sudoers.d/90-b4-agent-admin-ufw-status`(root:root 0440)로 **정확히 `/usr/sbin/ufw status`만** 비밀번호 없이(`sudo -n`) 실행할 수 있고, `monitor.sh`는 UFW 활성 `OK` / 비활성 `WARNING`(exit 영향 없음) / 권한 거부 `UNKNOWN`을 구분합니다. 이 문서의 "sudo 없음 / UFW UNKNOWN / UFW 비활성 PENDING" 서술은 당시 기록이며 [monitor 기록 작업 19](#작업-19-ufw-상태-점검과-최소-권한)가 우선합니다. `agent-dev`·`agent-test`는 여전히 sudo 없음.
+
+
 
 > **작업 16 정정:** 그룹 소속(common = admin·dev·test, core = admin·dev), monitor.sh 소유권(agent-dev:agent-core 0750), 경고 임계값(20/10/80), `AGENT_KEY_PATH`(`/opt/agent-app/api_keys/t_secret.key`)는 공식 요구에 맞게 변경됐습니다. 이 문서의 해당 값은 당시 기록이며 현행 값은 [공식 정합성 수정](b4-1-official-alignment.md)을 따릅니다.
 
@@ -288,3 +291,52 @@ Agent 확보 후: `/etc/default/agent-app`에 `AGENT_PROCESS_PATTERN=<Agent 명�
 | 재실행 | `bootstrap apply` 2회차 `unchanged=13 changed=0`, `check`는 verify 단계에서 "임시 로그 = 공식 형식 정확히 1줄"을 검사 |
 
 Agent 실행 중 CPU/MEM이 임계값(20/10)을 넘으면 콘솔에는 WARNING이 나오지만 로그 줄 형식과 exit 0은 유지됩니다(이번 측정에서는 Agent의 부하 단계 초기라 모두 임계값 이하).
+
+---
+
+## 작업 19: UFW 상태 점검과 최소 권한
+
+### 원인
+`ufw`는 `uid != 0`이면 `ERROR: You need to be root to run this script`로 종료합니다(`ufw status`, `/usr/sbin/ufw status` 모두). 규칙 파일 `/etc/ufw/*.rules`가 `0640 root:root`이고 iptables 조회도 root 전용이라, 파일 권한이나 ACL을 풀어서는 해결되지 않습니다(그리고 방화벽 규칙을 읽기 가능하게 만드는 것은 오히려 약화). 조사 시점 sudo 정책: `ubuntu`·Mac 계정만 `NOPASSWD:ALL`(OrbStack), `agent-*`는 모두 "not allowed to run sudo".
+
+### 선택: 특정 읽기 명령 하나에만 sudo
+`/etc/sudoers.d/90-b4-agent-admin-ufw-status` (`root:root 0440`, 원본 [config/sudoers-agent-admin-ufw-status](../config/sudoers-agent-admin-ufw-status)):
+
+```
+agent-admin ALL=(root) NOPASSWD: /usr/sbin/ufw status
+```
+
+- 인수를 명시했으므로 sudo가 **인수까지 정확히 일치**할 때만 허용합니다. 와일드카드·`ALL`·별칭 없음, 절대경로 고정.
+- `sudo -n`으로 호출해 cron에서 비밀번호를 묻지 않으며(없으면 즉시 실패) 멈추지 않습니다. `timeout 15`도 사용.
+- `agent-dev`, `agent-test`는 그대로 sudo 없음.
+- 알려진 한계: `agent-admin`이 `sudo -n ufw status`를 매분 호출하므로 auth 로그에 매분 기록이 남습니다(감사 가능성은 장점). `ufw status`는 읽기 전용이라 상태를 바꾸지 못합니다.
+- 복구 스크립트 `sudoers` 단계: 임시 이름(`.new`, sudo가 무시)으로 설치 → `visudo -cf` 실패 시 설치 거부 → 이동 → `visudo -c` 실패 시 이전 파일 복원/삭제. 기존 다른 sudoers 파일은 건드리지 않습니다.
+
+### `monitor.sh` 판정
+| 상태 | 출력 | 종료 코드 영향 |
+|---|---|---|
+| `Status: active` | `[OK] FIREWALL ufw active (checked via sudo)` | 없음 |
+| `Status: inactive` | `[WARNING] FIREWALL ufw inactive …` | **없음**(Agent 정상이면 `HEALTHY exit 0` 유지, 모니터링 계속) |
+| sudo 거부(비밀번호 필요/권한 없음) | `[UNKNOWN] FIREWALL … permission refused` | 없음 |
+| 명령 없음/예상 밖 출력/시간 초과 | `WARNING ufw not found` / `[ERROR] FIREWALL …` | ERROR는 기존 정책(exit 2, 확인된 실패가 있으면 1 우선) |
+
+`monitor.log` 공식 1줄 형식은 변경하지 않았습니다(방화벽 상태는 콘솔에만 출력).
+
+### 검증 결과
+`b4-recovery-test`(UFW 비활성화는 여기서만):
+
+| 항목 | 결과 |
+|---|---|
+| `sudo -l -U` | agent-admin: `(root) NOPASSWD: /usr/sbin/ufw status` 한 줄. agent-dev·agent-test: not allowed |
+| 거부 확인 | `ufw status verbose`, `ufw status numbered`, `ufw disable`, `ufw allow 80`, `ufw`(인수 없음), `/bin/true`, `/bin/bash` 모두 거부 |
+| agent-dev/test | `sudo -n ufw status`·`sudo -n /bin/true` 모두 `a password is required` |
+| UFW 활성, Agent 실행 | `OK FIREWALL`, `HEALTHY exit 0` |
+| UFW 비활성 (`ufw disable`), Agent 실행 | `WARNING FIREWALL ufw inactive`, `fail=0 warning=1`, **`HEALTHY exit 0`**, PID 포함 공식 1줄 정상 기록 |
+| cron 실제 실행 | 임시 `/etc/cron.d/b4-probe`(agent-admin, 시험 후 삭제)로 활성 `OK`, 비활성 `WARNING` 모두 cron 환경에서 확인. 실제 매분 cron 기록도 중단 없이 계속 |
+| 권한 거부 시 | agent-dev로 실행 → `UNKNOWN FIREWALL … a password is required` |
+| 복구 | `ufw --force enable` 후 `ufw status verbose`가 시험 전과 **완전히 동일**, `ufw.service` enabled, 20022 LISTEN, Mac에서 SSH 배너 `SSH-2.0-OpenSSH_9.6p1` 응답(시험 전·후) |
+| 반복 실행 | `apply` 2회차 `unchanged=14 changed=0` |
+
+`b4-lab`: UFW는 비활성화하지 않음. 적용 후 sudo 권한·거부 시험 동일, `ufw status verbose` 변경 없음, 수동 `monitor.sh`가 `OK FIREWALL`, SSH 20022 응답, `monitor.log`(`660 agent-admin:agent-core`)·cron(1개)·Agent 바이너리(`root:agent-core 750`)·사용자/그룹/ACL 유지, 다음 cron 줄 정상 추가. `check --no-run`은 `ok=13 diff=0`.
+
+PENDING 없음. 남은 후속: 로그 보존 정책 추가 조정.

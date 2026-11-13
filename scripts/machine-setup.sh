@@ -40,14 +40,15 @@ KEY_DIR=$AGENT_HOME/api_keys       # AGENT_KEY_PATH = this DIRECTORY (required b
 KEY_FILE=$KEY_DIR/secret.key         # file the Agent looks for inside it
 KEY_TEST_STRING=agent_api_key_test      # official practice string, NOT a real secret
 SSH_FRAGMENT=/etc/ssh/sshd_config.d/10-b4-mission.conf
+SUDOERS_FILE=/etc/sudoers.d/90-b4-agent-admin-ufw-status
 LOGROTATE_CONF=/etc/logrotate.d/agent-app
-PACKAGES="openssh-server ufw acl cron logrotate iproute2 procps"
+PACKAGES="openssh-server ufw sudo acl cron logrotate iproute2 procps"
 USERS="agent-admin agent-dev agent-test"
 GROUPS_="agent-common agent-core"
 # group -> members (exact set)
 MEMBERS_common="agent-admin agent-dev agent-test"
 MEMBERS_core="agent-admin agent-dev"
-STEPS="preflight packages ssh ufw accounts dirs envfile keyfile monitor logfile logrotate cron verify agent"
+STEPS="preflight packages ssh ufw accounts sudoers dirs envfile keyfile monitor logfile logrotate cron verify agent"
 
 REASONS=(); NOTES=()
 reason() { REASONS+=("$*"); }
@@ -68,7 +69,7 @@ check_preflight() {
   note "arch=$(uname -m) os=${PRETTY_NAME:-?}"
   if [ "$MODE" != snapshot ]; then
     need_src; local f
-    for f in bin/monitor.sh config/sshd-b4-mission.conf config/etc-default-agent-app.example config/etc-logrotate.d-agent-app scripts/monitor-cron.sh; do
+    for f in bin/monitor.sh config/sshd-b4-mission.conf config/etc-default-agent-app.example config/etc-logrotate.d-agent-app config/sudoers-agent-admin-ufw-status scripts/monitor-cron.sh; do
       [ -f "$SRC/$f" ] || reason "repo file missing in --src: $f"; done
   fi
 }
@@ -214,7 +215,8 @@ check_accounts() {
       [ "$(getent passwd "$u" | cut -d: -f6,7)" = "/home/$u:/bin/bash" ] || reason "$u home/shell != /home/$u:/bin/bash"
       [ -d "/home/$u" ] || reason "/home/$u missing"
       id -nG "$u" | tr ' ' '\n' | grep -qxE 'sudo|adm|root' && reason "$u is in a privileged group (sudo/adm/root)"
-      sudo -l -U "$u" 2>/dev/null | grep -q 'is not allowed to run sudo' || reason "$u may have sudo rights"
+      # sudo rights: agent-dev/agent-test none; agent-admin only the single `ufw status` rule (verified in step 'sudoers')
+      [ "$u" = agent-admin ] || { sudo -l -U "$u" 2>/dev/null | grep -q 'is not allowed to run sudo' || reason "$u may have sudo rights"; }
       [ "$(passwd -S "$u" 2>/dev/null | awk '{print $2}')" = L ] || note "$u password is not locked (left as is: apply locks it only when creating the user)"
     else reason "user $u missing"; fi
   done
@@ -235,6 +237,40 @@ apply_accounts() {
   usermod -aG agent-common agent-test || return 1
   # extra members cannot be fixed safely/automatically
   [ "$(members_of agent-common)" = "$(echo $MEMBERS_common | sorted)" ] && [ "$(members_of agent-core)" = "$(echo $MEMBERS_core | sorted)" ] || { echo "      unexpected extra group members; remove manually (gpasswd -d USER GROUP)" >&2; return 1; }
+}
+
+# ============================================================== sudoers (least privilege: ONLY `ufw status` for agent-admin)
+check_sudoers() {
+  need_src
+  command -v visudo >/dev/null 2>&1 || { reason "visudo missing (package sudo)"; return; }
+  if [ -f "$SUDOERS_FILE" ]; then
+    file_eq "$SUDOERS_FILE" "$SRC/config/sudoers-agent-admin-ufw-status" || reason "$SUDOERS_FILE differs from repo"
+    stat_is "$SUDOERS_FILE" "root:root 440" || reason "$SUDOERS_FILE != root:root 440 ($(stat -c '%U:%G %a' "$SUDOERS_FILE"))"
+    visudo -cf "$SUDOERS_FILE" >/dev/null 2>&1 || reason "$SUDOERS_FILE fails visudo -cf"
+  else reason "$SUDOERS_FILE missing"; fi
+  visudo -c >/dev/null 2>&1 || reason "visudo -c reports an error in the sudo configuration"
+  getent passwd agent-admin >/dev/null || return
+  # exact effective rights of each account
+  local l; l=$(sudo -l -U agent-admin 2>/dev/null | sed -n '/may run the following commands/,$p' | sed 1d | sed 's/^[[:space:]]*//' | sed '/^$/d')
+  [ "$l" = "(root) NOPASSWD: /usr/sbin/ufw status" ] || reason "agent-admin sudo rights != exactly '(root) NOPASSWD: /usr/sbin/ufw status' (got: $(echo "$l" | tr '\n' '|'))"
+  local u; for u in agent-dev agent-test; do getent passwd $u >/dev/null && { sudo -l -U $u 2>/dev/null | grep -q 'is not allowed to run sudo' || reason "$u may have sudo rights"; }; done
+  # behaviour (read-only commands; may add auth.log entries)
+  runuser -u agent-admin -- sudo -n /usr/sbin/ufw status >/dev/null 2>&1 || reason "agent-admin cannot run 'sudo -n /usr/sbin/ufw status'"
+  runuser -u agent-admin -- sudo -n /usr/sbin/ufw status verbose >/dev/null 2>&1 && reason "agent-admin can run 'ufw status verbose' (rule too broad)"
+  runuser -u agent-admin -- sudo -n /bin/true >/dev/null 2>&1 && reason "agent-admin can run other sudo commands (rule too broad)"
+}
+apply_sudoers() {
+  need_src
+  local tmp="$SUDOERS_FILE.new" bak="" had=0   # name contains a dot -> sudo ignores it until the atomic rename
+  install -o root -g root -m 0440 "$SRC/config/sudoers-agent-admin-ufw-status" "$tmp" || return 1
+  visudo -cf "$tmp" >/dev/null 2>&1 || { echo "      REJECTED: visudo -cf failed for the new rule; nothing installed" >&2; rm -f "$tmp"; return 1; }
+  if [ -f "$SUDOERS_FILE" ]; then had=1; install -d -m 0700 "$SSH_BACKUP_DIR" || { rm -f "$tmp"; return 1; }
+    bak="$SSH_BACKUP_DIR/90-b4-agent-admin-ufw-status.$(date +%Y%m%d-%H%M%S).bak"; cp -p "$SUDOERS_FILE" "$bak" || { rm -f "$tmp"; return 1; }; fi
+  mv -f "$tmp" "$SUDOERS_FILE" || { rm -f "$tmp"; return 1; }
+  if ! visudo -c >/dev/null 2>&1; then
+    echo "      REJECTED: visudo -c failed after install; restoring previous state" >&2
+    if [ "$had" -eq 1 ]; then cp -p "$bak" "$SUDOERS_FILE"; else rm -f "$SUDOERS_FILE"; fi; return 1; fi
+  [ -z "$bak" ] || { cmp -s "$bak" "$SUDOERS_FILE" && rm -f "$bak"; }
 }
 
 # ============================================================== dirs

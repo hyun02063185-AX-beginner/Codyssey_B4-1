@@ -58,7 +58,7 @@ do_create() {
 remote() { # mode [extra args]
   local mode="$1"; shift
   ( cd "$REPO" && COPYFILE_DISABLE=1 tar -cf - bin/monitor.sh config/sshd-b4-mission.conf config/etc-default-agent-app.example \
-      config/etc-logrotate.d-agent-app scripts/monitor-cron.sh scripts/machine-setup.sh ) |
+      config/etc-logrotate.d-agent-app config/sudoers-agent-admin-ufw-status scripts/monitor-cron.sh scripts/machine-setup.sh ) |
   orb -m "$MACHINE" sudo bash -c 'D=$(mktemp -d /tmp/b4-src.XXXXXX); tar -xf - -C "$D" && bash "$D/scripts/machine-setup.sh" "$@" --src "$D"; rc=$?; rm -rf --one-file-system -- "$D"; exit $rc' _ "$mode" "$@"
 }
 

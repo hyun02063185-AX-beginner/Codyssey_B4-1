@@ -253,23 +253,40 @@ if [ "$PROC_OK" -eq 1 ]; then
 fi
 
 # ---------------------------------------------------------------- C. Firewall (UFW)
-# 'ufw status' needs root. Without root the real state is UNKNOWN; ufw.service state or
-# ufw.conf ENABLED are only hints (they do not prove packets are being filtered).
+# 'ufw status' needs root (ufw refuses non-root; /etc/ufw/*.rules are 0640 root and iptables is root-only).
+# Least-privilege solution (/etc/sudoers.d/90-b4-agent-admin-ufw-status): the monitoring account may run
+# EXACTLY `/usr/sbin/ufw status` via `sudo -n` (never prompts, so cron cannot hang). Results:
+#   Status: active   -> OK        Status: inactive -> WARNING (does NOT change the exit code)
+#   sudo/permission refused -> UNKNOWN    anything else (command missing, unexpected output, timeout) -> ERROR
+# ufw.conf ENABLED is only a hint (it does not prove packets are being filtered).
 hint="ufw.conf ENABLED=$(sed -n 's/^ENABLED=//p' /etc/ufw/ufw.conf 2>/dev/null | head -1)"
-UFW_CMD="${MONITOR_UFW_CMD:-ufw}"   # test hook: stub command that prints 'ufw status' output
-if ! command -v "$UFW_CMD" >/dev/null 2>&1; then
+UFW_BIN=/usr/sbin/ufw
+UFW_HOOK="${MONITOR_UFW_CMD:-}"   # test hook: stub command that prints 'ufw status' output (run directly)
+TMO=""; command -v timeout >/dev/null 2>&1 && TMO="timeout 15"
+ufw_run=""; ufw_how=""
+if [ -n "$UFW_HOOK" ]; then
+  command -v "$UFW_HOOK" >/dev/null 2>&1 && { ufw_run="$UFW_HOOK"; ufw_how=hook; }
+elif [ -x "$UFW_BIN" ]; then
+  if [ "$EUID" -eq 0 ]; then ufw_run="$UFW_BIN"; ufw_how=root
+  elif command -v sudo >/dev/null 2>&1; then ufw_run="sudo -n $UFW_BIN"; ufw_how=sudo
+  else ufw_how=nosudo; fi
+fi
+if [ "$ufw_how" = nosudo ]; then
+  say UNKNOWN FIREWALL "cannot read ufw status as uid=$EUID: not root and sudo is not installed. hint only: $hint"
+elif [ -z "$ufw_run" ]; then
   say WARNING FIREWALL "ufw command not found (no UFW firewall)"
 else
-  uout=$("$UFW_CMD" status 2>&1); urc=$?
+  # shellcheck disable=SC2086
+  uout=$($TMO $ufw_run status 2>&1 </dev/null); urc=$?
   first=$(printf '%s\n' "$uout" | head -1)
   if [ "$urc" -eq 0 ] && [ "${first#Status: }" = "active" ]; then
-    say OK FIREWALL "ufw active"
+    say OK FIREWALL "ufw active (checked via $ufw_how)"
   elif [ "$urc" -eq 0 ] && [ "${first#Status: }" = "inactive" ]; then
-    say WARNING FIREWALL "ufw inactive"
-  elif printf '%s' "$uout" | grep -qiE 'need to be root|permission denied|not permitted'; then
-    say UNKNOWN FIREWALL "cannot read ufw status as uid=$EUID (needs root; no sudo granted). hint only: $hint"
+    say WARNING FIREWALL "ufw inactive (checked via $ufw_how)"
+  elif printf '%s' "$uout" | grep -qiE 'need to be root|permission denied|not permitted|a password is required|not allowed to|may not run sudo|no tty present|sudo:'; then
+    say UNKNOWN FIREWALL "cannot read ufw status as uid=$EUID via $ufw_how (permission refused: ${first:0:80}). hint only: $hint"
   else
-    say ERROR FIREWALL "ufw status failed (rc=$urc): $first"
+    say ERROR FIREWALL "ufw status failed (rc=$urc, via $ufw_how): ${first:0:100}"
   fi
 fi
 

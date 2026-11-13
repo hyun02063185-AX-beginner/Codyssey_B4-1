@@ -1,5 +1,8 @@
 # B4-2 환경 인수인계
 
+> **작업 19 현황(최신):** `agent-admin`은 `/etc/sudoers.d/90-b4-agent-admin-ufw-status`(root:root 0440)로 **정확히 `/usr/sbin/ufw status`만** 비밀번호 없이(`sudo -n`) 실행할 수 있고, `monitor.sh`는 UFW 활성 `OK` / 비활성 `WARNING`(exit 영향 없음) / 권한 거부 `UNKNOWN`을 구분합니다. 이 문서의 "sudo 없음 / UFW UNKNOWN / UFW 비활성 PENDING" 서술은 당시 기록이며 [monitor 기록 작업 19](b4-1-monitor.md#작업-19-ufw-상태-점검과-최소-권한)가 우선합니다. `agent-dev`·`agent-test`는 여전히 sudo 없음.
+
+
 > **작업 18 현황(최신):** 제공 Agent는 확보·실행 검증 완료(Boot 5/5, `Agent READY`, 0.0.0.0:15034). `AGENT_PROCESS_PATTERN=^/opt/agent-app/bin/agent-app-linux-x86` 설정으로 Agent 실행 중 `monitor.sh`는 `HEALTHY exit 0`, 중지 시 `exit 1`. `monitor.log`는 **공식 형식 1줄/실행**(`[시각] PID:… CPU:…% MEM:…% DISK_USED:…%`)이며 상세 Health Check는 콘솔에만 출력. 과거 상세 로그(10줄/실행)는 그대로 남아 있어 한 파일에 두 형식이 공존. 아래 본문 중 "Agent NOT FOUND / `AGENT_KEY_PATH` PENDING / 임시 로그 형식"은 당시 기록이며 [Agent 실행 기록](b4-1-agent-runtime.md#작업-18-agent-정상-모니터링공식-로그-형식)이 우선합니다.
 
 
@@ -81,7 +84,7 @@ AGENT_KEY_PATH=/opt/agent-app/api_keys   # 키 디렉터리. 안의 secret.key =
 | 실행 | `orb -m b4-lab sudo -u agent-admin /opt/agent-app/bin/monitor.sh; echo $?` |
 | 점검 | Agent 프로세스, TCP 15034(주소·소유 PID), UFW, CPU/MEM/DISK(공식 임계 CPU>20 / MEM>10 / DISK>80%) |
 | 종료 코드 | `0` 정상 / `1` 프로세스·포트 실패 또는 확인 불가 / `2` 모니터링 자체 오류 (1이 2보다 우선) |
-| 방화벽 | 비활성 → `WARNING`만(exit 영향 없음). `agent-admin`은 sudo가 없어 `UNKNOWN` |
+| 방화벽 | 비활성 → `WARNING`만(exit 영향 없음). `agent-admin`은 `sudo -n /usr/sbin/ufw status`만 허용(작업 19)되어 실제 상태 판정, 권한 거부 시 `UNKNOWN` |
 | 설정 변수 | `AGENT_PROCESS_PATTERN`(Agent 식별 기준 — **미설정**), `MONITOR_CPU_WARN`/`MEM_WARN`/`DISK_WARN` 등 |
 
 - **현재 `exit 1`은 정상 동작입니다.** Agent가 없어서 `PENDING PROCESS` + `FAIL PORT`가 나오는 것이 "예상된 장애 감지"입니다. B4-2의 장애 분석 입력으로 이 로그를 쓰되, **Agent가 없는 상태에서의 exit 1을 실제 장애로 오해하지 마세요.**

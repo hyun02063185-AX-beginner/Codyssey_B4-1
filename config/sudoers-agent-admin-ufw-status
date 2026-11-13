@@ -1,0 +1,7 @@
+# /etc/sudoers.d/90-b4-agent-admin-ufw-status  (root:root 0440)
+# Least privilege for monitor.sh: agent-admin may run EXACTLY `/usr/sbin/ufw status`, as root, without a password
+# (cron has no terminal; monitor.sh calls it as `sudo -n /usr/sbin/ufw status`).
+# - Because arguments are given here, sudo matches them exactly: `ufw status verbose`, `ufw disable`,
+#   `ufw allow ...`, `ufw status ; ...` etc. are NOT permitted. No wildcards, no command aliases, no ALL.
+# - Absolute path: no PATH lookup. No other user (agent-dev, agent-test) is mentioned.
+agent-admin ALL=(root) NOPASSWD: /usr/sbin/ufw status

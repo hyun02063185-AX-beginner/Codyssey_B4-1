@@ -128,7 +128,7 @@ OrbStack Ubuntu **Linux Machine**을 실습 서버로 사용하며, 여기서 �
 - [ ] 제공 Agent 앱/바이너리의 architecture·Python 요구 버전을 `file`·실행 결과로 확인 (추정 금지)
 
 #### 1) 사용자 / 그룹
-- [x] [관리자료] 사용자 `agent-admin`, `agent-dev`, `agent-test` 생성 (홈 `750`, 비밀번호 잠김, sudo 없음)
+- [x] [관리자료] 사용자 `agent-admin`, `agent-dev`, `agent-test` 생성 (홈 `750`, 비밀번호 잠김, sudo 없음. 예외: `agent-admin`은 `ufw status` 한 명령만 sudo 허용 — 작업 19)
 - [x] [관리자료] 그룹 `agent-common`(GID 1000), `agent-core`(GID 1001) 생성
 - [x] 사용자별 그룹 소속 설정 — **공식 구성**(작업 16): `agent-common` = admin·dev·test, `agent-core` = admin·dev
 - [x] 증빙: `id agent-admin`, `id agent-dev`, `id agent-test`, `getent group agent-common agent-core`
@@ -187,12 +187,12 @@ OrbStack Ubuntu **Linux Machine**을 실습 서버로 사용하며, 여기서 �
 - [x] Bash로 작성, `bash -n` 문법 검사 PASS → [bin/monitor.sh](bin/monitor.sh), 상세 [docs/b4-1-monitor.md](docs/b4-1-monitor.md)
 - [x] [관리자료] 점검: Agent 프로세스 — `AGENT_PROCESS_PATTERN=^/opt/agent-app/bin/agent-app-linux-x86`, 실제 Agent(부모·자식 PID) 판정 PASS(작업 18)
 - [ ] [관리자료] 점검: 포트(15034 LISTEN) — 구현. 미LISTEN·바인딩(0.0.0.0 vs localhost/IPv6)·소유 PID 일치/불일치/확인 불가 판정 fixture 검증 PASS(작업 10-1). Agent의 실제 LISTEN은 PENDING
-- [x] [관리자료] 점검: 방화벽 상태 — 구현. root 실행 시 실제 판정 PASS, `agent-admin`(sudo 없음)은 `UNKNOWN`
+- [x] [관리자료] 점검: 방화벽 상태 — 구현. `agent-admin`이 `sudo -n /usr/sbin/ufw status`(최소 권한 sudoers)로 실제 상태 판정: 활성 OK / 비활성 WARNING(exit 0 유지) / 권한 거부 UNKNOWN (작업 19)
 - [x] [관리자료] 점검: CPU / MEM / DISK 사용량 — 수집·계산 PASS, 경고 임계값 CPU>20% / MEM>10% / DISK>80%(공식, 경계 `>` 엄격)
 - [x] [관리자료] 프로세스·포트 점검 실패 시 `exit 1` (식별 기준 미설정도 exit 1, 설정·수집 오류는 exit 2)
-- [x] [관리자료] 방화벽 비활성 시 `WARNING` 출력 — 로직은 스텁 출력으로 검증, 실제 UFW 비활성 상태는 미검증
+- [x] [관리자료] 방화벽 비활성 시 `WARNING` 출력 — 실제 UFW 비활성 상태에서 검증 PASS(테스트 Machine, 작업 19; 본환경에서는 비활성화하지 않음)
 - [x] 배치 경로·소유자·권한: `/opt/agent-app/bin/monitor.sh` `agent-dev:agent-core 0750`(공식, 작업 16; cron 계정 `agent-admin`은 `agent-core` 그룹 권한으로 실행). 출력 형식은 임시 형식
-- [x] 증빙: 정상(exit 0, Agent 실행 중) / 프로세스 중지(exit 1) 실측(작업 18). 방화벽 비활성 상황은 PENDING(후속)
+- [x] 증빙: 정상(exit 0, Agent 실행 중) / 프로세스 중지(exit 1) 실측(작업 18). 방화벽 비활성 WARNING도 실측(작업 19)
 
 #### 8) 로그
 - [x] [관리자료] `/var/log/agent-app/monitor.log`에 기록 — 스크립트가 직접 append(cron 리디렉션 비의존), `agent-admin:agent-core 0660`, 3회 누적·터미널과 동일 PASS ([상세](docs/b4-1-monitor.md#21-monitorlog-누적-기록-작업-11)). cron 환경 실측·Agent 정상 기록은 PENDING

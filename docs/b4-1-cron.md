@@ -1,5 +1,8 @@
 # B4-1 cron 매분 자동 실행 (작업 13)
 
+> **작업 19 현황(최신):** `agent-admin`은 `/etc/sudoers.d/90-b4-agent-admin-ufw-status`(root:root 0440)로 **정확히 `/usr/sbin/ufw status`만** 비밀번호 없이(`sudo -n`) 실행할 수 있고, `monitor.sh`는 UFW 활성 `OK` / 비활성 `WARNING`(exit 영향 없음) / 권한 거부 `UNKNOWN`을 구분합니다. 이 문서의 "sudo 없음 / UFW UNKNOWN / UFW 비활성 PENDING" 서술은 당시 기록이며 [monitor 기록 작업 19](b4-1-monitor.md#작업-19-ufw-상태-점검과-최소-권한)가 우선합니다. `agent-dev`·`agent-test`는 여전히 sudo 없음.
+
+
 - 일시: 2026-11-13 / 기준 커밋 `171658b`
 - 범위: `agent-admin` crontab에 `monitor.sh` 매분 등록, 실제 예약 실행·로그 누적 검증. Agent 대체 구현, SSH·UFW·ACL·소속 변경, 새 sudo 권한, bootstrap은 하지 않음.
 - 값의 구분: **[승인된 실습 설계]** / **[적용됨]** / **[실측]**. 주기(`* * * * *`)·실행 계정(`agent-admin`)은 README `[관리자료]`, 나머지 형식은 설계 결정(공식 원문 미확인).

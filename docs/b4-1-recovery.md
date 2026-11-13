@@ -1,5 +1,8 @@
 # B4-1 환경 복구 자동화 (작업 14)
 
+> **작업 19 현황(최신):** `agent-admin`은 `/etc/sudoers.d/90-b4-agent-admin-ufw-status`(root:root 0440)로 **정확히 `/usr/sbin/ufw status`만** 비밀번호 없이(`sudo -n`) 실행할 수 있고, `monitor.sh`는 UFW 활성 `OK` / 비활성 `WARNING`(exit 영향 없음) / 권한 거부 `UNKNOWN`을 구분합니다. 이 문서의 "sudo 없음 / UFW UNKNOWN / UFW 비활성 PENDING" 서술은 당시 기록이며 [monitor 기록 작업 19](b4-1-monitor.md#작업-19-ufw-상태-점검과-최소-권한)가 우선합니다. `agent-dev`·`agent-test`는 여전히 sudo 없음.
+
+
 - 일시: 2026-11-13 / 기준 커밋 `cb051d8` (작업 14-1: SSH 복구 사전검증 강화 — §3.1·§4.1 신설, §3 `ssh` 행·§5 갱신, 기준 `78d9ffb`)
 - 구성: [scripts/bootstrap-orbstack.sh](../scripts/bootstrap-orbstack.sh)(Mac에서 실행) → [scripts/machine-setup.sh](../scripts/machine-setup.sh)(Machine 안에서 root로 실행) + 저장소의 설정 파일([bin/monitor.sh](../bin/monitor.sh), [config/](../config/), [scripts/monitor-cron.sh](../scripts/monitor-cron.sh))
 - **Mac에서는 sudo를 쓰지 않습니다.** 권한이 필요한 작업은 모두 `orb -m <machine> sudo …`로 Machine 안에서만 수행합니다.
@@ -55,6 +58,7 @@ scripts/bootstrap-orbstack.sh snapshot                    # 정규화된 상태 
 | `packages` | `openssh-server ufw acl cron logrotate iproute2 procps` 중 없는 것만 설치 |
 | `ssh` | `/etc/ssh/sshd_config.d/10-b4-mission.conf`(Port 20022, PermitRootLogin no) 설치. **서비스를 건드리기 전에** ① 기존 조각 백업 ② 새 조각 원자적 설치 ③ `sshd -t` ④ `sshd -T` 실효 설정 검사(Port가 정확히 20022 하나, `PermitRootLogin no`)를 모두 통과해야 하며, 하나라도 실패하면 조각을 원래대로 복원하고 **서비스를 재시작하지 않은 채** 실패 처리(§3.1). 통과한 뒤에만 `ssh.socket` 비활성·`ssh.service` 활성·재시작, 재시작·LISTEN 확인 실패 시 이전 상태로 롤백. 다른 SSH 설정 파일은 절대 수정·삭제하지 않음. OrbStack 관리 SSH(`orb -m`)와는 별개라 영향 없음 |
 | `ufw` | deny incoming / allow outgoing, **20022/tcp 허용을 먼저** 추가(없으면 활성화 거부) → 15034/tcp → `ufw --force enable`, `ufw.service` enabled. 허용 포트 집합이 정확히 {20022, 15034}인지 확인(**다른 규칙은 보고만, 삭제하지 않음**) |
+| `sudoers` | `config/sudoers-agent-admin-ufw-status` → `/etc/sudoers.d/90-b4-agent-admin-ufw-status`(root:root 0440). 임시 이름으로 설치 → `visudo -cf` → 이동 → `visudo -c`, 실패 시 이전 상태 복원. 유효 권한이 정확히 `ufw status` 하나인지·agent-dev/test 무권한·`ufw status verbose`/다른 명령 거부를 검사 |
 | `accounts` | 그룹 먼저(GID 1000·1001), 사용자 3명(`useradd -m -s /bin/bash`, **생성할 때만** 비밀번호 잠금), `usermod -aG`로 소속 추가(기존 소속 보존). sudo 권한은 부여하지 않으며, 있으면 차이로 보고 |
 | `dirs` | `/opt/agent-app`(root:root 755), `upload_files`(agent-admin:agent-common 2770), `api_keys`·`/var/log/agent-app`(root:agent-core 2770) + access·default ACL |
 | `envfile` | `/etc/default/agent-app`이 **없을 때만** 생성(root:root 0644). 있으면 **덮어쓰지 않고 현재 값을 보존**하며 `AGENT_KEY_PATH`만 공식 경로로 교체(없으면 추가, 변경 시에만 `/var/backups/b4-bootstrap`에 백업). 다른 키가 다르면 실패 |
