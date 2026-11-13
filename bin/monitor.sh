@@ -6,9 +6,11 @@
 # Output: stdout only (log file / cron / rotation are separate tasks).
 #
 # Exit codes:
-#   0  healthy: Agent process confirmed AND port LISTEN (warnings/unknown allowed)
-#   1  health check failed or cannot be confirmed (process missing, process
-#      identification not configured [PENDING], port not LISTEN)
+#   0  healthy: Agent process confirmed AND 0.0.0.0:PORT LISTEN AND the listener PID is
+#      confirmed to be the Agent process (warnings/unknown allowed)
+#   1  health check failed or cannot be confirmed (process missing, process identification
+#      not configured [PENDING], port not LISTEN / wrong bind / PID mismatch / owner or
+#      IPv4 reachability unconfirmed [PENDING])
 #   2  monitoring/config error (bad config, missing tool, collection failure)
 #      -- only when no confirmed failure (exit 1 takes precedence)
 #
@@ -102,9 +104,21 @@ else
 fi
 
 # ---------------------------------------------------------------- B. TCP LISTEN
-# Actual LISTEN socket only. Firewall allow rules (UFW 15034) are NOT considered here,
-# and an open port alone does not prove it is the Agent.
-ssout=$(ss -H -ltnp 2>&1); src=$?
+# Real LISTEN sockets only (ss). Firewall allow rules (UFW 15034) are NOT considered, and an
+# open port alone does not prove it is the Agent. Requirements for a healthy port check:
+#   1. bind: a 0.0.0.0:PORT (IPv4 all-interfaces) listener exists.
+#        - 127.x / [::1]            -> loopback only      : FAIL (not reachable from other hosts)
+#        - specific non-wildcard IP -> not all-interfaces : FAIL
+#        - [::] or '*' only         -> IPv4 reachability is NOT confirmed (depends on the
+#          socket's IPV6_V6ONLY setting, which ss does not show); not treated as equal to
+#          0.0.0.0 -> PENDING
+#   2. owner (only when the Agent process was confirmed): the PID(s) holding the socket must
+#      match the matched Agent PID(s).
+#        - visible PID not in the Agent PIDs     -> FAIL (port held by someone else)
+#        - PID not visible to this uid (ss -p shows only own / root-visible sockets)
+#                                                -> PENDING (unconfirmed, never "OK")
+SS_FILE="${MONITOR_SS_FILE:-}"   # test hook: file with 'ss -H -ltnp' formatted lines
+if [ -n "$SS_FILE" ]; then ssout=$(cat "$SS_FILE" 2>&1); src=$?; else ssout=$(ss -H -ltnp 2>&1); src=$?; fi
 if [ "$src" -ne 0 ]; then
   say ERROR PORT "ss failed (rc=$src): $ssout"
 else
@@ -112,16 +126,56 @@ else
   if [ -z "$lst" ]; then
     say FAIL PORT "tcp/$AGENT_PORT not LISTEN"
   else
-    addrs=$(printf '%s\n' "$lst" | awk '{print $4}' | sort -u | paste -sd, -)
-    lpids=$(printf '%s\n' "$lst" | grep -o 'pid=[0-9]*' | cut -d= -f2 | sort -u | paste -sd' ' -)
-    if [ "$PROC_OK" -eq 1 ] && [ -n "$lpids" ]; then
-      match=0; for lp in $lpids; do for ap in $AGENT_PIDS; do [ "$lp" = "$ap" ] && match=1; done; done
-      if [ "$match" -eq 1 ]; then say OK PORT "tcp/$AGENT_PORT LISTEN on $addrs, listener pid=[$lpids] belongs to matched agent process"
-      else say OK PORT "tcp/$AGENT_PORT LISTEN on $addrs, listener pid=[$lpids] differs from matched agent pid=[$AGENT_PIDS]"; fi
-    elif [ -n "$lpids" ]; then
-      say OK PORT "tcp/$AGENT_PORT LISTEN on $addrs, pid=[$lpids] (LISTEN alone does not prove it is the Agent)"
+    # classify bind addresses (strip :PORT and %iface scope)
+    v4all=0; v6any=0; loop=0; spec=0; addrs=""
+    while IFS= read -r line; do
+      la=$(printf '%s' "$line" | awk '{print $4}'); addrs="$addrs $la"
+      h=${la%:*}; h=${h%%%*}
+      case "$h" in
+        0.0.0.0)          v4all=1;;
+        "[::]"|"*")       v6any=1;;
+        127.*|"[::1]")    loop=1;;
+        *)                spec=1;;
+      esac
+    done <<EOF_LST
+$lst
+EOF_LST
+    addrs=${addrs# }
+    # owner PIDs
+    vis_pids=""; invisible=0
+    while IFS= read -r line; do
+      lp=$(printf '%s' "$line" | grep -o 'pid=[0-9]*' | cut -d= -f2)
+      if [ -z "$lp" ]; then invisible=1; else vis_pids="$vis_pids $lp"; fi
+    done <<EOF_LST
+$lst
+EOF_LST
+    vis_pids=$(printf '%s\n' $vis_pids | sort -un | paste -sd' ' -)
+
+    bind_state=ok
+    if [ "$v4all" -eq 1 ]; then bind_state=ok
+    elif [ "$v6any" -eq 1 ]; then bind_state=v6only
+    else bind_state=bad; fi
+
+    if [ "$bind_state" = bad ]; then
+      what="loopback only"; [ "$loop" -eq 0 ] && what="specific address only"
+      say FAIL PORT "tcp/$AGENT_PORT LISTEN on [$addrs] but required 0.0.0.0:$AGENT_PORT binding is missing ($what)"
+    elif [ "$bind_state" = v6only ]; then
+      say PENDING PORT "tcp/$AGENT_PORT LISTEN on [$addrs] has no 0.0.0.0 binding; IPv6 wildcard alone does not confirm IPv4 reachability"
     else
-      say OK PORT "tcp/$AGENT_PORT LISTEN on $addrs, owner not visible to uid=$EUID (LISTEN alone does not prove it is the Agent)"
+      # bind OK; now ownership
+      if [ "$PROC_OK" -ne 1 ]; then
+        say OK PORT "tcp/$AGENT_PORT LISTEN on 0.0.0.0 [$addrs]; owner not evaluated (no confirmed agent process) - LISTEN alone does not prove it is the Agent"
+      else
+        other=""; for lp in $vis_pids; do hit=0; for ap in $AGENT_PIDS; do [ "$lp" = "$ap" ] && hit=1; done; [ "$hit" -eq 0 ] && other="$other $lp"; done
+        other=${other# }
+        if [ -n "$other" ]; then
+          say FAIL PORT "tcp/$AGENT_PORT LISTEN on [$addrs] held by pid=[$other], not by matched agent pid=[$AGENT_PIDS]"
+        elif [ "$invisible" -eq 1 ]; then
+          say PENDING PORT "tcp/$AGENT_PORT LISTEN on 0.0.0.0 [$addrs] but owner PID not visible to uid=$EUID; cannot confirm it belongs to agent pid=[$AGENT_PIDS]"
+        else
+          say OK PORT "tcp/$AGENT_PORT LISTEN on 0.0.0.0 [$addrs], owner pid=[$vis_pids] matches agent pid=[$AGENT_PIDS]"
+        fi
+      fi
     fi
   fi
 fi

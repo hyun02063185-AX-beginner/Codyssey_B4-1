@@ -9,7 +9,7 @@ OrbStack Ubuntu **Linux Machine**을 실습 서버로 사용하며, 여기서 �
 > - OrbStack Ubuntu Machine `b4-lab`(Ubuntu 24.04.5 LTS, x86_64) 생성 및 기본 실행환경 사전검증 완료 → [검증 기록](docs/orbstack-environment.md#9-기본-실행환경-사전검증-기록)
 > - **SSH 완료:** TCP 20022 단독 사용, Root 원격 로그인 차단, Mac에서 실제 접속 검증 → [SSH 검증 기록](docs/orbstack-environment.md#10-ssh-20022-구성-및-검증-기록)
 > - **UFW 완료:** 기본 deny(in)/allow(out), 20022·15034/tcp만 허용, Machine IP 기준 실제 허용·차단 검증 재시작 후 자동 복원 검증 완료 → [UFW 검증 기록](docs/orbstack-environment.md#11-ufw-방화벽-구성-및-검증-기록)
-> - **사용자·그룹 생성 완료(소속은 미확정):** `agent-admin/dev/test`, `agent-common/core` 생성. 사용자↔그룹 소속은 원문 미확인으로 **미적용** → [12장](docs/orbstack-environment.md#12-사용자그룹-구성-및-검증-기록)
+> - **사용자·그룹 생성 완료:** `agent-admin/dev/test`, `agent-common/core` 생성 → [12장](docs/orbstack-environment.md#12-사용자그룹-구성-및-검증-기록) (생성 시점에는 소속 미적용이었고, 현재 소속은 바로 아래 항목 참고)
 > - **그룹 소속·디렉터리 권한/ACL 적용 완료([승인된 실습 설계], 공식 원문 미대조):** `agent-admin`∈common+core, `agent-dev`∈common, `agent-test` 미가입. `/opt/agent-app/{upload_files,api_keys}`, `/var/log/agent-app` 생성·ACL 적용, 계정별 허용/차단 실측 PASS → [권한 설계·적용 기록](docs/b4-1-permission-plan.md#11-실제-적용-및-검증-작업-8)
 > - **환경변수 파일 적용(부분 완료):** `/etc/default/agent-app`(`root:root 0644`)에 `AGENT_HOME/PORT/UPLOAD_DIR/LOG_DIR` 적용·`agent-admin` 새 프로세스에서 로드 검증 PASS. `AGENT_KEY_PATH`는 **PENDING**(빈 값). 제공 Agent 원본은 **NOT FOUND**라 실행·`Agent READY`·15034 LISTEN 검증은 **미실시** → [Agent 실행환경 기록](docs/b4-1-agent-runtime.md)
 > - **monitor.sh 구현·1차 검증(Agent 없이 가능한 범위):** [bin/monitor.sh](bin/monitor.sh) → `/opt/agent-app/bin/monitor.sh`(`root:agent-admin 0750`). 프로세스 `PENDING`(식별 기준 미설정)·15034 미LISTEN → exit 1, UFW는 `agent-admin` 권한으로 `UNKNOWN`, CPU/MEM/DISK 수집·임계값·설정 오류(exit 2) 로직 PASS. **Agent 정상 판정·exit 0 실측·cron·로그 기록은 PENDING** → [monitor 기록](docs/b4-1-monitor.md)
@@ -75,7 +75,7 @@ OrbStack Ubuntu **Linux Machine**을 실습 서버로 사용하며, 여기서 �
 | --- | --- | --- | --- |
 | 사용자 | `agent-admin`, `agent-dev`, `agent-test` | [관리자료] | |
 | 그룹 | `agent-common`, `agent-core` | [관리자료] | |
-| 사용자 ↔ 그룹 소속 | _(미기입 — 미적용)_ | [확인 필요] | 어느 사용자가 어느 그룹에 속하는지 원문 확인. 저장소·Mac에서 원문을 찾지 못함 |
+| 사용자 ↔ 그룹 소속 | `agent-admin`∈common+core, `agent-dev`∈common, `agent-test` 미가입 (**적용됨**) | [승인된 실습 설계] | 공식 원문 미대조 → 원문 확인 필요. 저장소·Mac에서 원문을 찾지 못함 |
 | SSH 포트 | TCP `20022` | [관리자료] | **적용·검증 완료** (22 미사용) |
 | SSH Root 원격 로그인 | 차단 | [관리자료] | **적용·검증 완료** — `PermitRootLogin no` |
 | SSH 운영 방식 | `ssh.socket` 비활성 + `ssh.service` 상시 실행, 설정은 `/etc/ssh/sshd_config.d/10-b4-mission.conf` | [설계] | 이유: [docs 10.2](docs/orbstack-environment.md#102-운영-방식-결정-socket-비활성--sshservice-상시-실행-설계) |
@@ -107,7 +107,7 @@ OrbStack Ubuntu **Linux Machine**을 실습 서버로 사용하며, 여기서 �
 - [x] [관리자료] 사용자 `agent-admin`, `agent-dev`, `agent-test` 생성 (홈 `750`, 비밀번호 잠김, sudo 없음)
 - [x] [관리자료] 그룹 `agent-common`(GID 1000), `agent-core`(GID 1001) 생성
 - [x] 사용자별 그룹 소속 설정 — **[승인된 실습 설계]**(공식 원문 미대조): admin∈common+core, dev∈common, test 미가입. [확인 필요] 원문 대조
-- [x] 증빙(소속 제외): `id agent-admin`, `id agent-dev`, `id agent-test`, `getent group agent-common agent-core`
+- [x] 증빙: `id agent-admin`, `id agent-dev`, `id agent-test`, `getent group agent-common agent-core`
 
 #### 2) 디렉터리 / 파일 권한
 - [x] 설계 및 ACL 실측 후 **적용 완료**(작업 8, [승인된 실습 설계]): [docs/b4-1-permission-plan.md](docs/b4-1-permission-plan.md)
@@ -162,7 +162,7 @@ OrbStack Ubuntu **Linux Machine**을 실습 서버로 사용하며, 여기서 �
 #### 7) `monitor.sh` (Bash)
 - [x] Bash로 작성, `bash -n` 문법 검사 PASS → [bin/monitor.sh](bin/monitor.sh), 상세 [docs/b4-1-monitor.md](docs/b4-1-monitor.md)
 - [ ] [관리자료] 점검: Agent 프로세스 — 구현됨, 식별 기준(`AGENT_PROCESS_PATTERN`) **PENDING**(Agent 없음). 실제 Agent 판정 미검증
-- [ ] [관리자료] 점검: 포트(15034 LISTEN) — 구현·미LISTEN 검출 PASS. Agent의 LISTEN은 PENDING
+- [ ] [관리자료] 점검: 포트(15034 LISTEN) — 구현. 미LISTEN·바인딩(0.0.0.0 vs localhost/IPv6)·소유 PID 일치/불일치/확인 불가 판정 fixture 검증 PASS(작업 10-1). Agent의 실제 LISTEN은 PENDING
 - [x] [관리자료] 점검: 방화벽 상태 — 구현. root 실행 시 실제 판정 PASS, `agent-admin`(sudo 없음)은 `UNKNOWN`
 - [x] [관리자료] 점검: CPU / MEM / DISK 사용량 — 수집·계산 PASS, 임계값 80%는 **[설계 기본값]**(원문 확인 필요)
 - [x] [관리자료] 프로세스·포트 점검 실패 시 `exit 1` (식별 기준 미설정도 exit 1, 설정·수집 오류는 exit 2)
