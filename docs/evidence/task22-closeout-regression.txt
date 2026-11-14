@@ -1,0 +1,197 @@
+# b4-lab 최종 마감 회귀 실측 출력 (작업 22, 2026-11-14 09:40~09:44 KST)
+# 명령: orb -m b4-lab sudo bash < (읽기 전용 점검 + 제공 Agent 수동 실행/종료). 비밀값 출력 없음(secret.key 내용은 일치 여부만).
+# UFW 비활성 WARNING은 본환경 UFW를 끄지 않고 읽기 전용 스텁(MONITOR_UFW_CMD)으로 시연. monitor 시험은 임시 로그(MONITOR_LOG_FILE) 사용.
+# 정정 기록: 첫 실행에서 배경 실행 Agent가 SIGINT를 무시해 종료되지 않았고, 그 사이 "(Agent stopped)" 구간은 Agent가 살아 있어 HEALTHY로 나왔습니다(무효).
+#           SIGTERM으로 종료(잔여 프로세스 없음·15034 해제 확인) 후 중지 상태 monitor를 다시 실행한 결과가 맨 아래 "## monitor (Agent stopped, rerun)"입니다.
+#           (그 사이 Agent가 약 90초 실행되어 cron 기록 2줄이 PID:100366으로 남았습니다. 정상 동작입니다.)
+## OS/SSH
+port 20022
+permitrootlogin no
+0.0.0.0:20022
+[::]:20022
+active
+disabled
+## UFW
+Status: active
+Logging: on (low)
+Default: deny (incoming), allow (outgoing), deny (routed)
+New profiles: skip
+
+To                         Action      From
+--                         ------      ----
+20022/tcp                  ALLOW IN    Anywhere                   # SSH
+15034/tcp                  ALLOW IN    Anywhere                   # Agent
+20022/tcp (v6)             ALLOW IN    Anywhere (v6)              # SSH
+15034/tcp (v6)             ALLOW IN    Anywhere (v6)              # Agent
+
+## accounts
+agent-common:x:1000:agent-admin,agent-dev,agent-test
+agent-core:x:1001:agent-admin,agent-dev
+uid=1000(agent-admin) gid=1002(agent-admin) groups=1002(agent-admin),1000(agent-common),1001(agent-core)
+uid=1001(agent-dev) gid=1003(agent-dev) groups=1003(agent-dev),1000(agent-common),1001(agent-core)
+uid=1002(agent-test) gid=1004(agent-test) groups=1004(agent-test),1000(agent-common)
+## perms
+root:root 755 /opt/agent-app
+agent-admin:agent-common 2770 /opt/agent-app/upload_files
+root:agent-core 2770 /opt/agent-app/api_keys
+root:agent-core 2770 /var/log/agent-app
+root:agent-core 640 /opt/agent-app/api_keys/secret.key
+agent-dev:agent-core 750 /opt/agent-app/bin/monitor.sh
+# file: /opt/agent-app/api_keys
+# owner: root
+# group: agent-core
+# flags: -s-
+user::rwx
+group::rwx
+group:agent-core:rwx
+mask::rwx
+other::---
+default:user::rwx
+default:group::rwx
+default:group:agent-core:rwx
+default:mask::rwx
+default:other::---
+
+## RW matrix (temp files created and removed)
+agent-admin /opt/agent-app/upload_files read=R write=W
+agent-dev /opt/agent-app/upload_files read=R write=W
+agent-test /opt/agent-app/upload_files read=R write=W
+agent-admin /opt/agent-app/api_keys read=R write=W
+agent-dev /opt/agent-app/api_keys read=R write=W
+agent-test /opt/agent-app/api_keys read=no write=no
+agent-admin /var/log/agent-app read=R write=W
+agent-dev /var/log/agent-app read=R write=W
+agent-test /var/log/agent-app read=no write=no
+## sudo
+-- agent-admin
+User agent-admin may run the following commands on b4-lab:
+    (root) NOPASSWD: /usr/sbin/ufw status
+-- agent-dev
+User agent-dev is not allowed to run sudo on b4-lab.
+-- agent-test
+User agent-test is not allowed to run sudo on b4-lab.
+## env
+AGENT_HOME=/opt/agent-app
+AGENT_PORT=15034
+AGENT_UPLOAD_DIR=/opt/agent-app/upload_files
+AGENT_LOG_DIR=/var/log/agent-app
+AGENT_KEY_PATH=/opt/agent-app/api_keys
+AGENT_PROCESS_PATTERN=^/opt/agent-app/bin/agent-app-linux-x86
+secret.key content ok: yes
+## agent run
+>>> Starting Agent Boot Sequence...
+[1/5] Checking User Account               [OK]
+   ... Running as service user 'agent-admin' (uid=1000)
+[2/5] Verifying Environment Variables     [OK]
+   ... All required Envs correct
+[3/5] Checking Required Files             [OK]
+   ... Verified 'secret.key' with correct key string.
+[4/5] Checking Port Availability          [OK]
+   ... Port 15034 is available.
+[5/5] Verifying Log Permission            [OK]
+   ... Log directory is writable: /var/log/agent-app
+------------------------------------------------------------
+All Boot Checks Passed!
+Agent READY
+2026-11-14 09:41:44,885 [INFO] [SafetyGuard] Process priority lowered (nice=10).
+2026-11-14 09:41:44,885 [INFO] Agent listening at port 15034
+2026-11-14 09:41:44,885 [INFO] === Agent Worker Started ===
+2026-11-14 09:41:44,885 [INFO]    > Cycle: 0 -> 256MB/Lv10 -> 0
+2026-11-14 09:41:44,885 [INFO] --- Step Info: Mode=UP, CPU Lv=1, Mem=0MB ---
+2026-11-14 09:41:44,923 [INFO] [Memory] Increasing... (+25 MB) Total: 25 MB
+2026-11-14 09:41:44,923 [INFO] [CPU] Occupy core for 1s (Level 1)
+2026-11-14 09:41:46,929 [INFO] --- Step Info: Mode=UP, CPU Lv=2, Mem=25MB ---
+2026-11-14 09:41:46,967 [INFO] [Memory] Increasing... (+25 MB) Total: 50 MB
+2026-11-14 09:41:46,967 [INFO] [CPU] Occupy core for 2s (Level 2)
+2026-11-14 09:41:49,974 [INFO] --- Step Info: Mode=UP, CPU Lv=3, Mem=50MB ---
+2026-11-14 09:41:50,013 [INFO] [Memory] Increasing... (+25 MB) Total: 75 MB
+2026-11-14 09:41:50,013 [INFO] [CPU] Occupy core for 3s (Level 3)
+LISTEN 0      1            0.0.0.0:15034      0.0.0.0:*    users:(("agent-app-linux",pid=100366,fd=4))
+-- monitor (Agent running)
+2026-11-14 09:41:50 [INFO] START user=agent-admin uid=1000 groups=agent-admin,agent-common,agent-core trigger=manual host=b4-lab env_file=/etc/default/agent-app
+2026-11-14 09:41:50 [INFO] CONFIG AGENT_HOME=/opt/agent-app AGENT_PORT=15034 AGENT_UPLOAD_DIR=/opt/agent-app/upload_files AGENT_LOG_DIR=/var/log/agent-app
+2026-11-14 09:41:50 [INFO] CONFIG AGENT_KEY_PATH is set (value intentionally not printed or logged)
+2026-11-14 09:41:50 [OK] PROCESS agent process matched pattern '^/opt/agent-app/bin/agent-app-linux-x86' pid=[100365 100366]
+2026-11-14 09:41:50 [OK] PORT tcp/15034 LISTEN on 0.0.0.0 [0.0.0.0:15034], owner pid=[100366] matches agent pid=[100365 100366]
+2026-11-14 09:41:50 [OK] FIREWALL ufw active (checked via sudo)
+2026-11-14 09:41:51 [OK] CPU usage=3.2% (threshold 20%)
+2026-11-14 09:41:51 [OK] MEM usage=5.0% (total=16434648kB available=15619148kB) (threshold 10%)
+2026-11-14 09:41:51 [OK] DISK usage=0.4% path=/ mount=/ (threshold 80%)
+2026-11-14 09:41:51 [INFO] LOG record appended to /tmp/tmp.87ZBofEluc/m.log: PID:100366 CPU:3.2% MEM:5.0% DISK_USED:0.4%
+2026-11-14 09:41:51 [INFO] SUMMARY result=HEALTHY exit=0 fail=0 pending=0 warning=0 unknown=0 error=0 log=/tmp/tmp.87ZBofEluc/m.log
+rc=0
+[2026-11-14 09:41:51] PID:100366 CPU:3.2% MEM:5.0% DISK_USED:0.4%
+-- UFW inactive WARNING via read-only stub
+2026-11-14 09:41:51 [WARNING] FIREWALL ufw inactive (checked via hook)
+2026-11-14 09:41:52 [INFO] SUMMARY result=HEALTHY exit=0 fail=0 pending=0 warning=1 unknown=0 error=0 log=/tmp/tmp.87ZBofEluc/m.log
+-- thresholds
+eq: 2026-11-14 09:41:54 [OK] MEM usage=10.0% (total=100kB available=90kB) (threshold 10%)
+gt: 2026-11-14 09:41:55 [WARNING] MEM usage=11.0% (raw 11.000000) (total=100kB available=89kB) > threshold 10%
+100365
+100366
+-- monitor (Agent stopped)
+2026-11-14 09:41:58 [INFO] SUMMARY result=HEALTHY exit=0 fail=0 pending=0 warning=0 unknown=0 error=0 log=/tmp/tmp.87ZBofEluc/m.log
+rc=0
+runuser: failed to execute /opt/agent-app/bin/monitor.sh: Permission denied
+## monitor.sh deployed vs repo
+86d6b9ce51c46bc4f68e3738eb23eae023a19d4c9a83eccfeaf5fa30cd96f056  /opt/agent-app/bin/monitor.sh
+## cron + log
+# BEGIN B4-1 monitor (managed by scripts/monitor-cron.sh; do not edit inside)
+* * * * * MONITOR_TRIGGER=cron /opt/agent-app/bin/monitor.sh >/dev/null 2>&1
+# END B4-1 monitor
+active
+no crontab for root
+monitor.log lines 3058 -> 3060
+[2026-11-14 09:41:02] PID:N/A CPU:0.0% MEM:4.2% DISK_USED:0.4%
+[2026-11-14 09:42:03] PID:100366 CPU:4.2% MEM:5.3% DISK_USED:0.4%
+[2026-11-14 09:43:02] PID:100366 CPU:5.0% MEM:5.5% DISK_USED:0.4%
+agent-admin:agent-core 660 319125 bytes
+## logrotate
+/var/log/agent-app/monitor.log {
+    su agent-admin agent-core
+    size 9M
+    rotate 9
+    create 0660 agent-admin agent-core
+    missingok
+    notifempty
+    nocompress
+}
+rotating pattern: /var/log/agent-app/monitor.log  9437184 bytes (9 rotations)
+considering log /var/log/agent-app/monitor.log
+NEXT                        LEFT LAST                        PASSED UNIT            ACTIVATES
+Sun 2026-11-15 00:00:00 KST  14h Sat 2026-11-14 00:00:01 KST 9h ago logrotate.timer logrotate.service
+
+1 timers listed.
+Pass --all to see loaded but inactive timers, too.
+Nov 14 00:00:01 b4-lab systemd[1]: Starting logrotate.service - Rotate log files...
+Nov 14 00:00:01 b4-lab systemd[1]: logrotate.service: Deactivated successfully.
+Nov 14 00:00:01 b4-lab systemd[1]: Finished logrotate.service - Rotate log files.
+"/var/log/agent-app/monitor.log" 2026-11-13-16:0:0
+## monitor (Agent stopped, rerun)
+agent stopped, residual none
+15034 released
+2026-11-14 09:43:21 [FAIL] PROCESS no process matches pattern '^/opt/agent-app/bin/agent-app-linux-x86'
+2026-11-14 09:43:21 [FAIL] PORT tcp/15034 not LISTEN
+2026-11-14 09:43:23 [INFO] SUMMARY result=UNHEALTHY exit=1 fail=2 pending=0 warning=0 unknown=0 error=0 log=/tmp/tmp.mfkZHwjcrY/m.log
+rc=1
+[2026-11-14 09:43:23] PID:N/A CPU:0.2% MEM:4.4% DISK_USED:0.4%
+## bootstrap check --no-run
+== check: b4-lab (no persistent changes, monitor.sh not run)
+[OK  ] preflight desired state reached
+[OK  ] packages  desired state reached
+[OK  ] ssh       desired state reached
+[OK  ] ufw       desired state reached
+[OK  ] accounts  desired state reached
+[OK  ] sudoers   desired state reached
+[OK  ] dirs      desired state reached
+[OK  ] envfile   desired state reached
+[OK  ] keyfile   desired state reached
+[OK  ] monitor   desired state reached
+[OK  ] logfile   desired state reached
+[OK  ] logrotate desired state reached
+[OK  ] cron      desired state reached
+[PEND] agent     provided Agent is never stored in the repo or installed by this script; deploy by hand (docs/
+[PEND] agent     provided Agent binary: root:agent-core 750
+[PEND] agent     Agent process: not running (not a resident service; started by hand for tests)
+[PEND] agent     Boot Sequence / LISTEN 0.0.0.0:15034 are verified by running the Agent by hand (docs/b4-1-age
+== check: ok=13 diff=0 (agent: PENDING)

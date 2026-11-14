@@ -1,6 +1,6 @@
 # B4-1 요구사항 수행 내역서 (제출용, 최종)
 
-- 기준: GitHub `main` (작업 21, 2026-11-13). 저장소: https://github.com/hyun02063185-AX-beginner/Codyssey_B4-1
+- 기준: GitHub `main` (작업 22 최종 마감, 2026-11-14). 저장소: https://github.com/hyun02063185-AX-beginner/Codyssey_B4-1
 - 실습 환경: OrbStack Linux Machine `b4-lab` (Ubuntu 24.04.5 LTS, x86_64). 재구축 검증용 `b4-recovery-test`.
 - 제출물: ① 이 수행 내역서 ② `monitor.sh` 소스 → [bin/monitor.sh](../bin/monitor.sh)
 - 값의 기준: 그룹 구성·`monitor.sh` 소유권·임계값·로그 형식·테스트 키 문자열은 **공식 요구값**(작업 16~19에서 Owner가 제공), 키 경로는 **제공 Agent 실행 결과**로 확정했습니다. 공식 미션 원문 전체를 저장소에 보관하지는 않으며, 최종 대조는 Owner 검수에서 합니다.
@@ -30,13 +30,13 @@
 | 9 | 방화벽 점검, 비활성 시 WARNING만 | **PASS** | §2.7 |
 | 10 | CPU/MEM/DISK 수집, 임계값 초과 시 WARNING | **PASS** | §2.8 |
 | 11 | `monitor.log` 공식 형식 누적 기록 | **PASS** | §2.9 |
-| 12 | 로그 최대 10MB / 10개 | 설정·순환 동작 **PASS** / **타이머 실제 실행 기록 PENDING** | §2.10 |
+| 12 | 로그 최대 10MB / 10개 | **PASS** (설정·순환 동작·타이머 실행 기록 확인; 본환경 실제 순환은 9 MiB 미만이라 미발생=정상) | §2.10 |
 | 13 | agent-admin crontab 매분 실행, 로그 자동 증가 | **PASS** | §2.11 |
 | + | 환경 복구 자동화 (`bootstrap-orbstack.sh`) | **PASS** | §2.12 |
 
-PENDING은 항목 12의 한 가지뿐입니다: 설정 설치 후 `logrotate.timer`가 이 설정을 실행한 기록(첫 기회 2026-11-14 00:00~01:00 KST). 제출용 화면 캡처는 모두 **CAPTURE PENDING**입니다(§4). 보너스 과제(`report.sh`, 7일 압축/30일 삭제)는 착수하지 않았습니다.
+필수 13개 항목은 모두 PASS입니다. 항목 12의 `logrotate.timer`는 설정 설치 후 2026-11-14 00:00:01 KST에 실제 실행·성공했고(§2.10), 본환경 로그는 임계값(9 MiB)에 한참 못 미쳐 순환되지 않았습니다(정상). **제출용 화면 캡처는 아직 찍지 않았습니다**(§4, Owner 작업). 보너스 과제(`report.sh`, 7일 압축/30일 삭제)는 착수하지 않았습니다.
 
-실측 원본: [evidence/task21-b4-lab-regression.txt](evidence/task21-b4-lab-regression.txt)(본환경 전체 회귀, 2026-11-13 21:22~21:24 KST). 아래 "결과"는 별도 표기가 없으면 이 파일의 값입니다.
+실측 원본: [evidence/task22-closeout-regression.txt](evidence/task22-closeout-regression.txt)(최종 마감 회귀, 2026-11-14 09:40 KST, 문서 §2 결과는 이 값 기준)와 [evidence/task21-b4-lab-regression.txt](evidence/task21-b4-lab-regression.txt)(2026-11-13). 아래 "결과"는 별도 표기가 없으면 이 파일의 값입니다.
 
 ## 2. 항목별 수행 내역
 
@@ -136,7 +136,7 @@ PENDING은 항목 12의 한 가지뿐입니다: 설정 설치 후 `logrotate.tim
 | **참고(혼재)** | 작업 17 이전에 쌓인 **상세 형식 줄(실행당 10줄, 2,280줄)** 은 삭제·변환하지 않고 같은 파일에 남아 있습니다. 새 기록은 공식 형식만 추가됩니다. 따라서 파일 전체를 형식 검사하면 과거 줄이 불일치로 나옵니다(형식 검증은 최근 줄 기준으로 하세요) |
 | 증빙 위치 | 회귀 파일 `## cron + official log`, [b4-1-monitor.md 작업 18](b4-1-monitor.md#작업-18-공식-로그-형식agent-정상-모니터링) |
 
-### 2.10 로그 순환 최대 10MB / 10개 — 설정·동작 PASS, 타이머 실행 기록 PENDING
+### 2.10 로그 순환 최대 10MB / 10개 — PASS
 
 | | |
 |---|---|
@@ -147,7 +147,8 @@ PENDING은 항목 12의 한 가지뿐입니다: 설정 설치 후 `logrotate.tim
 | 명령 | `B cat /etc/logrotate.d/agent-app` / `B logrotate -d /etc/logrotate.d/agent-app`(변경 없음) / `B systemctl list-timers logrotate.timer` / `B journalctl -u logrotate.service --no-pager` / `B grep agent-app /var/lib/logrotate/status` |
 | 결과(동작, 테스트 Machine) | `logrotate -d`: `9437184 bytes (9 rotations)`. 9,437,183 B 순환 안 함 / 9,437,184 B 이상 순환. 연속 14회 순환 후 파일 10개(활성+`.1`~`.9`), 가장 오래된 세대부터 삭제, 모두 `agent-admin:agent-core 660`, `.1` sha256 = 순환 직전 파일. 실제 `logrotate.service` 실행 `Result=success`. `monitor.sh` 30회 연속 실행 중 서비스 순환 3회 → 기록 증가분 정확히 30(손실 0) |
 | 결과(본환경) | 설정 파일 설치·`logrotate -d` 오류 없음. `monitor.log` 약 270 KB(임계값의 약 3%)라 순환은 아직 일어나지 않았고, 일어나지 않는 것이 정상. 기존 로그 삭제·초기화 없음 |
-| **PENDING** | 설정 설치(2026-11-13 오후) 이후 `logrotate.timer`가 이 설정을 실행한 기록이 아직 없음. `logrotate.timer` active/enabled, 다음 예약 2026-11-14 00:00 KST(±1h), 마지막 실행 11-13 00:00:40은 설치 이전. **타이머 실행 사실과 본환경 로그의 실제 순환은 별개이며**, 타이머가 돌아도 로그가 9 MiB 미만이면 `does not need rotating`이 정상 → 본환경 실제 순환은 수개월 후. 2026-11-14 01:00 KST 이후 확인 명령은 [b4-1-log-rotation.md 작업 20 §4](b4-1-log-rotation.md#작업-20-운영-검증과-공식-요구사항-정합성) |
+| **타이머 실행(2026-11-14 확인)** | `journalctl -u logrotate.service --since '2026-11-14 00:00'`: `Nov 14 00:00:01 Starting → Deactivated successfully → Finished`(**성공**, 설정 설치 후 첫 실행). `logrotate.timer` enabled, 마지막 실행 11-14 00:00:01, 다음 11-15 00:00. `logrotate -d`가 `considering log /var/log/agent-app/monitor.log`로 이 로그를 대상에 포함함을 확인. 이 로그가 포함됐다는 것은 `-d` 결과와 설정 파일로 확인한 것이며, 비상세 실행의 journal에는 파일별 판정이 남지 않습니다 |
+| **실제 파일 순환(별도 판정)** | **미발생(정상).** `monitor.log` 319,125 B(임계값 9,437,184 B의 약 3.4%)라 `does not need rotating`에 해당. `/var/lib/logrotate/status`의 `monitor.log` 항목은 `2026-11-13-16:0:0` 그대로. 운영 로그는 강제 순환하지 않았으며 삭제·초기화도 없음. 요구 동작(크기 도달 순환·최대 10개)은 테스트 Machine 실측으로 입증 |
 | 증빙 위치 | 회귀 파일 `## logrotate`, [b4-1-log-rotation.md](b4-1-log-rotation.md) |
 
 ### 2.11 cron 매분 실행 — PASS
@@ -187,42 +188,33 @@ PENDING은 항목 12의 한 가지뿐입니다: 설정 설치 후 `logrotate.tim
 
 판단: 실제 실행 파일의 검증이 기준이므로 시도 3의 구성을 채택했습니다(저장소 설정·복구 스크립트·본환경 모두 동일). 과거 작업 16에서 만든 `t_secret.key`는 삭제하지 않았으나 더 이상 사용·관리하지 않습니다. 상세: [b4-1-agent-runtime.md](b4-1-agent-runtime.md) 작업 17.
 
-## 4. 제출 증빙 절차
+## 4. 제출 증빙 화면 구성 (10장, 모두 Owner 촬영 대기)
 
-`B`는 `orb -m b4-lab sudo`입니다. 모든 명령은 **조회 전용**이며(괄호로 표시한 것만 예외) 본환경 설정을 바꾸지 않습니다. 화면 캡처는 아직 찍지 않았으므로 전부 **CAPTURE PENDING**입니다. 아래 명령을 터미널에 실행하고 출력 전체가 보이게 캡처하세요.
+`B`는 `orb -m b4-lab sudo`입니다. 이 환경(Claude Code)에서는 화면 캡처 기능을 쓸 수 없어 **화면 캡처 파일은 하나도 만들지 않았습니다**. 아래는 촬영 대상·명령·기대 출력 체크리스트이며, 기대 출력은 2026-11-14 실제 실행 결과([task22 회귀 출력](evidence/task22-closeout-regression.txt))입니다. 모든 명령은 조회 전용(예외 표시)이고 비밀값(SSH 개인키·비밀번호·`secret.key` 내용)은 출력하지 않습니다. 터미널에 실행한 뒤 출력 전체가 보이게 캡처하세요. 시각·PID는 달라도 됩니다.
 
-| ID | 증빙 | 명령 | 캡처 |
-|---|---|---|---|
-| E1 | SSH 20022·Root 차단 | `B sshd -T \| grep -E '^(port\|permitrootlogin) '` ; `B ss -tlnp \| grep sshd` | CAPTURE PENDING |
-| E2 | Mac에서 SSH 응답 | `IP=$(orb -m b4-lab bash -c "ip -4 -o addr show scope global \| awk '{print \$4}' \| cut -d/ -f1 \| head -1"); perl -MIO::Socket::INET -e '$s=IO::Socket::INET->new(PeerAddr=>"'$IP':20022",Timeout=>5); print scalar <$s>'` | CAPTURE PENDING |
-| E3 | Root 로그인 거부 | `B sshd -T \| grep permitrootlogin` (실제 root 접속 시도는 키를 요구하므로 실효 설정으로 증빙) | CAPTURE PENDING |
-| E4 | UFW 규칙·정책 | `B ufw status verbose` | CAPTURE PENDING |
-| E5 | UFW 허용/차단 동작 | Mac: 20022(열림), 22·15035(timeout), 15034(Agent 중지: refused / 실행: open) — `perl -MIO::Socket::INET -e '$s=IO::Socket::INET->new(PeerAddr=>"<IP>:<포트>",Timeout=>4); print $s?"open":"fail $!"'` | CAPTURE PENDING |
-| E6 | 사용자·그룹 | `B getent group agent-common agent-core` ; `B id agent-admin` ; `B id agent-dev` ; `B id agent-test` | CAPTURE PENDING |
-| E7 | 디렉터리 권한·ACL·R/W 표 | `B stat -c '%U:%G %a %n' /opt/agent-app /opt/agent-app/upload_files /opt/agent-app/api_keys /var/log/agent-app` ; `B getfacl -p /opt/agent-app/api_keys` ; R/W 표는 [회귀 파일](evidence/task21-b4-lab-regression.txt) `## ACL matrix`(임시 파일을 만들고 즉시 삭제하는 시험이라 변경 후 원복됨 — *예외*) | CAPTURE PENDING |
-| E8 | sudo 최소 권한 | `B sudo -l -U agent-admin` ; `B sudo -l -U agent-dev` ; `B sudo -l -U agent-test` | CAPTURE PENDING |
-| E9 | 환경변수·키 경로 | `B grep -v '^#' /etc/default/agent-app` ; `B stat -c '%U:%G %a %n' /opt/agent-app/api_keys/secret.key` ; `B bash -c '[ "$(cat /opt/agent-app/api_keys/secret.key)" = agent_api_key_test ] && echo key-ok'` | CAPTURE PENDING |
-| E10 | Agent Boot 5/5·READY·LISTEN | §2.5의 실행 명령(*예외: Agent를 수동 실행·SIGINT 종료, 설정 변경 없음*) 후 `B ss -ltnp \| grep 15034` | CAPTURE PENDING |
-| E11 | monitor.sh 소유권·배포본 일치 | `B stat -c '%U:%G %a %n' /opt/agent-app/bin/monitor.sh` ; `B cmp /opt/agent-app/bin/monitor.sh - < bin/monitor.sh && echo IDENTICAL` | CAPTURE PENDING |
-| E12 | monitor.sh 정상(exit 0)/장애(exit 1) | §2.6 명령을 Agent 실행 중·중지 후 각각(임시 로그 사용, 실제 로그에 상세 줄 안 씀) | CAPTURE PENDING |
-| E13 | 방화벽 WARNING | 회귀 파일 `UFW inactive WARNING via read-only stub`와 같은 스텁 명령(본환경 UFW는 건드리지 않음) | CAPTURE PENDING |
-| E14 | CPU/MEM/DISK 기준 | 회귀 파일 `## thresholds` 시험 명령(고정 입력 파일) 및 monitor 출력의 `threshold 20%/10%/80%` | CAPTURE PENDING |
-| E15 | 공식 monitor.log 최근 줄 | `B tail -5 /var/log/agent-app/monitor.log` ; `B stat -c '%U:%G %a' /var/log/agent-app/monitor.log` | CAPTURE PENDING |
-| E16 | cron 등록·자동 증가 | `B crontab -u agent-admin -l` ; `B wc -l /var/log/agent-app/monitor.log`(70초 이상 간격으로 2회) | CAPTURE PENDING |
-| E17 | logrotate 설정·검증 | `B cat /etc/logrotate.d/agent-app` ; `B logrotate -d /etc/logrotate.d/agent-app` ; `B systemctl list-timers logrotate.timer` | CAPTURE PENDING |
-| E18 | 타이머 실제 실행(2026-11-14 01:00 KST 이후만) | `B journalctl -u logrotate.service --since '2026-11-14 00:00' --no-pager` ; `B grep agent-app /var/lib/logrotate/status` | PENDING (시각 미도래) |
-| E19 | bootstrap 정합성 | `scripts/bootstrap-orbstack.sh check --no-run`(Mac, sudo 불필요) → `diff=0` | CAPTURE PENDING |
+| 화면 | 포함 증빙 | 실행 명령 | 기대 출력(핵심) | 캡처 |
+|---|---|---|---|---|
+| S1 환경·SSH | 환경, 20022, Root 차단 | `orb -m b4-lab cat /etc/os-release \| head -2` ; `B sshd -T \| grep -E '^(port\|permitrootlogin) '` ; `B ss -tlnp \| grep sshd` ; Mac: `IP=$(orb -m b4-lab bash -c "ip -4 -o addr show scope global \| awk '{print \$4}' \| cut -d/ -f1 \| head -1"); perl -MIO::Socket::INET -e '$s=IO::Socket::INET->new(PeerAddr=>"'$IP':20022",Timeout=>5); print scalar <$s>'` | Ubuntu 24.04.5, `port 20022`, `permitrootlogin no`, LISTEN 20022만, `SSH-2.0-OpenSSH_9.6p1…` | 대기 |
+| S2 UFW | 규칙·접속 검증 | `B ufw status verbose` ; Mac: 포트 22·20022·15035 접속 시도(`perl … PeerAddr=>"<IP>:<포트>",Timeout=>4; print $s?"open":"fail $!"`) | `Status: active`, deny incoming, 20022·15034만 ALLOW(v4/v6) ; 20022 open, 22·15035 fail(timeout) | 대기 |
+| S3 계정·그룹·ACL | 사용자 3·그룹 2·권한·sudo | `B getent group agent-common agent-core` ; `B id agent-admin` (dev·test도) ; `B stat -c '%U:%G %a %n' /opt/agent-app /opt/agent-app/upload_files /opt/agent-app/api_keys /var/log/agent-app` ; `B getfacl -p /opt/agent-app/api_keys` ; `B sudo -l -U agent-admin` | common=admin·dev·test, core=admin·dev ; `755`/`2770`/`2770`/`2770` ; admin은 `ufw status` 한 줄만 sudo. R/W 표는 [task22 출력 `## RW matrix`](evidence/task22-closeout-regression.txt)(임시 파일 생성·삭제 시험이므로 캡처 대신 이 파일 인용 가능) | 대기 |
+| S4 환경변수·키 파일 | 환경변수 5개, 키 경로 | `B grep -v '^#' /etc/default/agent-app` ; `B stat -c '%U:%G %a %n' /opt/agent-app/api_keys/secret.key` ; `B bash -c '[ "$(cat /opt/agent-app/api_keys/secret.key)" = agent_api_key_test ] && echo key-ok'` | 환경변수 5개(+`AGENT_PROCESS_PATTERN`), `root:agent-core 640`, `key-ok` (키 내용 자체는 출력 금지) | 대기 |
+| S5 Agent Boot | 5/5·READY·15034 LISTEN | §2.5의 실행 명령을 터미널 1에서 실행(*예외: Agent 수동 실행*) ; 터미널 2: `B ss -ltnp \| grep 15034` ; 종료: `B pkill -TERM -f '^/opt/agent-app/bin/agent-app-linux-x86'` (**배경 실행 Agent는 SIGINT를 무시할 수 있음**) | `[1/5]~[5/5] [OK]`, `All Boot Checks Passed!`, `Agent READY`, `LISTEN 0.0.0.0:15034` | 대기 |
+| S6 monitor.sh 판정 | 소유권, 정상(exit 0)·장애(exit 1)·방화벽 WARNING | `B stat -c '%U:%G %a' /opt/agent-app/bin/monitor.sh` ; `B cmp /opt/agent-app/bin/monitor.sh - < bin/monitor.sh && echo IDENTICAL` ; §2.6 명령을 Agent 실행 중/종료 후 각각(임시 로그) ; WARNING은 [task22 출력](evidence/task22-closeout-regression.txt) `UFW inactive WARNING via read-only stub` 방식 | `agent-dev:agent-core 750`, `IDENTICAL` ; `HEALTHY … exit 0` / `UNHEALTHY … exit 1` ; `[WARNING] FIREWALL ufw inactive` + `HEALTHY` | 대기 |
+| S7 CPU/MEM/DISK | 수집값·임계값 | S6 실행 출력의 `[OK] CPU/MEM/DISK … (threshold 20%/10%/80%)` 줄 ; 경계 시험은 task22 출력 `## thresholds`(고정 입력 파일) | `threshold 20%`, `10%`, `80%` ; 정확히 10.0% → OK, 11.0% → `[WARNING]` | 대기 |
+| S8 monitor.log | 공식 형식·누적 | `B tail -5 /var/log/agent-app/monitor.log` ; `B stat -c '%U:%G %a' /var/log/agent-app/monitor.log` | `[YYYY-MM-DD HH:MM:SS] PID:… CPU:…% MEM:…% DISK_USED:…%` 5줄, `agent-admin:agent-core 660` | 대기 |
+| S9 cron | 등록·매분 자동 실행 | `B crontab -u agent-admin -l` ; `B wc -l /var/log/agent-app/monitor.log`(70초 이상 간격 2회) | `* * * * * MONITOR_TRIGGER=cron /opt/agent-app/bin/monitor.sh …` ; 줄 수 증가(약 +1/분) | 대기 |
+| S10 logrotate | 설정·검증·타이머 실행 | `B cat /etc/logrotate.d/agent-app` ; `B logrotate -d /etc/logrotate.d/agent-app` ; `B systemctl list-timers logrotate.timer` ; `B journalctl -u logrotate.service --since '2026-11-14 00:00' --no-pager` ; 시험 결과는 [b4-1-log-rotation.md](b4-1-log-rotation.md) | `size 9M`, `rotate 9`, `considering log …`, 타이머 active, 11-14 00:00:01 `Finished` ; 회귀: `scripts/bootstrap-orbstack.sh check --no-run` → `ok=13 diff=0` | 대기 |
 
-저장소에 제출용 화면 캡처 파일은 없습니다(Desktop의 2026-11-09 스크린샷은 B4-1 환경 구성 이전의 것이라 증빙으로 사용하지 않음). 텍스트 증빙은 [evidence/task21-b4-lab-regression.txt](evidence/task21-b4-lab-regression.txt)와 각 상세 문서에 있습니다.
+E1~E19(작업 21 구성)는 위 10장으로 통합했습니다(E1·E2·E3→S1, E4·E5→S2, E6~E8→S3, E9→S4, E10→S5, E11~E14→S6·S7, E15→S8, E16→S9, E17~E19→S10). 저장소에 제출용 화면 캡처 파일은 없고(Desktop의 2026-11-09 스크린샷은 B4-1 환경 구성 이전 것이라 사용하지 않음), 텍스트 증빙은 [task22](evidence/task22-closeout-regression.txt)·[task21](evidence/task21-b4-lab-regression.txt) 출력과 각 상세 문서에 있습니다.
 
-## 5. 남은 실측·제약사항
+## 5. 완료·미완료와 제약사항
 
 | 구분 | 내용 |
 |---|---|
-| PENDING | 설정 설치 후 `logrotate.timer` 실행 기록(2026-11-14 00:00~01:00 KST 이후 E18로 확인). 본환경 `monitor.log` 실제 순환은 수개월 후(요구 동작은 테스트 Machine에서 입증) |
-| CAPTURE PENDING | E1~E17, E19 제출용 화면 캡처 |
-| 제약 | 로그 순환은 절대 최대 크기 보장이 아님(§2.10). Agent는 상주 서비스가 아니라 검증 때 수동 실행. `agent_app.log`(Agent 자체 로그, 같은 디렉터리)는 순환 설정 대상 아님. `monitor.log`에는 과거 상세 형식과 공식 형식이 공존 |
-| Owner 검수 | 공식 미션 원문 전체와의 최종 대조, 전체 미션 완료 판정 |
+| 완료 | 필수 13개 항목 PASS(§1), 최종 회귀 2026-11-14 재실측, `monitor.sh` 저장소본 = 배포본(sha256 `86d6b9ce…f056`), `bootstrap check --no-run` `ok=13 diff=0` |
+| 미완료(Owner) | **S1~S10 화면 캡처 촬영**(§4), 공식 미션 원문 전체와의 최종 대조·완료 판정 |
+| 제약 | 로그 순환은 절대 최대 크기 보장이 아님(§2.10). Agent는 상주 서비스가 아니라 검증 때 수동 실행. `agent_app.log`(Agent 자체 로그)는 순환 대상 아님. `monitor.log`에는 과거 상세 형식과 공식 형식이 공존. 제공 Agent는 시험 중 CPU·메모리를 점진적으로 올리는 동작이 있으며(Agent 로그의 `Cycle`·`Memory Increasing` 확인), 이 환경의 임계값 경고는 그 영향으로 나올 수 있음 |
+| 제외 | 보너스 과제 미착수 |
 
 ## 6. 이력 문서
 

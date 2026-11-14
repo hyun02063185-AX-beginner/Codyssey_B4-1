@@ -5,7 +5,7 @@ OrbStack Ubuntu **Linux Machine**을 실습 서버로 사용하며, 여기서 �
 
 - B4-2 저장소: https://github.com/hyun02063185-AX-beginner/Codyssey_B4-2
 
-> **현재 상태 (2026-11-13, 작업 21)** — Mission Core 13개 항목 구현·검증 완료(PASS 12 + 항목 12는 설정·동작 PASS / **타이머 실행 기록 PENDING**). 제출용 화면 캡처는 **CAPTURE PENDING**. 전체 미션 완료 판정은 Owner 최종 검수 이후입니다.
+> **현재 상태 (2026-11-14, 작업 22 최종 마감)** — Mission Core 13개 항목 **13/13 PASS**(logrotate 타이머 2026-11-14 00:00:01 KST 실행·성공 확인, 로그가 9 MiB 미만이라 순환은 미발생=정상). 제출용 화면 캡처 10장(S1~S10)은 **Owner 촬영 대기**([체크리스트](docs/b4-1-final-evidence.md#4-제출-증빙-화면-구성-10장-모두-owner-촬영-대기)). 전체 미션 완료 판정은 Owner 최종 검수 이후입니다.
 >
 > | 영역 | 상태 | 상세 |
 > |---|---|---|
@@ -17,13 +17,15 @@ OrbStack Ubuntu **Linux Machine**을 실습 서버로 사용하며, 여기서 �
 > | 제공 Agent: Boot 5/5 `[OK]`, `Agent READY`, `0.0.0.0:15034` LISTEN, 정상 종료 (수동 실행, 상주 서비스 아님) | PASS | [Agent 실행환경](docs/b4-1-agent-runtime.md) |
 > | `monitor.sh` (`agent-dev:agent-core 0750`): Agent 실행 시 `exit 0`, 중지 시 `exit 1`, 방화벽 WARNING은 exit 영향 없음, 임계값 CPU>20/MEM>10/DISK>80 | PASS | [monitor 기록](docs/b4-1-monitor.md) |
 > | `monitor.log` 공식 형식 `[시각] PID:… CPU:…% MEM:…% DISK_USED:…%` (실행당 1줄; 과거 상세 줄과 공존) | PASS | [monitor 기록 작업 18](docs/b4-1-monitor.md#작업-18-공식-로그-형식agent-정상-모니터링) |
-> | 로그 순환: `size 9M`·`rotate 9`(최대 10개). 절대 최대 크기 보장 아님(일 1회 검사) | 동작 PASS / **타이머 실행 기록 PENDING** | [로그 순환](docs/b4-1-log-rotation.md) |
+> | 로그 순환: `size 9M`·`rotate 9`(최대 10개). 절대 최대 크기 보장 아님(일 1회 검사) | PASS (타이머 실행 확인, 순환 미발생=정상) | [로그 순환](docs/b4-1-log-rotation.md) |
 > | `agent-admin` cron 매분 자동 실행 | PASS | [cron 기록](docs/b4-1-cron.md) |
 > | 환경 복구 자동화 (`bootstrap-orbstack.sh`) | PASS (`check --no-run` → `diff=0`) | [복구 자동화](docs/b4-1-recovery.md) |
 >
-> **제출 문서:** [요구사항 수행 내역서](docs/b4-1-final-evidence.md)(항목별 요구·설정·명령·결과·증빙 위치·판정, 증빙 절차) · [B4-2 인수인계](docs/b4-2-environment-handoff.md) · 실측 원본 [본환경 회귀 출력](docs/evidence/task21-b4-lab-regression.txt)
+> **제출 문서:** [요구사항 수행 내역서](docs/b4-1-final-evidence.md)(항목별 요구·설정·명령·결과·증빙 위치·판정, 증빙 절차) · [B4-2 인수인계](docs/b4-2-environment-handoff.md) · 실측 원본 [최종 회귀 출력](docs/evidence/task22-closeout-regression.txt)
 >
-> 남은 사항: ① 설정 설치 후 `logrotate.timer` 실행 기록(2026-11-14 00:00~01:00 KST 이후 확인) ② 제출용 화면 캡처 ③ Owner의 공식 원문 최종 대조·완료 판정. 이 README의 아래 3장 이후는 작업 중 작성한 체크리스트이며, 현재 상태는 위 표와 수행 내역서가 우선합니다.
+> 남은 사항(Owner): ① 제출용 화면 캡처 촬영 ② 공식 원문 최종 대조·완료 판정.
+>
+> **교육장 Mac 초기화 시 복구:** GitHub 저장소(`git clone` → `scripts/bootstrap-orbstack.sh apply`)로 SSH 20022·UFW·계정·권한·환경변수·`monitor.sh`·logrotate·cron이 복구됩니다. **수동 준비물**(저장소에 없음): ① 제공 Agent ZIP/바이너리(`/opt/agent-app/bin/agent-app-linux-x86`, `root:agent-core 0750`; 해시·방법은 [Agent 실행환경](docs/b4-1-agent-runtime.md)) ② Mac의 SSH 키쌍·사용자 비밀번호 ③ 이전 Machine 안의 `monitor.log` 이력. 확인: `scripts/bootstrap-orbstack.sh check --no-run`(Agent 항목만 PEND). 이 README의 아래 3장 이후는 작업 중 작성한 체크리스트이며, 현재 상태는 위 표와 수행 내역서가 우선합니다.
 
 ---
 
@@ -197,7 +199,7 @@ OrbStack Ubuntu **Linux Machine**을 실습 서버로 사용하며, 여기서 �
 
 #### 8) 로그
 - [x] [관리자료] `/var/log/agent-app/monitor.log`에 기록 — 스크립트가 직접 append(cron 리디렉션 비의존), `agent-admin:agent-core 0660`, 3회 누적·터미널과 동일 PASS ([상세](docs/b4-1-monitor.md#21-monitorlog-누적-기록-작업-11)). cron 환경 실측·Agent 정상 기록은 PENDING
-- [x] [관리자료] 최대 10MB / 최대 10개로 순환 — logrotate `size 9M`(9 MiB, 십진 10 MB·10 MiB 모두 만족), 활성 1 + 순환본 9 = 최대 10개, 일 1회 검사라 엄격한 최대 크기 보장은 아님(작업 20: 서비스 순환·13회 연속·동시 실행 무손실 PASS, **타이머 발동 후 실제 순환은 PENDING**) ([상세](docs/b4-1-log-rotation.md)). 검사는 일 1회라 **엄격한 최대 크기 보장은 아님**. 실제 타이머 발동·실제 크기 도달 순환은 PENDING, 크기·개수의 원문 대조 필요
+- [x] [관리자료] 최대 10MB / 최대 10개로 순환 — logrotate `size 9M`(9 MiB, 십진 10 MB·10 MiB 모두 만족), 활성 1 + 순환본 9 = 최대 10개, 일 1회 검사라 엄격한 최대 크기 보장은 아님(작업 20: 서비스 순환·13회 연속·동시 실행 무손실 PASS, 타이머 2026-11-14 실행·성공 확인, 실제 순환은 로그 9 MiB 도달 시) ([상세](docs/b4-1-log-rotation.md)). 검사는 일 1회라 **엄격한 최대 크기 보장은 아님**. 실제 크기 도달 순환은 테스트 Machine에서 입증, 크기·개수의 원문 대조는 Owner 검수
 - [x] `agent-admin`이 로그에 쓸 수 있는지 확인 — 실제 cron 세션에서도 확인(작업 13·18)
 - [x] 로그 라인 형식 — 공식 `[YYYY-MM-DD HH:MM:SS] PID:… CPU:…% MEM:…% DISK_USED:…%`(작업 18). 이전 상세 로그는 같은 파일에 그대로 남아 두 형식이 공존
 - [x] 증빙: `tail` 결과(확보: 3회 실행 후 로그, [상세](docs/b4-1-monitor.md#52-monitorlog-기록-테스트-작업-11-실측)), 순환 설정 내용(적용: `/etc/logrotate.d/agent-app`, [config/etc-logrotate.d-agent-app](config/etc-logrotate.d-agent-app))

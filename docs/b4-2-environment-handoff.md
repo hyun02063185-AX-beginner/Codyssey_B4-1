@@ -1,12 +1,12 @@
 # B4-2 환경 인수인계
 
-> **현재 상태(작업 21, 2026-11-13):** 이 문서는 현재 구현과 일치하도록 갱신됐습니다. 제공 Agent는 실행·모니터링 검증 완료(수동 실행, 상주 서비스 아님), `monitor.sh`는 Agent 실행 시 `exit 0`·중지 시 `exit 1`, `monitor.log`는 공식 형식 1줄/실행, `logrotate`는 `size 9M`·`rotate 9`입니다. 남은 PENDING은 설정 설치 후 `logrotate.timer` 실행 기록 하나뿐입니다. 과거 작업 문서(`b4-1-*.md`)의 옛 서술(Agent 없음, 10줄/실행 등)은 기록용이며 이 문서와 [b4-1-final-evidence.md](b4-1-final-evidence.md)가 우선합니다.
+> **현재 상태(작업 22, 2026-11-14):** 이 문서는 현재 구현과 일치하도록 갱신됐습니다. 제공 Agent는 실행·모니터링 검증 완료(수동 실행, 상주 서비스 아님), `monitor.sh`는 Agent 실행 시 `exit 0`·중지 시 `exit 1`, `monitor.log`는 공식 형식 1줄/실행, `logrotate`는 `size 9M`·`rotate 9`입니다. 필수 13개 항목 모두 PASS이고 `logrotate.timer`도 2026-11-14 00:00:01 KST에 설정 설치 후 처음 실행·성공했습니다(로그가 9 MiB 미만이라 순환은 없음, 정상). 남은 것은 Owner의 화면 캡처와 최종 검수뿐입니다. 과거 작업 문서(`b4-1-*.md`)의 옛 서술(Agent 없음, 10줄/실행 등)은 기록용이며 이 문서와 [b4-1-final-evidence.md](b4-1-final-evidence.md)가 우선합니다.
 
 B4-2는 B4-1에서 만든 Linux 환경과 `monitor.sh`를 **그대로 재사용**합니다. 이 문서는 B4-2 작업자가 바로 쓸 수 있는 값·명령·주의사항만 모았습니다. 근거와 실측은 [b4-1-final-evidence.md](b4-1-final-evidence.md)와 각 상세 문서에 있습니다.
 
 - B4-2 저장소: https://github.com/hyun02063185-AX-beginner/Codyssey_B4-2
 - 이 저장소: https://github.com/hyun02063185-AX-beginner/Codyssey_B4-1
-- 인수인계 시점: 2026-11-13 (작업 21)
+- 인수인계 시점: 2026-11-14 (작업 22, 최종 마감)
 
 > **먼저 읽을 것.** 제공 Agent 바이너리(`agent-app-linux-x86`)와 ZIP은 **저장소에 없습니다**(수동 배포 방법·해시는 [b4-1-agent-runtime.md](b4-1-agent-runtime.md)). 값은 공식 요구값과 제공 Agent 실행 결과로 확정했고, 최종 원문 대조·완료 판정은 Owner 검수 대상입니다.
 
@@ -101,7 +101,7 @@ AGENT_PROCESS_PATTERN=^/opt/agent-app/bin/agent-app-linux-x86   # monitor.sh의 
 | 발동 | 기존 `logrotate.timer` 일 1회(00:00 KST) |
 
 - 확인: `orb -m b4-lab sudo tail -20 /var/log/agent-app/monitor.log`
-- **순환은 엄격한 최대 크기 보장이 아닙니다**(일 1회 검사 사이에 9 MiB 임계값 초과 가능). 설정 설치 후 타이머 실행 기록은 **PENDING** — 2026-11-14 01:00 KST 이후 `journalctl -u logrotate.service --since 2026-11-14`로 확인(타이머가 돌아도 로그가 9 MiB 미만이면 순환하지 않는 것이 정상).
+- **순환은 엄격한 최대 크기 보장이 아닙니다**(일 1회 검사 사이에 9 MiB 임계값 초과 가능). 설정 설치 후 타이머 실행 확인 완료(2026-11-14 00:00:01 KST, 성공). 타이머가 돌아도 로그가 9 MiB 미만이면 순환하지 않는 것이 정상이며 아직 순환은 없습니다.
 - 분석할 때 순환본(`monitor.log.1`, …)도 같이 보세요. 로그를 직접 지우거나 `truncate`하지 마세요.
 
 ## 7. cron 관리·중지·재개
