@@ -5,7 +5,7 @@ OrbStack Ubuntu **Linux Machine**을 실습 서버로 사용하며, 여기서 �
 
 - B4-2 저장소: https://github.com/hyun02063185-AX-beginner/Codyssey_B4-2
 
-> **현재 상태 (2026-11-14, 작업 22 최종 마감)** — Mission Core 13개 항목 **13/13 PASS**(logrotate 타이머 2026-11-14 00:00:01 KST 실행·성공 확인, 로그가 9 MiB 미만이라 순환은 미발생=정상). 제출용 화면 캡처 10장(S1~S10) 중 **S1·S2 화면은 Owner 촬영본 등록**([증빙](docs/evidence/screenshots/README.md); Mac 실제 TCP 연결 시험은 별도 확인 필요), **S3~S10은 Owner 촬영 대기**([체크리스트](docs/b4-1-final-evidence.md#4-제출-증빙-화면-구성-10장--s1s2-화면-확보-s3s10-owner-촬영-대기)). 전체 미션 완료 판정은 Owner 최종 검수 이후입니다.
+> **현재 상태 (2026-11-14, 작업 22 최종 마감)** — Mission Core 13개 항목 **13/13 PASS**(logrotate 타이머 2026-11-14 00:00:01 KST 실행·성공 확인, 로그가 9 MiB 미만이라 순환은 미발생=정상). 제출용 화면 캡처 10장(S1~S10) 중 **S1·S2 화면은 Owner 촬영본 등록**([증빙](docs/evidence/screenshots/README.md); Mac→Ubuntu TCP 시험: 20022 성공·22/15035 실패 확인, SSH 배너 출력은 미증빙), **S3~S10은 Owner 촬영 대기**([체크리스트](docs/b4-1-final-evidence.md#4-제출-증빙-화면-구성-10장--s1s2-화면-확보-s3s10-owner-촬영-대기)). 전체 미션 완료 판정은 Owner 최종 검수 이후입니다.
 >
 > | 영역 | 상태 | 상세 |
 > |---|---|---|
