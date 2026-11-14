@@ -188,14 +188,14 @@
 
 판단: 실제 실행 파일의 검증이 기준이므로 시도 3의 구성을 채택했습니다(저장소 설정·복구 스크립트·본환경 모두 동일). 과거 작업 16에서 만든 `t_secret.key`는 삭제하지 않았으나 더 이상 사용·관리하지 않습니다. 상세: [b4-1-agent-runtime.md](b4-1-agent-runtime.md) 작업 17.
 
-## 4. 제출 증빙 화면 구성 (10장, 모두 Owner 촬영 대기)
+## 4. 제출 증빙 화면 구성 (10장 — S1·S2 화면 확보, S3~S10 Owner 촬영 대기)
 
-`B`는 `orb -m b4-lab sudo`입니다. 이 환경(Claude Code)에서는 화면 캡처 기능을 쓸 수 없어 **화면 캡처 파일은 하나도 만들지 않았습니다**. 아래는 촬영 대상·명령·기대 출력 체크리스트이며, 기대 출력은 2026-11-14 실제 실행 결과([task22 회귀 출력](evidence/task22-closeout-regression.txt))입니다. 모든 명령은 조회 전용(예외 표시)이고 비밀값(SSH 개인키·비밀번호·`secret.key` 내용)은 출력하지 않습니다. 터미널에 실행한 뒤 출력 전체가 보이게 캡처하세요. 시각·PID는 달라도 됩니다.
+`B`는 `orb -m b4-lab sudo`입니다. 이 환경(Claude Code)에서는 화면 캡처 기능을 쓸 수 없어 **Claude는 화면 캡처 파일을 만들지 않았습니다**. S1·S2는 2026-11-14 Owner가 직접 촬영한 화면을 원본 그대로 등록했습니다([증빙 안내](evidence/screenshots/README.md)). 위 표의 S1·S2 "화면 확보(부분)"은 설정·LISTEN·UFW 규칙 화면만 확보했다는 뜻이며, Mac에서의 실제 TCP 연결·차단 시험은 아직 수행·기록되지 않았습니다. S3~S10은 기존대로 대기입니다. 아래는 촬영 대상·명령·기대 출력 체크리스트이며, 기대 출력은 2026-11-14 실제 실행 결과([task22 회귀 출력](evidence/task22-closeout-regression.txt))입니다. 모든 명령은 조회 전용(예외 표시)이고 비밀값(SSH 개인키·비밀번호·`secret.key` 내용)은 출력하지 않습니다. 터미널에 실행한 뒤 출력 전체가 보이게 캡처하세요. 시각·PID는 달라도 됩니다.
 
 | 화면 | 포함 증빙 | 실행 명령 | 기대 출력(핵심) | 캡처 |
 |---|---|---|---|---|
-| S1 환경·SSH | 환경, 20022, Root 차단 | `orb -m b4-lab cat /etc/os-release \| head -2` ; `B sshd -T \| grep -E '^(port\|permitrootlogin) '` ; `B ss -tlnp \| grep sshd` ; Mac: `IP=$(orb -m b4-lab bash -c "ip -4 -o addr show scope global \| awk '{print \$4}' \| cut -d/ -f1 \| head -1"); perl -MIO::Socket::INET -e '$s=IO::Socket::INET->new(PeerAddr=>"'$IP':20022",Timeout=>5); print scalar <$s>'` | Ubuntu 24.04.5, `port 20022`, `permitrootlogin no`, LISTEN 20022만, `SSH-2.0-OpenSSH_9.6p1…` | 대기 |
-| S2 UFW | 규칙·접속 검증 | `B ufw status verbose` ; Mac: 포트 22·20022·15035 접속 시도(`perl … PeerAddr=>"<IP>:<포트>",Timeout=>4; print $s?"open":"fail $!"`) | `Status: active`, deny incoming, 20022·15034만 ALLOW(v4/v6) ; 20022 open, 22·15035 fail(timeout) | 대기 |
+| S1 환경·SSH | 환경, 20022, Root 차단 | `orb -m b4-lab cat /etc/os-release \| head -2` ; `B sshd -T \| grep -E '^(port\|permitrootlogin) '` ; `B ss -tlnp \| grep sshd` ; Mac: `IP=$(orb -m b4-lab bash -c "ip -4 -o addr show scope global \| awk '{print \$4}' \| cut -d/ -f1 \| head -1"); perl -MIO::Socket::INET -e '$s=IO::Socket::INET->new(PeerAddr=>"'$IP':20022",Timeout=>5); print scalar <$s>'` | Ubuntu 24.04.5, `port 20022`, `permitrootlogin no`, LISTEN 20022만, `SSH-2.0-OpenSSH_9.6p1…` | **화면 확보(부분)** — 설정·LISTEN 화면 등록([S1](evidence/screenshots/S1-ubuntu-ssh-2026-11-14.png)). Mac 실제 TCP 연결(SSH 배너) 시험은 별도 확인 필요 |
+| S2 UFW | 규칙·접속 검증 | `B ufw status verbose` ; Mac: 포트 22·20022·15035 접속 시도(`perl … PeerAddr=>"<IP>:<포트>",Timeout=>4; print $s?"open":"fail $!"`) | `Status: active`, deny incoming, 20022·15034만 ALLOW(v4/v6) ; 20022 open, 22·15035 fail(timeout) | **화면 확보(부분)** — UFW 규칙 화면 등록([S2](evidence/screenshots/S2-ufw-2026-11-14.png)). Mac에서 20022 open, 22·15035 fail 연결 시험은 별도 확인 필요 |
 | S3 계정·그룹·ACL | 사용자 3·그룹 2·권한·sudo | `B getent group agent-common agent-core` ; `B id agent-admin` (dev·test도) ; `B stat -c '%U:%G %a %n' /opt/agent-app /opt/agent-app/upload_files /opt/agent-app/api_keys /var/log/agent-app` ; `B getfacl -p /opt/agent-app/api_keys` ; `B sudo -l -U agent-admin` | common=admin·dev·test, core=admin·dev ; `755`/`2770`/`2770`/`2770` ; admin은 `ufw status` 한 줄만 sudo. R/W 표는 [task22 출력 `## RW matrix`](evidence/task22-closeout-regression.txt)(임시 파일 생성·삭제 시험이므로 캡처 대신 이 파일 인용 가능) | 대기 |
 | S4 환경변수·키 파일 | 환경변수 5개, 키 경로 | `B grep -v '^#' /etc/default/agent-app` ; `B stat -c '%U:%G %a %n' /opt/agent-app/api_keys/secret.key` ; `B bash -c '[ "$(cat /opt/agent-app/api_keys/secret.key)" = agent_api_key_test ] && echo key-ok'` | 환경변수 5개(+`AGENT_PROCESS_PATTERN`), `root:agent-core 640`, `key-ok` (키 내용 자체는 출력 금지) | 대기 |
 | S5 Agent Boot | 5/5·READY·15034 LISTEN | §2.5의 실행 명령을 터미널 1에서 실행(*예외: Agent 수동 실행*) ; 터미널 2: `B ss -ltnp \| grep 15034` ; 종료: `B pkill -TERM -f '^/opt/agent-app/bin/agent-app-linux-x86'` (**배경 실행 Agent는 SIGINT를 무시할 수 있음**) | `[1/5]~[5/5] [OK]`, `All Boot Checks Passed!`, `Agent READY`, `LISTEN 0.0.0.0:15034` | 대기 |
@@ -205,14 +205,14 @@
 | S9 cron | 등록·매분 자동 실행 | `B crontab -u agent-admin -l` ; `B wc -l /var/log/agent-app/monitor.log`(70초 이상 간격 2회) | `* * * * * MONITOR_TRIGGER=cron /opt/agent-app/bin/monitor.sh …` ; 줄 수 증가(약 +1/분) | 대기 |
 | S10 logrotate | 설정·검증·타이머 실행 | `B cat /etc/logrotate.d/agent-app` ; `B logrotate -d /etc/logrotate.d/agent-app` ; `B systemctl list-timers logrotate.timer` ; `B journalctl -u logrotate.service --since '2026-11-14 00:00' --no-pager` ; 시험 결과는 [b4-1-log-rotation.md](b4-1-log-rotation.md) | `size 9M`, `rotate 9`, `considering log …`, 타이머 active, 11-14 00:00:01 `Finished` ; 회귀: `scripts/bootstrap-orbstack.sh check --no-run` → `ok=13 diff=0` | 대기 |
 
-E1~E19(작업 21 구성)는 위 10장으로 통합했습니다(E1·E2·E3→S1, E4·E5→S2, E6~E8→S3, E9→S4, E10→S5, E11~E14→S6·S7, E15→S8, E16→S9, E17~E19→S10). 저장소에 제출용 화면 캡처 파일은 없고(Desktop의 2026-11-09 스크린샷은 B4-1 환경 구성 이전 것이라 사용하지 않음), 텍스트 증빙은 [task22](evidence/task22-closeout-regression.txt)·[task21](evidence/task21-b4-lab-regression.txt) 출력과 각 상세 문서에 있습니다.
+E1~E19(작업 21 구성)는 위 10장으로 통합했습니다(E1·E2·E3→S1, E4·E5→S2, E6~E8→S3, E9→S4, E10→S5, E11~E14→S6·S7, E15→S8, E16→S9, E17~E19→S10). 저장소의 제출용 화면 캡처 파일은 S1·S2 두 장뿐이며(Desktop의 2026-11-09 스크린샷은 B4-1 환경 구성 이전 것이라 사용하지 않음), 텍스트 증빙은 [task22](evidence/task22-closeout-regression.txt)·[task21](evidence/task21-b4-lab-regression.txt) 출력과 각 상세 문서에 있습니다.
 
 ## 5. 완료·미완료와 제약사항
 
 | 구분 | 내용 |
 |---|---|
 | 완료 | 필수 13개 항목 PASS(§1), 최종 회귀 2026-11-14 재실측, `monitor.sh` 저장소본 = 배포본(sha256 `86d6b9ce…f056`), `bootstrap check --no-run` `ok=13 diff=0` |
-| 미완료(Owner) | **S1~S10 화면 캡처 촬영**(§4), 공식 미션 원문 전체와의 최종 대조·완료 판정 |
+| 미완료(Owner) | **S3~S10 화면 캡처 촬영**(§4), S1·S2의 Mac 실제 TCP 연결·차단 시험 확인(화면은 확보), 공식 미션 원문 전체와의 최종 대조·완료 판정 |
 | 제약 | 로그 순환은 절대 최대 크기 보장이 아님(§2.10). Agent는 상주 서비스가 아니라 검증 때 수동 실행. `agent_app.log`(Agent 자체 로그)는 순환 대상 아님. `monitor.log`에는 과거 상세 형식과 공식 형식이 공존. 제공 Agent는 시험 중 CPU·메모리를 점진적으로 올리는 동작이 있으며(Agent 로그의 `Cycle`·`Memory Increasing` 확인), 이 환경의 임계값 경고는 그 영향으로 나올 수 있음 |
 | 제외 | 보너스 과제 미착수 |
 
