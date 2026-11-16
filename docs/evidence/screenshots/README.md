@@ -1,5 +1,7 @@
-# B4-1 Owner 화면 증빙 — S1·S2 (2026-11-14)
+# B4-1 Owner 화면 증빙 — S1·S2·S3
 
+> **촬영 일자·범위:** S1·S2는 2026-11-14, S3는 2026-11-16에 Owner가 촬영했습니다. S4~S10은 Owner 촬영 대기입니다. S3는 문서 아래쪽 "S3 — 사용자·그룹·ACL" 절에 있습니다.
+>
 > 제출용 캡처의 **원본 화면을 변경하지 않고** 등록한 자료입니다. 촬영 당시 교육장 Mac 터미널에서 OrbStack Ubuntu Machine `b4-lab`의 설정을 조회했습니다. 스크린샷 자체에 SSH 개인키·비밀번호·Agent 비밀키 값은 표시되지 않습니다.
 >
 > **검수 구분:** 설정·LISTEN·UFW 규칙 화면(S1·S2)과 Mac→Ubuntu **TCP 포트 연결 시험(아래 "S1·S2 — TCP 연결 시험")**을 등록했습니다. 또한 **SSH 배너 응답 화면(아래 "S1 — SSH 배너 확인")**을 등록해 S1의 배너 확인을 PASS로 처리합니다. 단 배너 확인은 SSH 서버의 응답 확인일 뿐 **SSH 로그인 인증 성공을 뜻하지 않습니다.**
@@ -108,8 +110,8 @@ SSH-2.0-OpenSSH_9.6p1 Ubuntu-3ubuntu13.20
 
 ## 증빙 관리 기준
 
-- 참조: [`docs/b4-1-final-evidence.md`](../../b4-1-final-evidence.md) §4 (S1·S2 제출 체크리스트)
-- 범위: 설정 조회 화면 2장, TCP 연결 시험 화면 1장, SSH 배너 화면 1장의 등록. 다른 S3~S10 화면 캡처 및 공식 제출 승인은 별도
+- 참조: [`docs/b4-1-final-evidence.md`](../../b4-1-final-evidence.md) §4 (S1~S10 제출 체크리스트)
+- 범위: S1·S2(2026-11-14) — 설정 조회 화면 2장, TCP 연결 시험 화면 1장, SSH 배너 화면 1장. S3(2026-11-16) — 화면 3장(아래 "S3" 절). S4~S10 화면 캡처 및 공식 제출 승인은 별도(Owner 촬영 대기)
 - 형식: PNG 원본; 인위적 수정 없음
 - 학습자료 2강(SSH·포트·UFW)은 학습 초안 단계이며 이 증빙 등록으로 자동 확정하지 않음
 
@@ -166,7 +168,7 @@ root:agent-core 2770 /var/log/agent-app
 
 ![S3-B2 ACL과 sudo 권한](S3-B2-acl-sudo-2026-11-16.png)
 
-대응 명령: `B getfacl -p /opt/agent-app/api_keys` ; `B sudo -l -U agent-admin`(`B`가 이미 `sudo`를 포함하므로 `B -l -U agent-admin`과 같은 결과)
+대응 명령: `B getfacl -p /opt/agent-app/api_keys` ; `B -l -U agent-admin`(`B`가 이미 `sudo`를 포함하므로 `B` 뒤에 `sudo`를 다시 쓰지 않는다)
 
 실측값(핵심):
 
