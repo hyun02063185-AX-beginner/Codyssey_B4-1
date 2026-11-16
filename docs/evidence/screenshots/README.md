@@ -112,3 +112,91 @@ SSH-2.0-OpenSSH_9.6p1 Ubuntu-3ubuntu13.20
 - 범위: 설정 조회 화면 2장, TCP 연결 시험 화면 1장, SSH 배너 화면 1장의 등록. 다른 S3~S10 화면 캡처 및 공식 제출 승인은 별도
 - 형식: PNG 원본; 인위적 수정 없음
 - 학습자료 2강(SSH·포트·UFW)은 학습 초안 단계이며 이 증빙 등록으로 자동 확정하지 않음
+
+---
+
+# S3 — 사용자·그룹·ACL (2026-11-16)
+
+> 2026-11-16 Owner가 교육장 Mac 터미널에서 직접 실행·촬영한 원본 3장입니다(편집·합성 없음). 모두 조회 전용이며 `chmod`·`chown`·`setfacl`·`usermod` 등 설정 변경은 하지 않았습니다. 화면에는 비밀번호·키 내용이 표시되지 않습니다(S3-A 하단에 Mac 셸 프롬프트의 사용자명·호스트명이 보입니다).
+>
+> **화면에서 확인되는 것과 아닌 것:** 각 화면에는 `===== S3-… =====` 제목과 명령 출력이 찍혀 있으며, **실행 명령 문장 자체는 화면에 보이지 않습니다.** 아래 "명령"은 [`b4-1-final-evidence.md`](../../b4-1-final-evidence.md) §4의 S3 체크리스트와 출력 형식에서 대응되는 조회 명령이며, 실제 촬영 스크립트의 문장은 이 저장소에서 확인하지 않았습니다.
+
+| 파일 | 촬영 시각 | 내용 |
+|---|---|---|
+| `S3-A-users-groups-2026-11-16.png` | 오후 8:42:40 | 사용자와 그룹 |
+| `S3-B1-folder-permissions-2026-11-16.png` | 오후 8:46:18 | 폴더 소유권과 권한 |
+| `S3-B2-acl-sudo-2026-11-16.png` | 오후 8:47:04 | ACL과 sudo 권한 |
+
+## S3-A — 사용자와 그룹
+
+![S3-A 사용자와 그룹](S3-A-users-groups-2026-11-16.png)
+
+대응 명령: `B getent group agent-common agent-core` ; `B id agent-admin` / `agent-dev` / `agent-test`
+
+실측값:
+
+```text
+agent-common:x:1000:agent-admin,agent-dev,agent-test
+agent-core:x:1001:agent-admin,agent-dev
+uid=1000(agent-admin) gid=1002(agent-admin) groups=1002(agent-admin),1000(agent-common),1001(agent-core)
+uid=1001(agent-dev) gid=1003(agent-dev) groups=1003(agent-dev),1000(agent-common),1001(agent-core)
+uid=1002(agent-test) gid=1004(agent-test) groups=1004(agent-test),1000(agent-common)
+```
+
+해석: `agent-common`은 세 계정 모두, `agent-core`는 `agent-admin`·`agent-dev`만 포함합니다. `agent-test`는 `agent-core`에 속하지 않습니다.
+
+## S3-B1 — 폴더 소유권과 권한
+
+![S3-B1 폴더 소유권과 권한](S3-B1-folder-permissions-2026-11-16.png)
+
+대응 명령: `B stat -c '%U:%G %a %n' /opt/agent-app /opt/agent-app/upload_files /opt/agent-app/api_keys /var/log/agent-app`
+
+실측값:
+
+```text
+root:root 755 /opt/agent-app
+agent-admin:agent-common 2770 /opt/agent-app/upload_files
+root:agent-core 2770 /opt/agent-app/api_keys
+root:agent-core 2770 /var/log/agent-app
+```
+
+해석: `upload_files`는 세 계정이 속한 `agent-common`, `api_keys`와 로그 폴더는 `agent-core` 그룹 소유이며, 세 폴더 모두 `2770`(setgid + 소유자·그룹 `rwx`, 그 외 접근 없음)입니다.
+
+## S3-B2 — ACL과 sudo 권한
+
+![S3-B2 ACL과 sudo 권한](S3-B2-acl-sudo-2026-11-16.png)
+
+대응 명령: `B getfacl -p /opt/agent-app/api_keys` ; `B sudo -l -U agent-admin`(`B`가 이미 `sudo`를 포함하므로 `B -l -U agent-admin`과 같은 결과)
+
+실측값(핵심):
+
+```text
+# owner: root
+# group: agent-core
+# flags: -s-
+user::rwx
+group::rwx
+group:agent-core:rwx
+mask::rwx
+other::---
+default:user::rwx
+default:group::rwx
+default:group:agent-core:rwx
+default:mask::rwx
+default:other::---
+...
+User agent-admin may run the following commands on b4-lab:
+    (root) NOPASSWD: /usr/sbin/ufw status
+```
+
+해석:
+- `flags: -s-`는 setgid가 설정되었음을 보여 줍니다(S3-B1의 `2770`과 일치).
+- 소유 그룹이 `agent-core`이므로 `group::rwx`와 `group:agent-core:rwx`는 같은 그룹을 가리키며 내용이 겹칩니다. 두 항목을 둔 이유는 이 화면만으로 알 수 없습니다.
+- `agent-admin`은 `/usr/sbin/ufw status` 한 명령만 비밀번호 없이 root 권한으로 실행할 수 있습니다.
+
+## S3 — 이 화면이 증명하지 않는 것
+
+- **사용자별 실제 읽기·쓰기 결과**(`agent-test`가 `upload_files`는 R/W, `api_keys`·로그는 접근 거부)는 이 화면 3장에 나오지 않습니다. 그 결과는 2026-11-14 회귀 기록 [`task22-closeout-regression.txt`](../task22-closeout-regression.txt)의 `## RW matrix`(임시 파일 생성·삭제 시험)에 근거합니다.
+- `agent-dev`·`agent-test`의 sudo 거부 결과도 같은 회귀 기록의 `## sudo`에 근거하며, 이 화면에는 `agent-admin`만 표시됩니다.
+- `monitor.sh`·`secret.key`의 파일 단위 권한은 이 화면에 포함되지 않습니다.
+- 화면의 값은 2026-11-14 회귀 기록의 같은 항목(그룹·`id`·`stat`·ACL·sudo)과 일치합니다.
