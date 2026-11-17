@@ -519,16 +519,30 @@ Agent가 서버로 동작하기까지의 구조는 다음 다섯 단계다.
 
 ### 8-2. 실제 실행 명령
 
-**[기록]** 2026-11-14 회귀와 작업 17에서 사용한 방식이다. (이 강의에서는 실행하지 않는다.)
+B4-1 기록에는 **서로 다른 두 가지 실행 형태**가 있다. 둘은 환경변수를 전달하는 원리는 같지만 **같은 명령이 아니다.**
 
-**원문**
+| 구분 | 마지막 부분 | 출처 [기록] |
+|---|---|---|
+| 형태 ① | `exec /opt/agent-app/bin/agent-app-linux-x86` | `b4-1-agent-runtime.md` 작업 17 "실행 방법" |
+| 형태 ② | `exec setsid /opt/agent-app/bin/agent-app-linux-x86` | `b4-1-final-evidence.md` §2.5 "실행" |
+
+> **실행 위치 안내.** 아래 명령의 `sudo`는 **Ubuntu `b4-lab` 내부에서 실행하는 명령**의 일부다. **교육장 Mac 터미널에서 직접 `sudo`로 실행하지 않는다.** Mac에서 Ubuntu로 보낼 때는 3강의 `B` 함수처럼 `orb -m b4-lab …`를 거친다(8-6절). 이 강의에서는 어느 형태도 실행하지 않는다.
+
+**원문 — 형태 ① (작업 17 기록)**
 
 ```bash
 sudo runuser -u agent-admin -- env -i PATH=/usr/bin:/bin HOME=/home/agent-admin bash -c \
   'cd ~; set -a; . /etc/default/agent-app; set +a; exec /opt/agent-app/bin/agent-app-linux-x86'
 ```
 
-`b4-1-final-evidence.md` §2.5에는 같은 명령의 마지막이 `exec setsid /opt/agent-app/bin/agent-app-linux-x86`으로 적혀 있다. `setsid`는 새 세션을 만들어 실행하는 명령이며, 8-3절에서 함께 설명한다.
+**원문 — 형태 ② (최종 수행 내역서 §2.5 기록)**
+
+```bash
+sudo runuser -u agent-admin -- env -i PATH=/usr/bin:/bin HOME=/home/agent-admin bash -c \
+  'cd ~; set -a; . /etc/default/agent-app; set +a; exec setsid /opt/agent-app/bin/agent-app-linux-x86'
+```
+
+아래의 구성 요소 표와 전체 해석은 두 형태에 공통이며, `setsid`만 8-3절에서 따로 설명한다.
 
 **구성 요소별 의미**
 
@@ -568,7 +582,7 @@ sudo runuser -u agent-admin -- env -i PATH=/usr/bin:/bin HOME=/home/agent-admin 
 - 감싸고 있던 `bash`가 남아 있지 않아서 프로세스 목록이 단순해진다.
 - 종료 신호가 Agent에게 직접 전달된다.
 
-**`setsid`(§2.5 형태).** `setsid`는 새 세션을 만들어 명령을 실행해서, 터미널이 닫혀도 영향을 덜 받게 한다. `exec setsid …`는 “현재 셸을 `setsid`로 바꾸고, 그것이 Agent를 실행하라”는 뜻이다. 사용하든 하지 않든 환경변수 전달 원리는 같다.
+**`setsid`(§2.5 형태).** `setsid`는 새 세션을 만들어 명령을 실행해서, 터미널이 닫혀도 영향을 덜 받게 한다. `exec setsid …`는 “현재 셸을 `setsid`로 바꾸고, 그것이 Agent를 실행하라”는 뜻이다. 환경변수 전달 원리(`env -i` → 명시 로드 → `exec`)는 두 형태가 같다. 다만 **세션이 다르므로** 터미널 연결이나 종료 신호(Ctrl+C로 보내는 SIGINT 등)가 Agent에 전달되는 방식에는 차이가 있을 수 있다. 이 차이가 실제로 어떤 결과를 냈는지는 기록에 따로 적혀 있지 않으며, 이 문서는 결과를 만들어 넣지 않는다. 참고로 [기록] 형태 ①(작업 17)은 SIGINT로 종료했다고 되어 있고, 증빙 체크리스트(§4 S5)는 배경 실행한 Agent가 SIGINT를 무시할 수 있어 `pkill -TERM`으로 종료하라고 적고 있다(10-4절). 따라서 S5를 촬영할 때 어느 형태를 쓸지는 후속 실습에서 정한다.
 
 ### 8-4. 예상 출력과 B4-1 미션에서의 의미
 
@@ -811,7 +825,7 @@ AGENT_PROCESS_PATTERN=^/opt/agent-app/bin/agent-app-linux-x86
 
 **B4-1 미션에서의 의미:** 환경변수 다섯 개와 모니터링용 패턴 하나가 설정 파일에 올바르게 적혀 있는지 보여 준다.
 
-**이 결과가 증명하는 것:** 설정 파일에 적힌 값. 이 파일에 비밀값이 없다는 것.
+**이 결과가 증명하는 것:** 주석(`#`) 줄을 제외한 **활성 설정 줄의 내용**. 출력된 활성 설정 항목(위 6줄)에는 비밀값이 아니라 경로·포트·패턴만 들어 있다는 것. (이 명령은 주석 줄을 출력하지 않으므로 **주석 줄의 내용이나 파일 전체**에 비밀값이 없다는 증명은 아니다.)
 **이 결과가 증명하지 못하는 것:** 실행 중인 Agent 프로세스가 **그 값을 실제로 받았는지**. 파일 내용과 프로세스 환경은 별개다(6-7절).
 
 ### 11-3. 실습 2 — 키 파일 소유권과 권한 확인
