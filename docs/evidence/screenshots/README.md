@@ -1,6 +1,6 @@
-# B4-1 Owner 화면 증빙 — S1·S2·S3·S4
+# B4-1 Owner 화면 증빙 — S1~S5
 
-> **촬영 일자·범위:** S1·S2는 2026-11-14, S3는 2026-11-16, S4는 2026-11-17에 Owner가 촬영했습니다. S5~S10은 Owner 촬영 대기입니다. S3와 S4는 문서 아래쪽 "S3 — 사용자·그룹·ACL", "S4 — 환경변수·키 파일" 절에 있습니다.
+> **촬영 일자·범위:** S1·S2는 2026-11-14, S3는 2026-11-16, S4·S5는 2026-11-17에 Owner가 촬영했습니다. S6~S10은 Owner 촬영 대기입니다. S3~S5는 문서 아래쪽 "S3 — 사용자·그룹·ACL", "S4 — 환경변수·키 파일", "S5 — Agent Boot Sequence·LISTEN" 절에 있습니다.
 >
 > 제출용 캡처의 **원본 화면을 변경하지 않고** 등록한 자료입니다. 촬영 당시 교육장 Mac 터미널에서 OrbStack Ubuntu Machine `b4-lab`의 설정을 조회했습니다. 스크린샷 자체에 SSH 개인키·비밀번호·Agent 비밀키 값은 표시되지 않습니다.
 >
@@ -111,7 +111,7 @@ SSH-2.0-OpenSSH_9.6p1 Ubuntu-3ubuntu13.20
 ## 증빙 관리 기준
 
 - 참조: [`docs/b4-1-final-evidence.md`](../../b4-1-final-evidence.md) §4 (S1~S10 제출 체크리스트)
-- 범위: S1·S2(2026-11-14) — 설정 조회 화면 2장, TCP 연결 시험 화면 1장, SSH 배너 화면 1장. S3(2026-11-16) — 화면 3장(아래 "S3" 절). S4(2026-11-17) — 화면 1장(아래 "S4" 절). S5~S10 화면 캡처 및 공식 제출 승인은 별도(Owner 촬영 대기)
+- 범위: S1·S2(2026-11-14) — 설정 조회 화면 2장, TCP 연결 시험 화면 1장, SSH 배너 화면 1장. S3(2026-11-16) — 화면 3장(아래 "S3" 절). S4(2026-11-17) — 화면 1장(아래 "S4" 절). S5(2026-11-17) — 화면 2장(아래 "S5" 절). S6~S10 화면 캡처 및 공식 제출 승인은 별도(Owner 촬영 대기)
 - 형식: PNG 원본; 인위적 수정 없음
 - 학습자료 2강(SSH·포트·UFW)은 학습 초안 단계이며 이 증빙 등록으로 자동 확정하지 않음
 
@@ -252,6 +252,112 @@ key-ok
 
 - **Agent 프로세스의 실제 환경변수 수신 여부.** 화면은 설정 **파일**의 내용이며, 실행 중인 프로세스가 그 값을 받았는지는 보여 주지 않습니다.
 - **`agent-admin` 계정의 키 파일 실제 읽기 성공 여부.** [2]는 권한 설정이고, [3]의 비교는 `B`(Ubuntu 안의 `sudo`)로 실행되므로 root 권한으로 읽은 결과입니다. `agent-admin`이 읽을 수 있다는 동작 시험(`agent-test`는 거부)은 2026-11-14 회귀 기록의 `## RW matrix`와 공식 정합성 기록에 근거합니다.
-- **Agent Boot Sequence 실행 성공 여부.** 이 화면에는 Agent 실행이 없습니다. 과거 실행 검증(Boot 5/5, `Agent READY`)은 [`task22-closeout-regression.txt`](../task22-closeout-regression.txt)의 `## agent run`에 근거하며, S5 화면은 촬영 대기입니다.
+- **Agent Boot Sequence 실행 성공 여부.** 이 화면에는 Agent 실행이 없습니다. 과거 실행 검증(Boot 5/5, `Agent READY`)은 [`task22-closeout-regression.txt`](../task22-closeout-regression.txt)의 `## agent run`에 근거하며, S4 화면 자체에는 Agent 실행 결과가 없습니다. 2026-11-17에 별도로 촬영한 S5-A·S5-B 증빙은 아래 S5 절에서 확인할 수 있습니다.
 - **파일 전체에 비밀값이 없다는 것.** `grep -v '^#'`는 주석 줄을 출력하지 않으므로, 출력된 활성 설정 항목에 비밀값이 없다는 것까지만 확인됩니다.
 - 화면의 값은 2026-11-14 회귀 기록의 `## env`·`## perms`(환경변수 값, `root:agent-core 640`, `secret.key content ok: yes`)와 일치합니다. 이번 Owner 캡처와 회귀 기록은 서로 다른 시점의 증거입니다.
+
+---
+
+# S5 — Agent Boot Sequence·LISTEN (2026-11-17)
+
+> 2026-11-17 오후 6시경 Owner가 교육장 Mac 터미널에서 직접 실행·촬영한 원본 2장입니다(편집·합성 없음). 이미지는 파일명이나 촬영 시각이 아니라 **화면 내용을 확인해** S5-A(Boot Sequence)와 S5-B(프로세스와 LISTEN)로 분류했습니다. 제공 Agent의 바이너리와 ZIP은 저장소에 포함하지 않습니다.
+>
+> **화면에서 확인되는 것과 아닌 것:** 화면에는 `===== S5 … =====` 제목과 출력만 있고 **실행 명령 문장 자체는 보이지 않습니다.** 아래 "대응 명령"은 [`b4-1-final-evidence.md`](../../b4-1-final-evidence.md) §4의 S5 체크리스트에 적힌 명령이며, 실제 촬영 스크립트의 문장은 이 저장소에서 확인하지 않았습니다. 체크리스트에는 S5-B의 `[1] Agent 프로세스` 구역에 해당하는 명령이 따로 적혀 있지 않습니다.
+
+| 파일 | 화면 제목 | 내용 |
+|---|---|---|
+| `S5-A-agent-boot-2026-11-17.png` | `===== S5 Agent Boot Sequence =====` | Boot Sequence 5단계, `Agent READY`, 시작 로그 |
+| `S5-B-agent-listen-2026-11-17.png` | `===== S5 Agent 프로세스와 LISTEN =====` | Agent 프로세스 PID, TCP 15034 LISTEN 소켓 |
+
+## S5-A — Agent Boot Sequence
+
+![S5-A Agent Boot Sequence](S5-A-agent-boot-2026-11-17.png)
+
+확인하려는 항목: 제공 Agent가 일반 계정으로 시작 조건 5단계를 통과하고 포트 15034에서 기다리기 시작하는지.
+
+대응 명령(공식 체크리스트): 터미널 1에서 §2.5의 Agent 실행 명령(예외: Agent 수동 실행). 화면의 실행 형태(`exec` 또는 `exec setsid`)는 화면에 나타나지 않습니다.
+
+실제 출력(핵심):
+
+```text
+>>> Starting Agent Boot Sequence...
+[1/5] Checking User Account               [OK]
+   ... Running as service user 'agent-admin' (uid=1000)
+[2/5] Verifying Environment Variables     [OK]
+   ... All required Envs correct
+[3/5] Checking Required Files             [OK]
+   ... Verified 'secret.key' with correct key string.
+[4/5] Checking Port Availability          [OK]
+   ... Port 15034 is available.
+[5/5] Verifying Log Permission            [OK]
+   ... Log directory is writable: /var/log/agent-app
+All Boot Checks Passed!
+Agent READY
+2026-11-17 18:10:30,687 [INFO] [SafetyGuard] Process priority lowered (nice=10).
+2026-11-17 18:10:30,687 [INFO] Agent listening at port 15034
+2026-11-17 18:10:30,688 [INFO] === Agent Worker Started ===
+```
+
+(이후 `Cycle`·`Memory Increasing`·`CPU Occupy core` 로그가 이어지며 Level 3까지 보입니다.)
+
+기술적 의미: `agent-admin`(UID 1000)으로 5단계가 모두 `[OK]`이고 `All Boot Checks Passed!`, `Agent READY`, `Agent listening at port 15034`, `Agent Worker Started`가 출력되었습니다. 2026-11-14 회귀 기록의 `## agent run`과 같은 형식·내용입니다.
+
+이 화면만으로 증명할 수 없는 사항:
+- 이 화면에는 **PID가 표시되지 않아** S5-B의 프로세스와 같은 실행인지 화면만으로는 알 수 없습니다(아래 "시각 관찰" 참고).
+- Mac에서 Agent 포트로 **실제 TCP 연결이 되는지**(연결 시험은 이 화면에 없습니다).
+- Agent의 종료(화면 끝에 Agent가 실행 중인 상태의 커서가 보입니다).
+- `monitor.sh`가 Agent를 인식하는지.
+
+## S5-B — Agent 프로세스와 LISTEN
+
+![S5-B Agent 프로세스와 LISTEN](S5-B-agent-listen-2026-11-17.png)
+
+확인하려는 항목: Agent 프로세스가 실제로 떠 있고, 그 프로세스가 `0.0.0.0:15034`를 LISTEN하는지.
+
+대응 명령(공식 체크리스트): `B ss -ltnp | grep 15034` (터미널 2). `[1] Agent 프로세스` 구역은 PID와 실행 경로를 보여 주는 조회이며, 체크리스트에 해당 명령은 적혀 있지 않습니다.
+
+실제 출력:
+
+```text
+[1] Agent 프로세스
+88567 /opt/agent-app/bin/agent-app-linux-x86
+88568 /opt/agent-app/bin/agent-app-linux-x86
+
+[2] TCP 15034 LISTEN
+LISTEN 0      1            0.0.0.0:15034      0.0.0.0:*    users:(("agent-app-linux",pid=88568,fd=4))
+```
+
+기술적 의미:
+- Agent 프로세스가 둘(`88567`, `88568`) 보입니다. 2026-11-14 회귀 기록에서도 부모·자식 두 PID가 보였습니다(예: `100365`·`100366`).
+- 15034를 잡은 소켓의 소유 PID는 `88568`이며, [1]의 두 PID 중 하나입니다. 소켓 소유 프로세스가 Agent 프로세스 목록 안에 있습니다.
+- 주소 `0.0.0.0:15034`는 모든 IPv4 주소에서 15034로 오는 접속을 기다린다는 뜻입니다.
+- 화면의 프로세스 이름 `agent-app-linux`는 `ss`가 이름을 일부만 표시한 것입니다.
+
+이 화면만으로 증명할 수 없는 사항:
+- **Mac에서의 실제 TCP 연결 시험**: LISTEN은 서버 안의 상태입니다. UFW 허용과 네트워크 경로를 거쳐 Mac에서 연결되는지는 이 화면이 아닌 별도 시험(2026-11-14 작업 17 기록)에 근거합니다.
+- Agent의 종료 결과.
+
+## S5 — 시각 관찰과 두 화면의 관계
+
+- S5-A의 Agent 시작 로그 시각은 `2026-11-17 18:10:30`이고, S5-B 이미지는 같은 날 오후 6:08경에 촬영된 파일입니다(촬영 시각은 Desktop 파일 정보 기준). 화면의 시각만 보면 **S5-B가 S5-A보다 약 2분 먼저 찍혔으므로**, 두 화면이 같은 Agent 실행의 것인지는 **이 두 이미지만으로는 입증되지 않습니다.** 두 화면은 각각 "Boot Sequence 통과"와 "LISTEN 프로세스"를 보여 주며, 동일 실행 여부는 Owner의 실행 기록으로 확인해야 합니다.
+- 두 번 실행했다면 PID는 달라질 수 있어, S5-B의 PID(`88567`·`88568`)를 S5-A 실행의 PID로 단정하지 않습니다.
+
+## S5 — 종료 확인 (텍스트 보고, 화면 아님)
+
+Owner가 별도 터미널에서 다음 체크리스트 명령으로 Agent를 종료했고, 그 출력을 채팅으로 보고했습니다.
+
+```bash
+B pkill -TERM -f '^/opt/agent-app/bin/agent-app-linux-x86'
+```
+
+보고된 종료 후 결과: Agent 잔여 프로세스 없음, TCP 15034 LISTEN 없음.
+
+**이 결과는 Owner가 제공한 터미널 출력(텍스트 보고)이며, 종료 화면 PNG는 등록되어 있지 않습니다.** 따라서 이 저장소의 화면 증빙(S5-A·S5-B)과는 구분합니다.
+
+## S5 — 이 화면이 증명하지 않는 것
+
+- **Mac에서의 실제 TCP 연결 시험.** S5는 Agent가 실행되어 15034를 LISTEN함을 보여 줄 뿐, Mac→Ubuntu 연결 성공을 보여 주지 않습니다.
+- **종료와 정리.** 종료 후 잔여 프로세스·LISTEN 없음은 화면이 아니라 텍스트 보고입니다.
+- **Agent 설치 과정.** 제공 Agent가 원본과 SHA-256이 일치함을 확인한 뒤 Ubuntu `b4-lab`에 설치했다는 내용은 Owner 보고이며, 설치 과정 자체는 이 두 화면에 없습니다. 바이너리와 ZIP은 저장소에 없습니다.
+- **`monitor.sh` 판정(S6).** Agent 실행 중 `HEALTHY`, 중지 시 `UNHEALTHY`는 S6 범위이며 촬영 대기입니다.
+- 화면의 Boot Sequence 출력과 LISTEN 형식은 2026-11-14 회귀 기록 [`task22-closeout-regression.txt`](../task22-closeout-regression.txt)의 `## agent run`과 일치하지만, 날짜가 다른 별개의 실행입니다.
