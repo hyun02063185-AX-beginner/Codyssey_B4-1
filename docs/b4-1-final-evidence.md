@@ -205,7 +205,7 @@
 | S9 cron | 등록·매분 자동 실행 | `B crontab -u agent-admin -l` ; `B wc -l /var/log/agent-app/monitor.log`(70초 이상 간격 2회) | `* * * * * MONITOR_TRIGGER=cron /opt/agent-app/bin/monitor.sh …` ; 줄 수 증가(약 +1/분) | 대기 |
 | S10 logrotate | 설정·검증·타이머 실행 | `B cat /etc/logrotate.d/agent-app` ; `B logrotate -d /etc/logrotate.d/agent-app` ; `B systemctl list-timers logrotate.timer` ; `B journalctl -u logrotate.service --since '2026-11-14 00:00' --no-pager` ; 시험 결과는 [b4-1-log-rotation.md](b4-1-log-rotation.md) | `size 9M`, `rotate 9`, `considering log …`, 타이머 active, 11-14 00:00:01 `Finished` ; 회귀: `scripts/bootstrap-orbstack.sh check --no-run` → `ok=13 diff=0` | 대기 |
 
-E1~E19(작업 21 구성)는 위 10장으로 통합했습니다(E1·E2·E3→S1, E4·E5→S2, E6~E8→S3, E9→S4, E10→S5, E11~E14→S6·S7, E15→S8, E16→S9, E17~E19→S10). 저장소의 제출용 화면 캡처 파일은 S1·S2 관련 네 장(설정 2 + TCP 시험 1 + SSH 배너 1)과 S3 세 장(S3-A·S3-B1·S3-B2)이며(Desktop의 2026-11-09 스크린샷은 B4-1 환경 구성 이전 것이라 사용하지 않음), 텍스트 증빙은 [task22](evidence/task22-closeout-regression.txt)·[task21](evidence/task21-b4-lab-regression.txt) 출력과 각 상세 문서에 있습니다.
+E1~E19(작업 21 구성)는 위 10장으로 통합했습니다(E1·E2·E3→S1, E4·E5→S2, E6~E8→S3, E9→S4, E10→S5, E11~E14→S6·S7, E15→S8, E16→S9, E17~E19→S10). 저장소의 제출용 화면 캡처 파일은 S1·S2 관련 네 장(설정 2 + TCP 시험 1 + SSH 배너 1)과 S3 세 장(S3-A·S3-B1·S3-B2), S4 한 장(`S4-env-key-2026-11-17.png`)으로, 현재 등록된 PNG 원본은 총 8장입니다. S5~S10은 Owner 촬영 대기입니다(Desktop의 2026-11-09 스크린샷은 B4-1 환경 구성 이전 것이라 사용하지 않음), 텍스트 증빙은 [task22](evidence/task22-closeout-regression.txt)·[task21](evidence/task21-b4-lab-regression.txt) 출력과 각 상세 문서에 있습니다.
 
 ## 5. 완료·미완료와 제약사항
 
