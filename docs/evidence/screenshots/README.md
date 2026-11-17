@@ -1,6 +1,6 @@
-# B4-1 Owner 화면 증빙 — S1·S2·S3
+# B4-1 Owner 화면 증빙 — S1·S2·S3·S4
 
-> **촬영 일자·범위:** S1·S2는 2026-11-14, S3는 2026-11-16에 Owner가 촬영했습니다. S4~S10은 Owner 촬영 대기입니다. S3는 문서 아래쪽 "S3 — 사용자·그룹·ACL" 절에 있습니다.
+> **촬영 일자·범위:** S1·S2는 2026-11-14, S3는 2026-11-16, S4는 2026-11-17에 Owner가 촬영했습니다. S5~S10은 Owner 촬영 대기입니다. S3와 S4는 문서 아래쪽 "S3 — 사용자·그룹·ACL", "S4 — 환경변수·키 파일" 절에 있습니다.
 >
 > 제출용 캡처의 **원본 화면을 변경하지 않고** 등록한 자료입니다. 촬영 당시 교육장 Mac 터미널에서 OrbStack Ubuntu Machine `b4-lab`의 설정을 조회했습니다. 스크린샷 자체에 SSH 개인키·비밀번호·Agent 비밀키 값은 표시되지 않습니다.
 >
@@ -111,7 +111,7 @@ SSH-2.0-OpenSSH_9.6p1 Ubuntu-3ubuntu13.20
 ## 증빙 관리 기준
 
 - 참조: [`docs/b4-1-final-evidence.md`](../../b4-1-final-evidence.md) §4 (S1~S10 제출 체크리스트)
-- 범위: S1·S2(2026-11-14) — 설정 조회 화면 2장, TCP 연결 시험 화면 1장, SSH 배너 화면 1장. S3(2026-11-16) — 화면 3장(아래 "S3" 절). S4~S10 화면 캡처 및 공식 제출 승인은 별도(Owner 촬영 대기)
+- 범위: S1·S2(2026-11-14) — 설정 조회 화면 2장, TCP 연결 시험 화면 1장, SSH 배너 화면 1장. S3(2026-11-16) — 화면 3장(아래 "S3" 절). S4(2026-11-17) — 화면 1장(아래 "S4" 절). S5~S10 화면 캡처 및 공식 제출 승인은 별도(Owner 촬영 대기)
 - 형식: PNG 원본; 인위적 수정 없음
 - 학습자료 2강(SSH·포트·UFW)은 학습 초안 단계이며 이 증빙 등록으로 자동 확정하지 않음
 
@@ -202,3 +202,56 @@ User agent-admin may run the following commands on b4-lab:
 - `agent-dev`·`agent-test`의 sudo 거부 결과도 같은 회귀 기록의 `## sudo`에 근거하며, 이 화면에는 `agent-admin`만 표시됩니다.
 - `monitor.sh`·`secret.key`의 파일 단위 권한은 이 화면에 포함되지 않습니다.
 - 화면의 값은 2026-11-14 회귀 기록의 같은 항목(그룹·`id`·`stat`·ACL·sudo)과 일치합니다.
+
+---
+
+# S4 — 환경변수·키 파일 (2026-11-17)
+
+> 2026-11-17 오후 5:36에 Owner가 교육장 Mac 터미널에서 직접 실행·촬영한 원본 1장입니다(편집·합성 없음). 조회 전용이며 설정 변경은 하지 않았습니다. 화면에는 키 파일의 내용이 표시되지 않고, 일치 여부(`key-ok`)만 표시됩니다.
+>
+> **화면에서 확인되는 것과 아닌 것:** 화면에는 `===== S4 환경변수 및 키 파일 검증 =====` 제목과 세 구역의 출력이 찍혀 있으며, **실행 명령 문장 자체는 화면에 보이지 않습니다.** 아래 "대응 명령"은 [`b4-1-final-evidence.md`](../../b4-1-final-evidence.md) §4의 S4 체크리스트에 적힌 조회 명령이며, 실제 촬영 스크립트의 문장은 이 저장소에서 확인하지 않았습니다.
+
+| 파일 | 촬영 시각 | 내용 |
+|---|---|---|
+| `S4-env-key-2026-11-17.png` | 오후 5:36 | 환경변수 설정, 키 파일 소유권·권한, 실습 키 문자열 일치 여부 |
+
+![S4 환경변수와 키 파일](S4-env-key-2026-11-17.png)
+
+대응 명령(공식 체크리스트의 S4 항목; `B`는 `orb -m b4-lab sudo`):
+
+```bash
+B grep -v '^#' /etc/default/agent-app
+B stat -c '%U:%G %a %n' /opt/agent-app/api_keys/secret.key
+B bash -c '[ "$(cat /opt/agent-app/api_keys/secret.key)" = agent_api_key_test ] && echo key-ok'
+```
+
+실측값(화면 출력):
+
+```text
+[1] 환경변수 설정
+AGENT_HOME=/opt/agent-app
+AGENT_PORT=15034
+AGENT_UPLOAD_DIR=/opt/agent-app/upload_files
+AGENT_LOG_DIR=/var/log/agent-app
+AGENT_KEY_PATH=/opt/agent-app/api_keys
+AGENT_PROCESS_PATTERN=^/opt/agent-app/bin/agent-app-linux-x86
+
+[2] secret.key 소유권 및 권한
+root:agent-core 640 /opt/agent-app/api_keys/secret.key
+
+[3] 실습 키 문자열 일치 여부
+key-ok
+```
+
+해석:
+- [1] 환경변수 5개와 모니터링용 `AGENT_PROCESS_PATTERN` 1개가 설정 파일에 있습니다. `AGENT_PORT=15034`, `AGENT_KEY_PATH=/opt/agent-app/api_keys`(키 **디렉터리**)입니다.
+- [2] 키 파일은 `root:agent-core 640`입니다(소유자 `rw-`, `agent-core` 그룹 `r--`, 그 외 접근 없음).
+- [3] 키 파일 내용이 공식 실습 문자열과 같다는 판정입니다. 키 내용 자체는 화면에 출력되지 않습니다. 이 문자열은 실제 서비스 비밀키가 아닌 공식 실습 문자열입니다.
+
+## S4 — 이 화면이 증명하지 않는 것
+
+- **Agent 프로세스의 실제 환경변수 수신 여부.** 화면은 설정 **파일**의 내용이며, 실행 중인 프로세스가 그 값을 받았는지는 보여 주지 않습니다.
+- **`agent-admin` 계정의 키 파일 실제 읽기 성공 여부.** [2]는 권한 설정이고, [3]의 비교는 `B`(Ubuntu 안의 `sudo`)로 실행되므로 root 권한으로 읽은 결과입니다. `agent-admin`이 읽을 수 있다는 동작 시험(`agent-test`는 거부)은 2026-11-14 회귀 기록의 `## RW matrix`와 공식 정합성 기록에 근거합니다.
+- **Agent Boot Sequence 실행 성공 여부.** 이 화면에는 Agent 실행이 없습니다. 과거 실행 검증(Boot 5/5, `Agent READY`)은 [`task22-closeout-regression.txt`](../task22-closeout-regression.txt)의 `## agent run`에 근거하며, S5 화면은 촬영 대기입니다.
+- **파일 전체에 비밀값이 없다는 것.** `grep -v '^#'`는 주석 줄을 출력하지 않으므로, 출력된 활성 설정 항목에 비밀값이 없다는 것까지만 확인됩니다.
+- 화면의 값은 2026-11-14 회귀 기록의 `## env`·`## perms`(환경변수 값, `root:agent-core 640`, `secret.key content ok: yes`)와 일치합니다. 이번 Owner 캡처와 회귀 기록은 서로 다른 시점의 증거입니다.
