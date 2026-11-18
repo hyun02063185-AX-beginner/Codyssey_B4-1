@@ -668,6 +668,15 @@ WARNING 여부와 관계없이 **수집된 값은 한 줄로 기록**되고, 경
 
 - `monitor.log`는 매 실행 1줄씩 **계속 길어진다.** **[개념 + 예시 계산]** 한 줄은 약 63~66바이트다(S6의 두 줄을 센 값). **cron이 1분마다 실행한다면(7강)** 하루 1,440줄이고 약 95 KB(`1440 × 66 B`)다. [예시 계산이며 실제 증가량이 아니다.]
 - 방치하면 **디스크 사용률(5절)이 올라가고**, 결국 `DISK_USED`가 80%를 넘어서는 원인이 될 수 있다. 로그가 자기 감시 대상을 키우는 셈이다. 그래서 **순환(rotation)** 이 필요하다. 상세 규칙은 7강으로 미룬다. **[기록]** 로그가 9 MiB(9,437,184 B) 이상이면 순환하고 9개를 보존하도록 `logrotate`가 설정되어 있고, 이 설정은 7강에서 다룬다.
+
+  > **정확히 말하면 — 순환은 "검사하는 시점"에 일어난다. [기록: `b4-1-log-rotation.md`, `final-evidence.md` §2.10, 회귀 `## logrotate`]**
+  >
+  > - 위 "9 MiB 이상이면 순환"은 **logrotate가 실행되어 로그 크기를 확인하는 순간**에 적용되는 조건이다(설정 `size 9M`: 9,437,183 B는 순환하지 않고 9,437,184 B 이상이면 순환 — 테스트 Machine 실측). 로그가 9 MiB에 닿는 **그 즉시** 순환하는 것이 아니다.
+  > - 현재 logrotate는 systemd 타이머 `logrotate.timer`가 **`OnCalendar=daily`(하루 한 번, `AccuracySec=1h`)** 로 실행한다. 회귀 기록에서 마지막 실행이 `2026-11-14 00:00:01 KST`, 다음 실행이 `2026-11-15 00:00:00 KST`였다. 즉 **크기 검사는 하루에 한 번**이다.
+  > - 그래서 검사와 검사 사이(하루 안)에 로그가 9 MiB를 **넘어설 수 있고**, 다음 검사 때 비로소 순환한다. 이 방식은 **로그 크기를 실시간으로 엄격하게 제한하는 기능이 아니다.** "임계값에 도달한 뒤 주기적으로 순환"하는 방식이며 절대 최대 크기를 보장하지 않는다(기록에도 같은 한계가 적혀 있다).
+  > - **[기록]** 회귀 시점의 `monitor.log`는 319,125 B로 임계값의 약 3.4%였고, 순환은 일어나지 않았다(`does not need rotating`에 해당 — 일어나지 않는 것이 정상).
+  >
+  > 타이머·`size`·`rotate` 설정과 순환 동작의 세부는 7강에서 다룬다.
 - 반대로 **너무 빨리 지우면** 과거 이력이 사라진다. **보존(retention)** 은 "필요한 만큼은 남기고, 넘치면 정리한다"는 균형이다.
 
 ### 10-3. 과거 상세 로그와 현재 공식 로그의 공존
@@ -695,7 +704,7 @@ WARNING 여부와 관계없이 **수집된 값은 한 줄로 기록**되고, 경
   ```
 
 - **무리하게 부하를 만들지 않는다.** 경고를 얻으려고 **CPU를 점유하거나, 메모리를 할당하거나, 디스크를 채우지 않는다.** 경계 시험은 **고정 입력 파일**로 한다.
-- **운영 `monitor.log`를 변경하지 않는다.** 실습 실행에는 항상 `MONITOR_LOG_FILE`로 **임시 로그**를 쓴다. 이 강의에서는 `/tmp/s7-…` 이름을 쓰며, 시작 전에 비어 있는지 확인한다.
+- **운영 `monitor.log`를 변경하지 않는다.** 실습 실행에는 항상 `MONITOR_LOG_FILE`로 **임시 로그**를 쓴다. 임시 로그와 시험 입력 파일은 **고정된 이름의 `/tmp` 파일이 아니라, `mktemp -d`로 만든 실습 전용 디렉터리 안에** 둔다(S7-0). 그 디렉터리는 `agent-admin`만 접근할 수 있고, 실습이 끝나면 **이번 실습이 만든 파일만** 지운다.
 - Agent는 **실행하지 않아도 된다.** 자원 줄(CPU·MEM·DISK)은 Agent 없이도 출력된다. 그러면 프로세스·포트가 `FAIL`이라 결과는 `UNHEALTHY`가 되지만 S7의 목적(자원 값·임계값)에는 영향이 없다. Agent를 실행한다면 5강 13절의 안내(부하·반복 실행 주의)를 따른다.
 
 ### 11-1. S7 — 자원 사용률·임계값
@@ -716,37 +725,109 @@ B df -Pk /
 
 예상: 값은 실행할 때마다 다르다(값이 계속 증가·변동). 형식은 2·3·4·5절의 설명과 같다. **[실습 준비 — 이 저장소에 이 세 명령의 실행 기록은 없다.]**
 
+**S7-0. 실습 전용 임시 디렉터리 만들기 (S7-2·S7-3 공통)**
+
+**왜 필요한가?** `/tmp`는 **모든 계정이 쓰는 공용 폴더**다. 고정된 이름(`/tmp/s7-owner.log` 등)을 쓰면 ① 이미 같은 이름의 파일이 있을 때 덮어쓰거나, ② 다른 사람이 같은 이름의 파일·바로가기를 미리 만들어 둘 수 있다. 특히 `B`(root 권한)로 그런 경로에 쓰면 피해가 더 커진다. 그래서 **① 이름이 겹치지 않게 새로 만들고, ② 나만 접근하게 하고, ③ `agent-admin` 권한으로 파일을 만든다.**
+
+**단계 1 — 디렉터리를 만든다.**
+
+```bash
+S7DIR=$(B runuser -u agent-admin -- mktemp -d /tmp/s7-XXXXXX)
+echo "$S7DIR"
+```
+
+| 구성 | 의미 |
+|---|---|
+| `S7DIR=$( … )` | 안쪽 명령의 **출력(만들어진 경로)** 을 Mac 셸 변수 `S7DIR`에 저장한다. 이후 모든 명령이 이 변수를 쓰므로 **경로가 일관된다** |
+| `B runuser -u agent-admin --` | Ubuntu 안에서 **`agent-admin` 계정으로** 실행한다(5강 13-4절과 같은 형태). `B`에 이미 `sudo`가 있으므로 `B sudo …`로 쓰지 않는다 |
+| `mktemp -d` | **임시 디렉터리를 새로 만들고** 그 경로를 출력한다. 이미 있는 이름과 겹치지 않으며, 만들어진 디렉터리는 **소유자만 접근**(권한 `700`)할 수 있다 [개념] |
+| `/tmp/s7-XXXXXX` | 이름 틀. `XXXXXX` 자리가 **무작위 문자**로 바뀐다 |
+
+**전체 해석:** "`agent-admin` 계정으로 `/tmp` 아래에 `s7-무작위문자` 디렉터리를 새로 만들고, 그 경로를 변수 `S7DIR`에 저장해라."
+
+**예상 출력:** `/tmp/s7-` 뒤에 6글자 무작위 문자가 붙은 경로 한 줄(예: `/tmp/s7-aB3dEf` 형태 — **[예시]** 이며 실제 문자열은 매번 다르다). 이 한 줄이 **다른 메시지 없이 정확히 경로 하나**인지 확인한다. 이상하면 중단한다.
+
+**단계 2 — 소유권과 권한을 확인한다 (읽기 전용).**
+
+```bash
+B stat -c '%U:%G %a %n' "$S7DIR"
+```
+
+- `stat -c '%U:%G %a %n'`은 5강 13-1절과 같다(소유자:그룹, 숫자 권한, 이름).
+- **예상:** 소유자 `agent-admin`, 권한 `700`(`rwx------`). 그룹은 `agent-admin`의 기본 그룹이다(회귀 `id` 출력의 `gid=1002(agent-admin)`). 권한 700 = 소유자만 읽기·쓰기·들어가기 가능, 그룹·타인은 접근 불가다(3강 권한). `monitor.sh`도 `agent-admin`으로 실행하므로 이 디렉터리를 읽고 쓸 수 있다.
+- **[실습 준비 — 이 저장소에 이 명령의 실행 기록은 없다.]**
+
+> **변수 `S7DIR`는 지금 열어 둔 Mac 터미널 창에만 있다.** 창을 닫으면 사라진다. 이후 단계는 **같은 창**에서 이어서 한다. 잃어버렸다면 `B ls -d /tmp/s7-??????`(읽기 전용)로 목록을 보고, 방금 자신이 만든 것임을 확인한 뒤 이름을 직접 입력해 같은 방식으로 정리한다.
+
 **S7-2. 실제 수집값과 임계값 확인 (임시 로그)**
 
 ```bash
-B test ! -e /tmp/s7-owner.log && echo "임시 로그 경로 비어 있음"
-B runuser -u agent-admin -- env -i PATH=/usr/bin:/bin MONITOR_LOG_FILE=/tmp/s7-owner.log /opt/agent-app/bin/monitor.sh | grep -E ' (CPU|MEM|DISK) '
+B runuser -u agent-admin -- env -i PATH=/usr/bin:/bin MONITOR_LOG_FILE="$S7DIR/owner.log" /opt/agent-app/bin/monitor.sh | grep -E ' (CPU|MEM|DISK) '
 ```
 
-- 5강 13-4절의 실행 형태에 `| grep …`을 더한 것이다. `agent-admin`으로 실행해야 5강과 같은 조건이다. 파이프(`|`)와 `grep`은 **Mac 쪽** 셸이 처리한다.
+- 5강 13-4절의 실행 형태에 `| grep …`을 더한 것이다. 임시 로그는 **S7-0에서 만든 디렉터리 안의 `owner.log`** 로, `agent-admin`이 만들고 쓴다. `$S7DIR`은 Mac 셸이 경로로 바꿔 전달한다. 파이프(`|`)와 `grep`도 **Mac 쪽** 셸이 처리한다.
 - **예상 형태 [기록: S6-A 화면의 형식]**: `[OK] CPU usage=…% (threshold 20%)`, `[OK] MEM usage=…% (total=…kB available=…kB) (threshold 10%)`, `[OK] DISK usage=…% path=/ mount=/ (threshold 80%)`. 숫자는 달라진다.
 - 확인할 것: 세 줄의 `threshold` 값이 **20% / 10% / 80%** 인가. `WARNING`이 나오면 **그 줄의 `(raw …)`** 와 임계값을 읽는다(6-3절).
-- 시험적으로 실행하면 임시 로그에 한 줄이 쌓이고(`PID:N/A`일 수 있음) 운영 로그는 건드리지 않는다.
+- 실행하면 임시 로그에 한 줄이 쌓이고(`PID:N/A`일 수 있음) **운영 로그는 건드리지 않는다.**
 
 **S7-3. 경계 조건 — 고정 입력 파일 (선택, Owner 판단)**
 
 `b4-1-monitor.md`가 소개한 시험 훅 `MONITOR_MEMINFO`(가짜 `meminfo`), `MONITOR_PROC_STAT`·`MONITOR_PROC_STAT_2`(가짜 `/proc/stat` 두 장)를 쓴다. 회귀 `-- thresholds`와 같은 값(총 100 kB, 가용 90/89 kB)으로 **MEM 경계**를 확인하는 것이 가장 기록에 가깝다.
 
-```bash
-printf 'MemTotal: 100 kB\nMemAvailable: 90 kB\n' | B tee /tmp/s7-mem-eq.txt >/dev/null
-printf 'MemTotal: 100 kB\nMemAvailable: 89 kB\n' | B tee /tmp/s7-mem-gt.txt >/dev/null
-B runuser -u agent-admin -- env -i PATH=/usr/bin:/bin MONITOR_MEMINFO=/tmp/s7-mem-eq.txt MONITOR_LOG_FILE=/tmp/s7-boundary.log /opt/agent-app/bin/monitor.sh | grep ' MEM '
-B runuser -u agent-admin -- env -i PATH=/usr/bin:/bin MONITOR_MEMINFO=/tmp/s7-mem-gt.txt MONITOR_LOG_FILE=/tmp/s7-boundary.log /opt/agent-app/bin/monitor.sh | grep ' MEM '
-```
-
-- `tee 파일 >/dev/null` : 표준 입력(`printf`의 출력)을 파일에 쓴다. `B` 안의 root 권한으로 만들어지며 `agent-admin`이 읽을 수 있다.
-- **예상 [기록: 회귀 `-- thresholds`와 같은 값]**: 첫 실행 `[OK] MEM usage=10.0% (total=100kB available=90kB) (threshold 10%)`, 둘째 실행 `[WARNING] MEM usage=11.0% (raw 11.000000) (total=100kB available=89kB) > threshold 10%`.
-- CPU 경계: `MONITOR_PROC_STAT`·`MONITOR_PROC_STAT_2`에 각각 `cpu` 합계 줄 하나가 든 파일을 준다(`cpu` 뒤 숫자 8개 이상). 예: 첫 파일 `cpu 0 0 0 0 0 0 0 0`, 둘째 파일 `cpu 1002 0 0 3998 0 0 0 0`이면 `dTotal=5000`, `dIdle=3998` → `20.04%` → **WARNING**. 이 값은 3-4절의 awk 식으로 **직접 계산해 확인한 [예시]** 이며 `monitor.sh`로 실행한 기록은 없다.
-- 이 시험은 **실제 시스템 부하를 만들지 않는다.** 시험이 끝나면 **자신이 만든** `/tmp/s7-*` 파일만 지운다.
+**단계 1 — 시험 입력 파일을 `agent-admin` 권한으로 만든다.**
 
 ```bash
-B rm -f /tmp/s7-mem-eq.txt /tmp/s7-mem-gt.txt /tmp/s7-boundary.log /tmp/s7-owner.log
+B runuser -u agent-admin -- sh -c 'printf "MemTotal: 100 kB\nMemAvailable: 90 kB\n" > "$1"' _ "$S7DIR/mem-eq.txt"
+B runuser -u agent-admin -- sh -c 'printf "MemTotal: 100 kB\nMemAvailable: 89 kB\n" > "$1"' _ "$S7DIR/mem-gt.txt"
+B ls -l "$S7DIR"
 ```
+
+| 구성 | 의미 |
+|---|---|
+| `sh -c '스크립트' _ 인자` | 새 셸이 따옴표 안의 **스크립트**를 실행한다. 그 뒤 `_`는 자리 채움(스크립트 이름 `$0`)이고, 다음 값 `"$S7DIR/mem-eq.txt"`가 스크립트 안의 **`$1`** 이 된다 |
+| `printf "MemTotal: 100 kB\nMemAvailable: 90 kB\n"` | 두 줄(`\n`은 줄바꿈)을 출력한다 |
+| `> "$1"` | 그 출력을 **`$1` 파일에 쓴다**(`>`는 덮어쓰기. 새 파일이라 지울 내용은 없다) |
+
+**전체 해석:** "`agent-admin` 계정으로, 두 줄짜리 가짜 `meminfo`를 `S7DIR` 안의 `mem-eq.txt`에 만들어라." 이 파일은 `agent-admin` 소유이므로 `root`가 만든 파일이 아니고, `monitor.sh`(`agent-admin`)가 읽을 수 있다. `ls -l` 출력에서 소유자가 `agent-admin`인지 확인한다.
+
+**단계 2 — `monitor.sh`가 그 파일을 읽게 한다.**
+
+```bash
+B runuser -u agent-admin -- env -i PATH=/usr/bin:/bin MONITOR_MEMINFO="$S7DIR/mem-eq.txt" MONITOR_LOG_FILE="$S7DIR/boundary.log" /opt/agent-app/bin/monitor.sh | grep ' MEM '
+B runuser -u agent-admin -- env -i PATH=/usr/bin:/bin MONITOR_MEMINFO="$S7DIR/mem-gt.txt" MONITOR_LOG_FILE="$S7DIR/boundary.log" /opt/agent-app/bin/monitor.sh | grep ' MEM '
+```
+
+- `MONITOR_MEMINFO=…` : `/proc/meminfo` 대신 **이 파일**을 읽게 하는 시험 훅(코드 316행). `MONITOR_LOG_FILE=…` : 임시 로그도 같은 디렉터리 안에 둔다. 두 값이 **모두 `$S7DIR` 아래**이므로 임시 경로가 일관된다.
+- **예상 [기록: 회귀 `-- thresholds`와 같은 값]**: 첫 실행 `[OK] MEM usage=10.0% (total=100kB available=90kB) (threshold 10%)`, 둘째 실행 `[WARNING] MEM usage=11.0% (raw 11.000000) (total=100kB available=89kB) > threshold 10%`. (같은 값으로 **이 명령을 실행한 기록**은 없다. 회귀 기록은 당시의 다른 임시 경로를 썼다.)
+
+**단계 3 (선택) — CPU 경계.** `MONITOR_PROC_STAT`·`MONITOR_PROC_STAT_2`에 `cpu` 합계 줄이 든 파일을 준다(`cpu` 뒤 숫자 8개 이상).
+
+```bash
+B runuser -u agent-admin -- sh -c 'printf "cpu 0 0 0 0 0 0 0 0\n" > "$1"' _ "$S7DIR/cpu-1.txt"
+B runuser -u agent-admin -- sh -c 'printf "cpu 1002 0 0 3998 0 0 0 0\n" > "$1"' _ "$S7DIR/cpu-2.txt"
+B runuser -u agent-admin -- env -i PATH=/usr/bin:/bin MONITOR_PROC_STAT="$S7DIR/cpu-1.txt" MONITOR_PROC_STAT_2="$S7DIR/cpu-2.txt" MONITOR_LOG_FILE="$S7DIR/boundary.log" /opt/agent-app/bin/monitor.sh | grep ' CPU '
+```
+
+`dTotal=5000`, `dIdle=3998` → 3-4절의 계산으로 `20.04%`이므로 **WARNING**이며 표시는 `20.0%`, `(raw 20.040000)`이 함께 나올 것으로 **예상**한다. 이 값은 awk 식으로 **직접 계산해 확인한 [예시]** 이고 `monitor.sh`로 실행한 기록은 없다. `MONITOR_PROC_STAT_2`가 지정되면 코드는 1초 `sleep`을 건너뛴다(300행).
+
+**이 시험은 실제 시스템 부하를 만들지 않으며**, 시스템 파일(`/proc`)·운영 로그·Ubuntu 설정을 바꾸지 않는다. 만들어지는 것은 `$S7DIR` 안의 파일뿐이다.
+
+**S7-4. 정리 — 이번 실습이 만든 것만 지운다**
+
+```bash
+B runuser -u agent-admin -- rm -f -- "$S7DIR/owner.log" "$S7DIR/boundary.log" "$S7DIR/mem-eq.txt" "$S7DIR/mem-gt.txt" "$S7DIR/cpu-1.txt" "$S7DIR/cpu-2.txt"
+B runuser -u agent-admin -- rmdir -- "$S7DIR"
+B test ! -e "$S7DIR" && echo "정리 완료"
+```
+
+| 구성 | 의미 |
+|---|---|
+| `rm -f -- 파일들` | **이름을 하나씩 적은** 파일만 지운다. `-f`는 없는 파일(만들지 않은 단계의 것)이 있어도 오류로 멈추지 않는다. `--`는 이후를 옵션이 아닌 이름으로 취급 |
+| `rmdir -- 디렉터리` | **비어 있는 디렉터리만** 지운다. 남은 파일이 있으면 **실패하고 아무것도 지우지 않는다**(안전장치) |
+| `test ! -e … && echo` | 디렉터리가 없어졌으면 `정리 완료` 출력 |
+
+- `rm -rf`나 `*`(와일드카드)를 **쓰지 않는다.** 실습이 만든 파일 이름을 직접 적었으므로 **다른 `/tmp` 파일은 건드리지 않는다.** `rmdir`이 실패하면 예상하지 못한 파일이 남은 것이니, 내용을 확인한 뒤 판단한다.
+- 운영 `/var/log/agent-app/monitor.log`, cron·UFW·sudoers 등 Ubuntu 설정은 이 실습에서 읽지도 쓰지도 않는다.
 
 **안전한 캡처 방법.** 화면에는 명령·출력 전체를 보이게 하고, 시각은 달라도 된다. 비밀값은 출력되지 않는다. 캡처 후 이 문서와 [증빙 안내](../evidence/screenshots/README.md)에 S7을 연결하는 일은 별도 작업이다.
 
