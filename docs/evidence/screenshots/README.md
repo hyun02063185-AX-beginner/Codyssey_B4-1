@@ -1,6 +1,6 @@
-# B4-1 Owner 화면 증빙 — S1~S7
+# B4-1 Owner 화면 증빙 — S1~S10
 
-> **촬영 일자·범위:** S1·S2는 2026-11-14, S3는 2026-11-16, S4·S5는 2026-11-17, S6·S7은 2026-11-18에 Owner가 촬영했습니다(S7-A는 PNG가 아닌 텍스트 결과). S8~S10은 Owner 촬영 대기입니다. S3~S7은 문서 아래쪽 "S3 — 사용자·그룹·ACL", "S4 — 환경변수·키 파일", "S5 — Agent Boot Sequence·LISTEN", "S6 — monitor.sh Health Check", "S7 — 자원 사용률·임계값" 절에 있습니다.
+> **촬영 일자·범위:** S1·S2는 2026-11-14, S3는 2026-11-16, S4·S5는 2026-11-17, S6~S10은 2026-11-18에 Owner가 촬영했습니다(S7-A는 PNG가 아닌 텍스트 결과). S1~S10 화면 증빙은 모두 확보되었고 PNG는 총 20장입니다. S3~S10은 문서 아래쪽 "S3 — 사용자·그룹·ACL", "S4 — 환경변수·키 파일", "S5 — Agent Boot Sequence·LISTEN", "S6 — monitor.sh Health Check", "S7 — 자원 사용률·임계값", "S8 — 운영 monitor.log", "S9 — cron 자동 실행", "S10 — logrotate" 절에 있습니다.
 >
 > 제출용 캡처의 **원본 화면을 변경하지 않고** 등록한 자료입니다. 촬영 당시 교육장 Mac 터미널에서 OrbStack Ubuntu Machine `b4-lab`의 설정을 조회했습니다. 스크린샷 자체에 SSH 개인키·비밀번호·Agent 비밀키 값은 표시되지 않습니다.
 >
@@ -111,7 +111,7 @@ SSH-2.0-OpenSSH_9.6p1 Ubuntu-3ubuntu13.20
 ## 증빙 관리 기준
 
 - 참조: [`docs/b4-1-final-evidence.md`](../../b4-1-final-evidence.md) §4 (S1~S10 제출 체크리스트)
-- 범위: S1·S2(2026-11-14) — 설정 조회 화면 2장, TCP 연결 시험 화면 1장, SSH 배너 화면 1장. S3(2026-11-16) — 화면 3장(아래 "S3" 절). S4(2026-11-17) — 화면 1장(아래 "S4" 절). S5(2026-11-17) — 화면 2장(아래 "S5" 절). S6(2026-11-18) — 화면 2장(아래 "S6" 절). S7~S10 화면 캡처 및 공식 제출 승인은 별도(Owner 촬영 대기)
+- 범위: S1·S2(2026-11-14) — 설정 조회 화면 2장, TCP 연결 시험 화면 1장, SSH 배너 화면 1장. S3(2026-11-16) — 화면 3장(아래 "S3" 절). S4(2026-11-17) — 화면 1장(아래 "S4" 절). S5(2026-11-17) — 화면 2장(아래 "S5" 절). S6(2026-11-18) — 화면 2장(아래 "S6" 절). S7(2026-11-18) — 화면 4장(아래 "S7" 절). S8·S9(2026-11-18) — 각 1장, S10(2026-11-18) — 2장(아래 각 절). 공식 제출 승인은 별도(Owner 최종 검수)
 - 형식: PNG 원본; 인위적 수정 없음
 - 학습자료 2강(SSH·포트·UFW)은 학습 초안 단계이며 이 증빙 등록으로 자동 확정하지 않음
 
@@ -577,5 +577,105 @@ Owner가 실습 후 직접 수행하고 전달한 터미널 출력입니다.
 - **실제 서버 부하에서의 `WARNING`.** S7-C·S7-D는 시험 입력 파일 검증입니다. 실제 부하에서 경고가 나는 것은 보이지 않았습니다.
 - **DISK 임계값 경계.** DISK는 실제 측정 0.2%(`OK`)만 있으며 80% 경계 시험은 하지 않았습니다.
 - **S7-B의 임시 로그 내용.** 해당 화면에서는 잘려 있습니다(S7-E로 보완).
-- **운영 `/var/log/agent-app/monitor.log`.** 이번 실습은 임시 로그만 썼으며 운영 로그는 검증하지 않았습니다(S8). cron(S9)·logrotate(S10) 실습도 하지 않았습니다.
+- **운영 `/var/log/agent-app/monitor.log`.** 이번 실습은 임시 로그만 썼으며 운영 로그 검증은 S8, cron은 S9, logrotate는 S10 절에서 별도로 다룹니다.
 - **Agent 실행 중 상태.** S7-B는 Agent가 종료된 상태입니다(PROCESS·PORT `FAIL`).
+
+---
+
+# S8 — 운영 monitor.log (2026-11-18)
+
+> 2026-11-18 Owner가 교육장 Mac 터미널에서 `b4-lab`의 **운영 로그를 읽기 전용으로 조회**하고 촬영한 원본 1장입니다(편집·합성·재생성 없음, `cmp` 일치). 18:32~18:33경 촬영. 파일: `S8-monitor-log-2026-11-18.png`, SHA-256 `fba478caec538a02177542644163a1d59aef8adf89a2068770398d40ab5e6b5f`.
+
+![S8 운영 monitor.log](S8-monitor-log-2026-11-18.png)
+
+| 화면 구역 | 실측 | 의미 |
+|---|---|---|
+| [1] 파일 소유권·권한 | `agent-admin:agent-core 660 173897 bytes /var/log/agent-app/monitor.log` | 소유 `agent-admin`, 그룹 `agent-core`, 권한 660, 크기 173,897 B |
+| [2] 최근 로그 5줄 | 18:27:02, 18:28:02, 18:29:02, 18:30:02, 18:31:03 — 모두 `PID:N/A CPU:… MEM:… DISK_USED:0.2%` | 공식 형식 한 줄이 약 1분 간격으로 쌓임 |
+| [3] 공식 형식 일치 줄 수 | `5` (기대: 5) | 최근 5줄이 모두 공식 형식 정규식에 일치 |
+
+- `PID:N/A`는 **그 시점에 Agent 프로세스가 없었다**는 뜻이다(확인된 PID를 만들어 넣지 않음).
+- 173,897 B는 logrotate 임계값 9,437,184 B의 약 1.8%이다.
+
+**화면이 증명하는 것:** 운영 로그의 소유권·권한(660), 크기, 최근 5줄의 공식 형식, 5줄의 약 1분 간격.
+
+**화면이 증명하지 않는 것:** 이 화면의 명령 문장은 보이지 않는다. **파일 전체**의 형식 일치는 검사하지 않았고(최근 5줄만; 회귀 기록에는 과거 상세 형식 줄이 남아 있다고 기재), 줄 수 증가나 cron 설정은 S9가 다룬다. `PID:N/A`의 원인(Agent 미실행)은 PID 필드 자체에서 도출한 것이며, 해당 시각 프로세스 목록은 화면에 없다.
+
+---
+
+# S9 — cron 자동 실행 (2026-11-18)
+
+> 2026-11-18 Owner가 촬영한 원본 1장(18:33경, 편집 없음, `cmp` 일치). 파일: `S9-cron-2026-11-18.png`, SHA-256 `c0dd8339ef25a7e424cc16ee5fa3a4341d612a72b13d9db5dad0b3e974ad366e`.
+
+![S9 cron 자동 실행](S9-cron-2026-11-18.png)
+
+| 화면 구역 | 실측 | 의미 |
+|---|---|---|
+| [1] cron 서비스 상태 | `active` | cron 서비스가 실행 중 |
+| [2] `agent-admin` 예약 작업 | `# BEGIN B4-1 monitor (managed by scripts/monitor-cron.sh; do not edit inside)` / `* * * * * MONITOR_TRIGGER=cron /opt/agent-app/bin/monitor.sh >/dev/null 2>&1` / `# END B4-1 monitor` | 매분(`* * * * *`) `monitor.sh`를 `MONITOR_TRIGGER=cron`으로 실행. 저장소 스크립트가 관리하는 블록 |
+| [3] 현재 로그 총 줄 수 | `2760 /var/log/agent-app/monitor.log` | 줄 수 |
+| [4] 최근 로그 6줄과 시각 | 18:26:02, 18:27:02, 18:28:02, 18:29:02, 18:30:02, 18:31:03 | 약 1분 간격 연속 기록 |
+
+**화면이 증명하는 것:** cron 서비스 `active`, `agent-admin`의 매분 crontab 등록, 18:26~18:31 사이 분 단위로 이어진 6줄 — 이 둘로 자동 실행을 확인한다. 18:31:03의 `:03`초는 `:02`초 줄과 1초 차이이며 줄 간격은 약 1분으로 유지된다.
+
+**화면이 증명하지 않는 것:** 줄 수 **증가**(두 시점 비교)는 한 화면의 2760이라는 한 값만 있어 직접 보이지 않으며, 증가는 연속 시각의 줄들로 확인했다. 줄이 cron이 쓴 것인지(`trigger=cron`)는 공식 형식 줄에 표시되지 않는다. cron 서비스의 journal 실행 기록은 이 화면에 없다(회귀 기록 `## cron + official log`·[b4-1-cron.md](../../b4-1-cron.md) 참고). crontab을 이번 촬영에서 바꾸지 않았다. 2760줄에는 과거 형식 줄이 섞여 있을 수 있다(S8과 같은 이유).
+
+---
+
+# S10 — logrotate (2026-11-18)
+
+> 2026-11-18 Owner가 촬영한 원본 2장(편집 없음, `cmp` 일치). 설정·타이머 화면(S10-A, 18:33~18:34경), 최종 검증 화면(S10-B, 18:38경).
+
+| 파일 | SHA-256 |
+|---|---|
+| `S10-A-logrotate-config-2026-11-18.png` | `f4d699120ff4dd446967a05923669a5acf131006e3695db4ac4af0329e30b15d` |
+| `S10-B-logrotate-verification-2026-11-18.png` | `d3dd8ca2d01b316ef55dc9e4b015eab2fd4e44dcae9e7cafc6f7414e519c4369` |
+
+## S10-A — 순환 정책과 타이머
+
+![S10-A logrotate 설정](S10-A-logrotate-config-2026-11-18.png)
+
+| 화면 구역 | 실측 |
+|---|---|
+| `/etc/logrotate.d/agent-app` | `/var/log/agent-app/monitor.log { su agent-admin agent-core / size 9M / rotate 9 / create 0660 agent-admin agent-core / missingok / notifempty / nocompress }` |
+| 설정 파일 주석 | 9 MiB = 9437184 B 선택 이유, `rename+create` 방식 선택 이유, `su` 지시어 이유, "엄격한 최대 크기 보장이 아님" 주의 |
+| 타이머 상태 | `active`, `NEXT Thu 2026-11-19 00:00:00 KST`, `LAST Wed 2026-11-18 00:00:02 KST` (18h ago), `logrotate.timer` 1 timers listed |
+
+**S10-A의 한계:** 화면은 터미널 **페이저(`less`) 상태**(`lines 1-4/4 (END)`)를 포함하며 타이머 표가 두 번 보이고 오른쪽 `ACTIVATES` 열이 `>`로 잘려 있다. 따라서 **실제로 보이는 범위만** 증빙한다(위 설정 전문과 NEXT/LAST/UNIT 열). 설정 주석의 "daily" 문구와 `AccuracySec=1h`는 설정 파일의 주석으로 보이는 것이며 타이머 단위 파일의 값을 화면이 직접 보여 주는 것은 아니다.
+
+## S10-B — 최종 확인
+
+![S10-B logrotate 최종 검증](S10-B-logrotate-verification-2026-11-18.png)
+
+검증 시각 2026-11-18 18:37:32 KST.
+
+| 화면 구역 | 실측 |
+|---|---|
+| [1] 최근 실행 기록 | Nov 17 00:00:01, Nov 18 00:00:02 각각 `Starting logrotate.service` → `Deactivated successfully.` → `Finished logrotate.service - Rotate log files.` |
+| [2] 설정 검사 (변경 없음) | `rotating pattern: /var/log/agent-app/monitor.log  9437184 bytes (9 rotations)` / `considering log /var/log/agent-app/monitor.log` / `log does not need rotating (log size is below the 'size' threshold)` |
+
+**S10이 증명하는 것:** 정책(`size 9M`, `rotate 9`, `su`, `create 0660 …`)이 설치되어 있고, 타이머가 active이며 11-17·11-18 00:00에 서비스가 성공적으로 종료됐고, `logrotate -d`(시험 모드)가 9437184 B·9 rotations를 인식하며 현재 로그가 임계값 미만이라 순환 대상이 아니라고 판단한다는 것.
+
+**S10이 증명하지 않는 것:**
+
+- **강제 순환을 실행하지 않았다.** `logrotate -d`는 시험 모드이며 파일을 바꾸지 않는다. 실제 파일 순환(`monitor.log.1` 생성 등)은 이 실습에서 일어나지 않았고, 9 MiB 미만이라 일어나지 않는 것이 정상이다.
+- **9 MiB 설정은 실시간 엄격한 크기 제한이 아니다.** logrotate는 실행되는 시점(일 1회)에만 크기를 검사하므로 그 사이 임계값을 넘을 수 있다(설정 파일 주석과 [b4-1-final-evidence.md §2.10](../../b4-1-final-evidence.md#210-로그-순환-최대-10mb--10개--pass) 참고).
+- S10-B의 두 날짜는 **화면에 보이는 2회**의 실행이다. 그 사이 11-14~11-16 등의 실행은 이 화면에 없다.
+- S10-A의 NEXT/LAST는 화면 시점(S10-A 촬영 18:33경) 값이다.
+
+---
+
+# S1~S10 증빙 완결 현황
+
+| 구분 | PNG | 날짜 |
+|---|---|---|
+| S1·S2 | 4장 (S1-ubuntu-ssh, S1-ssh-banner, S1-S2-tcp-connect, S2-ufw) | 2026-11-14 |
+| S3 | 3장 | 2026-11-16 |
+| S4 | 1장 | 2026-11-17 |
+| S5 | 2장 | 2026-11-17 |
+| S6 | 2장 | 2026-11-18 |
+| S7 | 4장 (+ S7-A 텍스트) | 2026-11-18 |
+| S8 | 1장 | 2026-11-18 |
+| S9 | 1장 | 2026-11-18 |
+| S10 | 2장 | 2026-11-18 |
+| **합계** | **20장** | 10개 구분 |

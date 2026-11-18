@@ -3,7 +3,7 @@
 **부제:** Linux CPU·메모리·디스크 사용률과 모니터링 로그  
 **학습 분야:** Linux 시스템 운영과 셸 자동화  
 **연결 미션:** Codyssey B4-1 — 컴퓨터가 알아서 자기 상태를 점검하게 만들기  
-**문서 상태:** v0.1 원고 / 학습 검토 — 6강 첫 원고. 실제 구현(`bin/monitor.sh`), 2026-11-14 최종 회귀 기록, 2026-11-18 Owner S6·S7 실습 결과를 기준으로 썼다. **S7은 실습 완료(11-1-R절), S8 화면은 아직 촬영 전**이며 이 문서는 S8을 완료로 표시하지 않는다.  
+**문서 상태:** v0.1 원고 / 학습 검토 — 6강 첫 원고. 실제 구현(`bin/monitor.sh`), 2026-11-14 최종 회귀 기록, 2026-11-18 Owner S6·S7 실습 결과를 기준으로 썼다. **S7은 실습 완료(11-1-R절), S8 운영 로그 화면은 2026-11-18 Owner가 촬영해 [증빙 안내](../evidence/screenshots/README.md#s8--운영-monitorlog-2026-11-18)에 등록**되었다(11-3절). 이 문서의 S8 실습 안내(11-2절)는 준비 당시 내용을 그대로 두었다.  
 **선행 학습:** [3강 권한·ACL](03-users-groups-permissions-acl.md), [4강 환경변수·Agent 실행](04-env-agent-runtime.md), [5강 monitor.sh Health Check](05-monitor-health-check.md)
 
 > **읽는 방법**
@@ -888,7 +888,7 @@ B tail -5 /var/log/agent-app/monitor.log | grep -cE '^\[[0-9-]{10} [0-9:]{8}\] P
 |---|---|
 | S6 monitor.sh 판정 | 화면 확보(2026-11-18, 5강 11-5절) |
 | **S7 CPU/MEM/DISK** | **화면 확보**(2026-11-18, S7-B~E 4장 + S7-A 텍스트, 11-1-R절) |
-| **S8 monitor.log** | **Owner 촬영 대기** |
+| **S8 monitor.log** | **화면 확보**(2026-11-18, [S8](../evidence/screenshots/S8-monitor-log-2026-11-18.png): `agent-admin:agent-core 660`, 최근 5줄 공식 형식 개수 `5`) |
 
 ---
 
