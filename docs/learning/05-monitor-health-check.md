@@ -3,14 +3,14 @@
 **부제:** Bash 스크립트 `monitor.sh`의 동작 원리  
 **학습 분야:** Linux 시스템 운영과 셸 자동화  
 **연결 미션:** Codyssey B4-1 — 컴퓨터가 알아서 자기 상태를 점검하게 만들기  
-**문서 상태:** v0.1 원고 / 학습 검토 — 5강 첫 원고. 실제 구현(`bin/monitor.sh`)과 2026-11-14 최종 회귀 기록을 기준으로 썼다. **S6 화면은 아직 촬영 전**이며 이 문서는 S6를 완료로 표시하지 않는다.  
+**문서 상태:** v0.1 원고 / 학습 검토 — 5강 첫 원고. 실제 구현(`bin/monitor.sh`)과 2026-11-14 최종 회귀 기록을 기준으로 썼다. 2026-11-18 Owner가 촬영한 **S6 화면(S6-A·S6-B)을 11-5절에 연결했다.** 11-1~11-4절의 2026-11-14 회귀 기록은 그대로 보존했다.  
 **선행 학습:** [0강 터미널·Bash](00-shell-terminal-bash.md), [2강 SSH·UFW](02-ssh-ufw.md), [3강 사용자·그룹·권한·ACL](03-users-groups-permissions-acl.md), [4강 환경변수와 Agent 실행](04-env-agent-runtime.md)
 
 > **읽는 방법**
 >
 > - **[기록]** 은 저장소의 실제 소스·검증 기록에서 가져온 내용이고, **[개념]** 은 일반적인 Linux·Bash 지식이다. 기록에 없는 출력은 만들어 넣지 않았다.
 > - 이 강의는 `monitor.sh` 337줄을 한 줄씩 해설하지 않는다. **전체 흐름을 먼저 보고, 판단이 일어나는 부분만** 자세히 읽는다. (코드 줄 번호는 이 원고를 쓴 시점의 `bin/monitor.sh` 기준이며, 파일이 바뀌면 달라질 수 있다.)
-> - 이 강의에서는 **Agent를 실행하지 않고, UFW를 끄지 않으며, 어떤 설정도 바꾸지 않는다.** 13절의 S6 실습은 Owner가 나중에 진행할 수 있도록 준비만 해 둔 것이다.
+> - 이 강의에서는 **Agent를 실행하지 않고, UFW를 끄지 않으며, 어떤 설정도 바꾸지 않는다.** 13절의 S6 실습은 Owner가 진행할 수 있도록 준비한 것이며, 2026-11-18에 Owner가 실제로 수행했다(11-5절). 이 원고는 직접 실행하지 않았다.
 > - 근거 문서: [`bin/monitor.sh`](../../bin/monitor.sh), [`docs/b4-1-monitor.md`](../b4-1-monitor.md), [`docs/b4-1-agent-runtime.md`](../b4-1-agent-runtime.md), [`docs/b4-1-final-evidence.md`](../b4-1-final-evidence.md), [최종 회귀 출력](../evidence/task22-closeout-regression.txt), [설정 예제](../../config/etc-default-agent-app.example)
 > - `b4-1-monitor.md` 등 과거 설계 문서에는 당시의 `PENDING`·`UNKNOWN` 상태가 적혀 있다. 그 문서들 맨 위의 "현황(최신)" 안내와 **현재 코드**가 우선이며, 이 강의도 현재 코드를 따른다.
 
@@ -501,7 +501,7 @@ if [ -z "${AGENT_PROCESS_PATTERN:-}" ]; then
 | 패턴과 일치하는 프로세스 없음 | `FAIL PROCESS` | `FAIL` +1 |
 | 일치하는 프로세스 있음 | `OK PROCESS` | `PROC_OK=1`, 그 PID 저장 |
 
-> **S5-B 연결.** S5-B 화면의 `88567`·`88568`은 정확히 이 검사가 찾아낼 PID 쌍이다. 다만 **S6는 아직 촬영 전**이므로 `monitor.sh`가 이 PID를 실제로 인식한 화면은 없다.
+> **S5-B 연결.** S5-B 화면의 `88567`·`88568`은 정확히 이 검사가 찾아낼 PID 쌍이다. 다만 S5-B와 S6는 **서로 다른 날의 별개 실행**이다. S6-A(2026-11-18)에서는 다른 PID 쌍(`180046`·`180047`)이 같은 방식으로 인식된다(11-5절).
 
 ---
 
@@ -868,7 +868,7 @@ flowchart LR
 
 ## 11. 실제 S6 실습 결과를 읽는 방법
 
-> **상태 안내.** 아래는 **2026-11-14 최종 회귀 기록**([task22 출력](../evidence/task22-closeout-regression.txt))에 근거한다. **S6 실시간 화면은 아직 촬영되지 않았다.** 이 절은 S6를 **캡처 완료로 표시하지 않는다.** Owner가 촬영하면 그 결과를 나중에 이 절에 연결한다.
+> **상태 안내.** 11-1~11-4절은 **2026-11-14 최종 회귀 기록**([task22 출력](../evidence/task22-closeout-regression.txt))에 근거하며 그대로 보존했다. **2026-11-18에 Owner가 촬영한 S6 화면은 11-5절**에 연결했다. 두 기록은 날짜·PID·시각이 다른 별개의 실행이다.
 
 ### 11-1. Agent 실행 중 [기록]
 
@@ -932,15 +932,71 @@ rc=1
 
 그래서 회귀 파일에는 `-- monitor (Agent stopped)`에 `HEALTHY exit=0`이 있고, 맨 아래에 `UNHEALTHY exit=1`이 있다. **앞의 `HEALTHY`는 "중지한 줄 알았지만 실제로는 살아 있던" 무효 구간**이다. 유효한 중지 결과는 **맨 아래 재실행(rerun)** 이다. 이 사건은 반대로 **monitor.sh가 정확히 동작했다**는 증거다. Agent가 살아 있으면 `HEALTHY`로, 죽으면 `UNHEALTHY`로 정직하게 판정했다. 실습 때 "종료했다고 믿는 것"이 아니라 **"종료를 확인한 뒤" 다시 점검**하는 습관의 근거다(13절 6단계).
 
-### 11-4. 이 기록이 증명하는 것과 하지 않는 것
+### 11-4. 2026-11-14 기록이 증명하는 것과 하지 않는 것
 
 | 증명한다 | 증명하지 않는다 |
 |---|---|
-| 2026-11-14 `b4-lab`에서 Agent 실행 시 `HEALTHY/0`, 중지 시 `UNHEALTHY/1`로 판정됨 | **현재 머신**(2026-11-17 초기화 이후)에서 같은 결과가 나온다는 것 → S6에서 확인 |
+| 2026-11-14 `b4-lab`에서 Agent 실행 시 `HEALTHY/0`, 중지 시 `UNHEALTHY/1`로 판정됨 | **현재 머신**(2026-11-17 초기화 이후)에서 같은 결과가 나온다는 것 → 2026-11-18 S6 화면이 확인(11-5절) |
 | 임시 로그 파일에 한 줄이 기록됨 | 운영 `monitor.log`의 내용 |
-| 저장소 `monitor.sh`와 배포본의 sha256이 같았다 (`86d6b9ce…f056`) | 현재 배포본이 같다는 것 → 13절 2단계에서 확인 |
+| 저장소 `monitor.sh`와 배포본의 sha256이 같았다 (`86d6b9ce…f056`) | 현재 배포본이 같다는 것 → 13절 2단계의 확인 결과는 S6 화면에 없다 |
 
 > 참고: 이 원고를 쓰는 시점의 저장소 `bin/monitor.sh`의 sha256도 `86d6b9ce51c46bc4f68e3738eb23eae023a19d4c9a83eccfeaf5fa30cd96f056`으로, 회귀 기록의 배포본 해시와 같다. 즉 **회귀 이후 소스가 바뀌지 않았다.**
+
+### 11-5. Owner 실습 결과 (2026-11-18) — S6-A·S6-B
+
+> **S6 실습 연결.** 2026-11-18 Owner가 `b4-lab`에서 직접 실행하고 촬영한 화면 2장이다(원본, 편집·합성 없음). 이 문서는 Agent를 재실행하지 않았고 결과를 인용만 한다. **11-1~11-4절의 2026-11-14 회귀 기록과는 날짜·PID·시각이 다른 별개의 실행이며, 두 기록의 PID와 시각을 섞어 읽지 않는다.** 화면에 **명령 문장은 보이지 않는다**(대응 명령은 13절).
+
+**S6-A — Agent 실행 중 (실습 시각 16:20:44 KST)**
+
+![S6-A monitor.sh HEALTHY](../evidence/screenshots/S6-A-monitor-healthy-2026-11-18.png)
+
+```text
+[OK] PROCESS agent process matched pattern '^/opt/agent-app/bin/agent-app-linux-x86' pid=[180046 180047]
+[OK] PORT tcp/15034 LISTEN on 0.0.0.0 [0.0.0.0:15034], owner pid=[180047] matches agent pid=[180046 180047]
+[OK] FIREWALL ufw active (checked via sudo)
+[OK] CPU usage=4.2% (threshold 20%)
+[OK] MEM usage=4.0% (total=16449632kB available=15792920kB) (threshold 10%)
+[OK] DISK usage=0.2% path=/ mount=/ (threshold 80%)
+[INFO] LOG record appended to /tmp/s6-owner-20261118.log: PID:180047 CPU:4.2% MEM:4.0% DISK_USED:0.2%
+[INFO] SUMMARY result=HEALTHY exit=0 fail=0 pending=0 warning=0 unknown=0 error=0 log=/tmp/s6-owner-20261118.log
+MONITOR_EXIT=0
+```
+
+**S6-B — Agent 종료 후 (실습 시각 16:25:32 KST)**
+
+![S6-B monitor.sh UNHEALTHY와 임시 로그](../evidence/screenshots/S6-B-monitor-unhealthy-2026-11-18.png)
+
+```text
+[FAIL] PROCESS no process matches pattern '^/opt/agent-app/bin/agent-app-linux-x86'
+[FAIL] PORT tcp/15034 not LISTEN
+[OK] FIREWALL ufw active (checked via sudo)
+[OK] CPU usage=0.0% (threshold 20%)
+[OK] MEM usage=3.3% (total=16449632kB available=15911384kB) (threshold 10%)
+[OK] DISK usage=0.2% path=/ mount=/ (threshold 80%)
+[INFO] LOG record appended to /tmp/s6-owner-20261118.log: PID:N/A CPU:0.0% MEM:3.3% DISK_USED:0.2%
+[INFO] SUMMARY result=UNHEALTHY exit=1 fail=2 pending=0 warning=0 unknown=0 error=0 log=/tmp/s6-owner-20261118.log
+MONITOR_EXIT=1
+
+===== S6 임시 로그 =====
+[2026-11-18 16:20:45] PID:180047 CPU:4.2% MEM:4.0% DISK_USED:0.2%
+[2026-11-18 16:25:33] PID:N/A CPU:0.0% MEM:3.3% DISK_USED:0.2%
+```
+
+(START·CONFIG 줄은 생략했다. 전체 출력은 [증빙 안내](../evidence/screenshots/README.md)의 S6 절에 있다.)
+
+**읽는 법 — 이 강의에서 배운 것과 연결**
+
+| 화면 | 연결되는 절 |
+|---|---|
+| `pid=[180046 180047]` 두 개 | 5-5절 — 부모·자식 PID가 모두 검색됨 |
+| `owner pid=[180047] matches` | 6-3·6-4절 — 소켓 소유 PID가 Agent PID 중 하나 |
+| `checked via sudo` | 7-2절 — `agent-admin`이 `sudo -n`으로 조회 (root로 실행하면 `checked via root`) |
+| 종료 후 `FAIL PROCESS`·`FAIL PORT`, `fail=2` | 8절 — `FAIL`이 `UNHEALTHY`를 만듦 |
+| `SUMMARY … exit=1`과 `MONITOR_EXIT=1` | 9-2절 — 사람이 읽는 글자와 프로그램이 읽는 숫자 |
+| 임시 로그 두 줄, `PID:N/A` | 10-2·10-4절 — append로 쌓이고 Agent가 없으면 `N/A` |
+| `warning=0` | 방화벽이 `active`이므로 경고 없음. 방화벽 `WARNING`은 이번에 재현하지 않았고 7-5절의 과거 기록에 근거한다 |
+
+**증명하지 않는 것:** 소유권·`IDENTICAL` 확인과 Agent 종료 절차는 화면에 없다. PID `180046`·`180047`은 S6-A에만 있어 S6-B가 "같은 Agent를 종료한 직후"라는 것은 화면만으로 입증되지 않는다. 운영 `monitor.log`는 이 화면에 없다.
 
 ---
 
@@ -965,7 +1021,7 @@ rc=1
 
 ## 13. S6 실습 준비 — 실행하지 않는다
 
-> **이 절의 명령은 Owner가 문서 검수 후 직접 진행할 수 있도록 준비한 것이다. 이 원고를 쓰는 과정에서 실행하지 않았다.** Agent 재실행·종료와 monitor 실행은 Owner의 별도 작업이다.
+> **이 절의 명령은 Owner가 직접 진행할 수 있도록 준비한 것이다. 이 원고를 쓰는 과정에서 실행하지 않았다.** **상태: Owner가 2026-11-18에 S6 실습을 수행하고 화면 2장을 촬영했다(11-5절).** 화면에는 명령 문장이 없으므로, 아래 명령이 촬영 스크립트와 글자 그대로 같다고 단정하지 않는다. 이후 재실습도 Owner의 별도 작업이다.
 
 ### 13-0. 시작 전 안내
 
@@ -1110,7 +1166,7 @@ B cat /tmp/s6-monitor.log
 - 임시 파일 `/tmp/s6-monitor.log`는 **운영 로그가 아니다.** 지워야 한다면 **이 임시 파일만** 지운다(`B rm /tmp/s6-monitor.log`). **`/var/log/agent-app/monitor.log`는 절대 지우거나 비우지 않는다.**
 - 실습 후 Agent는 **종료된 상태**로 두는 것이 기준이다(상주 서비스가 아님).
 - 이 실습은 **UFW를 끄지 않는다.** 방화벽 `WARNING`은 7-5절의 기록으로 학습한다.
-- 촬영은 위 5단계 화면과 8단계 화면을 **같은 터미널에서 연속으로** 찍을 때 가장 읽기 쉽다. 촬영 후 이 문서와 [증빙 안내](../evidence/screenshots/README.md)에 S6를 연결하는 일은 별도 작업이다.
+- 촬영은 위 5단계 화면과 8단계 화면을 **같은 터미널에서 연속으로** 찍을 때 가장 읽기 쉽다. 촬영 결과는 11-5절과 [증빙 안내](../evidence/screenshots/README.md)에 연결했다.
 
 ---
 
@@ -1185,10 +1241,11 @@ UFW 비활성은 **주의할 상황이지만 Agent의 필수 정상 조건이 �
 | 셸 스크립트·shebang·`pgrep`·`ss` 옵션 일반 설명 | **[개념]** | 일반 Linux·Bash 지식 |
 | 5-4절 표의 래퍼·`vim` 행 | **[개념 예시]** | `^`의 효과 설명용 |
 | 8-3절 조합표의 미검증 행 | **해석** | `verdict()` 규칙에서 도출(기록 없음 표시) |
-| S6 실습 명령(13절) | **준비** | 아직 실행하지 않음 |
-| S6 실시간 화면 | **미촬영** | Owner 촬영 대기 |
+| S6 실습 명령(13절) | **준비** | 이 원고는 실행하지 않음 |
+| 2026-11-18 S6 실습 결과(11-5절) | **[기록]** | Owner 촬영 S6-A·S6-B, `docs/evidence/screenshots/README.md` |
+| 2026-11-14 회귀 결과(11-1~11-4절) | **[기록]** | task22 회귀 출력. 11-5절과 별개의 실행 |
 
-**현재 S6 증빙 상태:** `S6 모니터링 Health Check / Owner 촬영 대기`. 이 강의는 S6 화면을 만들거나 캡처 완료로 표시하지 않는다.
+**현재 S6 증빙 상태:** `S6 모니터링 Health Check 화면 확보(2026-11-18)`. 화면은 Owner가 촬영한 원본이며 이 강의가 만들거나 편집하지 않았다.
 
 ---
 
@@ -1204,7 +1261,7 @@ UFW 비활성은 **주의할 상황이지만 Agent의 필수 정상 조건이 �
 - 5강 v0.1은 학습 초안이며, 질문이 생기면 기존 설명을 삭제하지 않고 해당 절에 보충한다.
 - 중요한 명령어는 **원문 → 구성 요소 → 전체 한국어 해석 → 결과 → 미션 연결** 순서로 설명한다.
 - 기록에 없는 출력은 만들어 넣지 않는다.
-- Owner의 S6 화면이 확보되면 11절에 연결하고 상태를 갱신한다.
+- S7~S10 화면이 확보되면 해당 강의에 연결하고 상태를 갱신한다. (S6는 11-5절에 연결했다.)
 
 ### 근거 문서
 
@@ -1216,4 +1273,4 @@ UFW 비활성은 **주의할 상황이지만 Agent의 필수 정상 조건이 �
 - [최종 회귀 검증 출력](../evidence/task22-closeout-regression.txt)
 - [B4-1 학습자료 목차](README.md)
 
-**현재 상태:** 5강 v0.1 원고 / 학습 검토. S6 모니터링 Health Check 화면은 **Owner 촬영 대기**다.
+**현재 상태:** 5강 v0.1 원고 / 학습 검토. S6 모니터링 Health Check 화면은 **확보**(2026-11-18, 11-5절)다.

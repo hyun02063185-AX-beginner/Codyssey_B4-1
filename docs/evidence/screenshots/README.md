@@ -1,6 +1,6 @@
-# B4-1 Owner 화면 증빙 — S1~S5
+# B4-1 Owner 화면 증빙 — S1~S6
 
-> **촬영 일자·범위:** S1·S2는 2026-11-14, S3는 2026-11-16, S4·S5는 2026-11-17에 Owner가 촬영했습니다. S6~S10은 Owner 촬영 대기입니다. S3~S5는 문서 아래쪽 "S3 — 사용자·그룹·ACL", "S4 — 환경변수·키 파일", "S5 — Agent Boot Sequence·LISTEN" 절에 있습니다.
+> **촬영 일자·범위:** S1·S2는 2026-11-14, S3는 2026-11-16, S4·S5는 2026-11-17, S6는 2026-11-18에 Owner가 촬영했습니다. S7~S10은 Owner 촬영 대기입니다. S3~S6은 문서 아래쪽 "S3 — 사용자·그룹·ACL", "S4 — 환경변수·키 파일", "S5 — Agent Boot Sequence·LISTEN", "S6 — monitor.sh Health Check" 절에 있습니다.
 >
 > 제출용 캡처의 **원본 화면을 변경하지 않고** 등록한 자료입니다. 촬영 당시 교육장 Mac 터미널에서 OrbStack Ubuntu Machine `b4-lab`의 설정을 조회했습니다. 스크린샷 자체에 SSH 개인키·비밀번호·Agent 비밀키 값은 표시되지 않습니다.
 >
@@ -111,7 +111,7 @@ SSH-2.0-OpenSSH_9.6p1 Ubuntu-3ubuntu13.20
 ## 증빙 관리 기준
 
 - 참조: [`docs/b4-1-final-evidence.md`](../../b4-1-final-evidence.md) §4 (S1~S10 제출 체크리스트)
-- 범위: S1·S2(2026-11-14) — 설정 조회 화면 2장, TCP 연결 시험 화면 1장, SSH 배너 화면 1장. S3(2026-11-16) — 화면 3장(아래 "S3" 절). S4(2026-11-17) — 화면 1장(아래 "S4" 절). S5(2026-11-17) — 화면 2장(아래 "S5" 절). S6~S10 화면 캡처 및 공식 제출 승인은 별도(Owner 촬영 대기)
+- 범위: S1·S2(2026-11-14) — 설정 조회 화면 2장, TCP 연결 시험 화면 1장, SSH 배너 화면 1장. S3(2026-11-16) — 화면 3장(아래 "S3" 절). S4(2026-11-17) — 화면 1장(아래 "S4" 절). S5(2026-11-17) — 화면 2장(아래 "S5" 절). S6(2026-11-18) — 화면 2장(아래 "S6" 절). S7~S10 화면 캡처 및 공식 제출 승인은 별도(Owner 촬영 대기)
 - 형식: PNG 원본; 인위적 수정 없음
 - 학습자료 2강(SSH·포트·UFW)은 학습 초안 단계이며 이 증빙 등록으로 자동 확정하지 않음
 
@@ -359,5 +359,101 @@ B pkill -TERM -f '^/opt/agent-app/bin/agent-app-linux-x86'
 - **Mac에서의 실제 TCP 연결 시험.** S5는 Agent가 실행되어 15034를 LISTEN함을 보여 줄 뿐, Mac→Ubuntu 연결 성공을 보여 주지 않습니다.
 - **종료와 정리.** 종료 후 잔여 프로세스·LISTEN 없음은 화면이 아니라 텍스트 보고입니다.
 - **Agent 설치 과정.** 제공 Agent가 원본과 SHA-256이 일치함을 확인한 뒤 Ubuntu `b4-lab`에 설치했다는 내용은 Owner 보고이며, 설치 과정 자체는 이 두 화면에 없습니다. 바이너리와 ZIP은 저장소에 없습니다.
-- **`monitor.sh` 판정(S6).** Agent 실행 중 `HEALTHY`, 중지 시 `UNHEALTHY`는 S6 범위이며 촬영 대기입니다.
+- **`monitor.sh` 판정(S6).** Agent 실행 중 `HEALTHY`, 중지 시 `UNHEALTHY`는 S6 범위이며, 2026-11-18 Owner 촬영본을 아래 "S6" 절에 등록했습니다.
 - 화면의 Boot Sequence 출력과 LISTEN 형식은 2026-11-14 회귀 기록 [`task22-closeout-regression.txt`](../task22-closeout-regression.txt)의 `## agent run`과 일치하지만, 날짜가 다른 별개의 실행입니다.
+
+---
+
+# S6 — monitor.sh Health Check (2026-11-18)
+
+> 2026-11-18 Owner가 교육장 Mac 터미널에서 직접 실행·촬영한 원본 2장입니다(편집·합성·재생성 없음, 바이트 단위 `cmp` 일치 확인). 이미지는 파일명이나 촬영 시각이 아니라 **화면 내용(제목 줄)을 열어 확인해** S6-A(HEALTHY)와 S6-B(UNHEALTHY)로 분류했습니다. 화면에는 `===== S6-… =====` 제목과 출력만 있고 **실행 명령 문장 자체는 보이지 않습니다.** 대응 명령은 [5강 13절](../../learning/05-monitor-health-check.md)의 실습 준비와 [`b4-1-final-evidence.md`](../../b4-1-final-evidence.md) §4의 S6 체크리스트이며, 실제 촬영 스크립트의 문장은 이 저장소에서 확인하지 않았습니다.
+
+| 파일 | 화면 제목 | 내용 | SHA-256 |
+|---|---|---|---|
+| `S6-A-monitor-healthy-2026-11-18.png` | `===== S6-A Agent HEALTHY 검증 =====` (실습 시각 16:20:44 KST, 오후 4:21경 촬영) | Agent 실행 중 `monitor.sh` 출력, `HEALTHY`, `MONITOR_EXIT=0` | `631e6334…c5d7` |
+| `S6-B-monitor-unhealthy-2026-11-18.png` | `===== S6-B Agent UNHEALTHY 검증 =====` (실습 시각 16:25:32 KST, 오후 4:29경 촬영) | Agent 종료 후 `monitor.sh` 출력, `UNHEALTHY`, `MONITOR_EXIT=1`, 임시 로그 2줄 | `a0525e8b…8ef35` |
+
+전체 SHA-256: S6-A `631e63342f4e26d78883a28ccd7c57f264bea11009d644b82b4913dec92dc5d7`, S6-B `a0525e8bf1775bf7a035312ffe910cbea5b87ff7c7d747f899d03137248aef35`.
+
+## S6-A — Agent 실행 중: HEALTHY
+
+![S6-A monitor.sh HEALTHY](S6-A-monitor-healthy-2026-11-18.png)
+
+화면의 실제 출력(시각은 `2026-11-18 16:20:44~45`):
+
+```text
+[INFO] START user=agent-admin uid=1000 groups=agent-admin,agent-common,agent-core trigger=manual host=b4-lab env_file=/etc/default/agent-app
+[INFO] CONFIG AGENT_HOME=/opt/agent-app AGENT_PORT=15034 AGENT_UPLOAD_DIR=/opt/agent-app/upload_files AGENT_LOG_DIR=/var/log/agent-app
+[INFO] CONFIG AGENT_KEY_PATH is set (value intentionally not printed or logged)
+[OK] PROCESS agent process matched pattern '^/opt/agent-app/bin/agent-app-linux-x86' pid=[180046 180047]
+[OK] PORT tcp/15034 LISTEN on 0.0.0.0 [0.0.0.0:15034], owner pid=[180047] matches agent pid=[180046 180047]
+[OK] FIREWALL ufw active (checked via sudo)
+[OK] CPU usage=4.2% (threshold 20%)
+[OK] MEM usage=4.0% (total=16449632kB available=15792920kB) (threshold 10%)
+[OK] DISK usage=0.2% path=/ mount=/ (threshold 80%)
+[INFO] LOG record appended to /tmp/s6-owner-20261118.log: PID:180047 CPU:4.2% MEM:4.0% DISK_USED:0.2%
+[INFO] SUMMARY result=HEALTHY exit=0 fail=0 pending=0 warning=0 unknown=0 error=0 log=/tmp/s6-owner-20261118.log
+MONITOR_EXIT=0
+```
+
+| 화면 값 | 기술적 의미 |
+|---|---|
+| `user=agent-admin uid=1000`, `trigger=manual` | cron 실행 계정과 같은 `agent-admin`이 **수동으로** 실행했다. 그룹에 `agent-core`가 있어 `0750` 스크립트를 실행할 수 있다 |
+| `OK PROCESS … pid=[180046 180047]` | `AGENT_PROCESS_PATTERN`과 일치하는 Agent 프로세스 2개(부모·자식) |
+| `OK PORT … 0.0.0.0:15034 … owner pid=[180047] matches` | IPv4 와일드카드 바인딩이고, LISTEN 소켓 소유 PID `180047`이 Agent PID 목록 안에 있다 |
+| `OK FIREWALL ufw active (checked via sudo)` | `agent-admin`이 `sudo -n /usr/sbin/ufw status`로 조회했고 UFW가 활성이다 |
+| `CPU 4.2% / MEM 4.0% / DISK 0.2%` | 임계값(20/10/80) 이하라 모두 `OK` |
+| `LOG record appended to /tmp/s6-owner-20261118.log` | 공식 형식 한 줄이 **임시 로그**에 기록됐다(운영 `monitor.log` 아님) |
+| `SUMMARY result=HEALTHY exit=0 fail=0 pending=0 warning=0 unknown=0 error=0` | 판정 카운터가 모두 0 |
+| `MONITOR_EXIT=0` | 종료 코드 0(`$?`를 출력한 값) |
+
+## S6-B — Agent 종료 후: UNHEALTHY
+
+![S6-B monitor.sh UNHEALTHY와 임시 로그](S6-B-monitor-unhealthy-2026-11-18.png)
+
+화면의 실제 출력(시각은 `2026-11-18 16:25:32~33`):
+
+```text
+[INFO] START user=agent-admin uid=1000 groups=agent-admin,agent-common,agent-core trigger=manual host=b4-lab env_file=/etc/default/agent-app
+[INFO] CONFIG AGENT_HOME=/opt/agent-app AGENT_PORT=15034 AGENT_UPLOAD_DIR=/opt/agent-app/upload_files AGENT_LOG_DIR=/var/log/agent-app
+[INFO] CONFIG AGENT_KEY_PATH is set (value intentionally not printed or logged)
+[FAIL] PROCESS no process matches pattern '^/opt/agent-app/bin/agent-app-linux-x86'
+[FAIL] PORT tcp/15034 not LISTEN
+[OK] FIREWALL ufw active (checked via sudo)
+[OK] CPU usage=0.0% (threshold 20%)
+[OK] MEM usage=3.3% (total=16449632kB available=15911384kB) (threshold 10%)
+[OK] DISK usage=0.2% path=/ mount=/ (threshold 80%)
+[INFO] LOG record appended to /tmp/s6-owner-20261118.log: PID:N/A CPU:0.0% MEM:3.3% DISK_USED:0.2%
+[INFO] SUMMARY result=UNHEALTHY exit=1 fail=2 pending=0 warning=0 unknown=0 error=0 log=/tmp/s6-owner-20261118.log
+MONITOR_EXIT=1
+
+===== S6 임시 로그 =====
+[2026-11-18 16:20:45] PID:180047 CPU:4.2% MEM:4.0% DISK_USED:0.2%
+[2026-11-18 16:25:33] PID:N/A CPU:0.0% MEM:3.3% DISK_USED:0.2%
+```
+
+| 화면 값 | 기술적 의미 |
+|---|---|
+| `FAIL PROCESS no process matches …` | 패턴과 일치하는 프로세스가 없다(Agent를 의도적으로 종료한 상황에서 **기대되는 정상 동작**) |
+| `FAIL PORT tcp/15034 not LISTEN` | 15034 LISTEN 소켓이 없다 |
+| `OK FIREWALL ufw active` | 방화벽은 활성 — Agent가 없다는 사실과 별개로 판정된다 |
+| `SUMMARY result=UNHEALTHY exit=1 fail=2 …` | FAIL 2개 → `UNHEALTHY`, 종료 코드 1 |
+| `MONITOR_EXIT=1` | 종료 코드 1 |
+| 임시 로그 2줄 | **같은 파일에 이어 붙인(append) 두 실행의 기록.** 첫 줄은 S6-A(`16:20:45`, `PID:180047`), 둘째 줄은 S6-B(`16:25:33`, Agent가 없어 `PID:N/A`). S6-A의 `LOG record` 줄이 보여 준 값과 같다 |
+
+## S6 — 화면이 증명하는 것
+
+- Agent 실행 중 `monitor.sh`가 `HEALTHY`·종료 코드 0을, Agent 종료 후 `UNHEALTHY`·종료 코드 1을 판정한다는 것(2026-11-18, `b4-lab`, `agent-admin`).
+- 프로세스 검사(부모·자식 PID 2개)와 LISTEN 소켓 소유 PID(`180047`)가 연결되어 `OK`가 되고, 둘 다 사라지면 `FAIL`이 되는 것.
+- UFW 활성 상태가 `sudo`를 통해 조회되는 것(`checked via sudo`).
+- 임시 로그에 공식 형식 한 줄이 실행마다 이어 붙고, Agent가 없으면 PID가 `N/A`로 기록되는 것.
+
+## S6 — 화면이 증명하지 않는 것
+
+- **실행 명령 자체와 사전 확인.** 화면에는 명령 문장이 없다. `monitor.sh` 소유권·권한(`agent-dev:agent-core 750`), 저장소와 배포본의 일치(`IDENTICAL`)는 이 두 화면에 나타나지 않는다.
+- **Agent 종료 절차와 종료 확인.** S6-B 화면에는 종료 명령과 잔여 프로세스·LISTEN 없음 확인이 없다. 종료 상태는 S6-B 출력(`FAIL PROCESS`·`FAIL PORT`) 자체로만 간접 확인된다.
+- **두 화면이 같은 Agent 실행의 전후라는 것.** PID `180046`·`180047`은 S6-A에만 있고 S6-B에는 Agent PID가 없다. 시각(16:20→16:25)과 임시 로그의 연속성은 두 번의 `monitor.sh` 실행이 같은 로그 파일을 쓴 것만 보여 준다.
+- **UFW 비활성 `WARNING`.** 이번 촬영에서 재현하지 않았다. 방화벽 경고는 2026-11-14 회귀 기록(읽기 전용 스텁)과 격리 테스트 Machine 검증 기록에 근거한다.
+- **운영 `monitor.log`.** 이 화면은 임시 로그 `/tmp/s6-owner-20261118.log`만 보여 준다. 운영 `/var/log/agent-app/monitor.log`는 변경하지 않았다.
+- **CPU·MEM·DISK 계산이나 임계값 경계.** 수집값이 `OK`로 나온 것만 보여 주며 계산식·경계 시험은 S7 범위다.
+- 2026-11-14 회귀 기록([`task22-closeout-regression.txt`](../task22-closeout-regression.txt))과 형식은 일치하지만, 날짜·PID·시각이 다른 **별개의 실행**이다.
