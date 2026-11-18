@@ -22,7 +22,7 @@
 | [2강](02-ssh-ufw.md) | SSH·포트·UFW: 서버의 출입문과 방화벽 | **v0.2 원고 / 학습 검토** | S1·S2 화면 및 TCP·SSH 배너 검증 완료 |
 | [3강](03-users-groups-permissions-acl.md) | Linux 사용자·그룹·권한·ACL: 같은 서버에 들어왔는데, 왜 열 수 있는 폴더가 다를까? | **v0.2 원고 / 학습 검토** | S3 사용자·그룹·권한·ACL 화면 확보 |
 | [4강](04-env-agent-runtime.md) | 환경변수와 제공 Agent 실행: 프로그램은 자신의 설정을 어떻게 알고 실행될까? | **v0.1 원고 / 학습 검토** | S4 환경변수·키 파일 / S5 Agent 실행 화면 확보 |
-| [5강](05-monitor-health-check.md) | 컴퓨터는 어떻게 스스로 이상을 발견할까? Bash 스크립트 `monitor.sh`의 동작 원리 | **v0.1 원고 / 학습 검토** | S6 모니터링 Health Check / Owner 촬영 대기 |
+| [5강](05-monitor-health-check.md) | 컴퓨터는 어떻게 스스로 이상을 발견할까? Bash 스크립트 `monitor.sh`의 동작 원리 | **v0.1 원고 / 학습 검토** | S6 모니터링 Health Check 화면 확보(2026-11-18) |
 | 6강 (예정) | CPU·메모리·디스크 점검과 로그 | 미작성 | S7·S8 |
 | 7강 (예정) | cron과 logrotate: 자동 실행과 기록 관리 | 미작성 | S9·S10 |
 
