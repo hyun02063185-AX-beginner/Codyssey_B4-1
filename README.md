@@ -5,7 +5,7 @@ OrbStack Ubuntu **Linux Machine**을 실습 서버로 사용하며, 여기서 �
 
 - B4-2 저장소: https://github.com/hyun02063185-AX-beginner/Codyssey_B4-2
 
-> **현재 상태 (2026-11-14, 작업 22 최종 마감)** — Mission Core 13개 항목 **13/13 PASS**(logrotate 타이머 2026-11-14 00:00:01 KST 실행·성공 확인, 로그가 9 MiB 미만이라 순환은 미발생=정상). 제출용 화면 캡처 10장(S1~S10) 중 **S1~S7 화면은 Owner 촬영본 등록**: S1·S2(설정·TCP 연결·SSH 배너, 2026-11-14), S3(사용자·그룹·폴더 권한·ACL·sudo, 2026-11-16), S4(환경변수·키 파일, 2026-11-17), S5(Agent Boot Sequence·LISTEN, 2026-11-17), S6(monitor.sh Health Check `HEALTHY exit 0`·`UNHEALTHY exit 1`, 2026-11-18), S7(자원 사용률·임계값 경계 시험·임시 로그 검증, 2026-11-18) ([증빙](docs/evidence/screenshots/README.md); Mac→Ubuntu TCP 시험: 20022 성공·22/15035 실패 확인, SSH 배너 응답 확인 PASS·로그인 인증은 아님), **S8~S10은 Owner 촬영 대기**([체크리스트](docs/b4-1-final-evidence.md#4-제출-증빙-화면-구성-10장--s1s7-화면-확보-s8s10-owner-촬영-대기)). 전체 미션 완료 판정은 Owner 최종 검수 이후입니다.
+> **현재 상태 (2026-11-14, 작업 22 최종 마감)** — Mission Core 13개 항목 **13/13 PASS**(logrotate 타이머 2026-11-14 00:00:01 KST 실행·성공 확인, 로그가 9 MiB 미만이라 순환은 미발생=정상). 제출용 화면 캡처 10장(S1~S10) 중 **S1~S10 화면은 모두 Owner 촬영본 등록**(PNG 20장): S1·S2(설정·TCP 연결·SSH 배너, 2026-11-14), S3(사용자·그룹·폴더 권한·ACL·sudo, 2026-11-16), S4(환경변수·키 파일, 2026-11-17), S5(Agent Boot Sequence·LISTEN, 2026-11-17), S6(monitor.sh Health Check `HEALTHY exit 0`·`UNHEALTHY exit 1`, 2026-11-18), S7(자원 사용률·임계값 경계 시험·임시 로그 검증, 2026-11-18), S8(운영 `monitor.log` 권한·최근 5줄, 2026-11-18), S9(cron 서비스·매분 crontab·로그 누적, 2026-11-18), S10(logrotate 정책·타이머·`-d` 검사, 2026-11-18) ([증빙](docs/evidence/screenshots/README.md); Mac→Ubuntu TCP 시험: 20022 성공·22/15035 실패 확인, SSH 배너 응답 확인 PASS·로그인 인증은 아님), 화면 증빙은 **S1~S10 확보 완료**([체크리스트](docs/b4-1-final-evidence.md#4-제출-증빙-화면-구성-10장--s1s10-화면-확보-owner-촬영-완료)). 전체 미션 완료 판정은 Owner 최종 검수 이후입니다.
 >
 > | 영역 | 상태 | 상세 |
 > |---|---|---|
@@ -23,7 +23,7 @@ OrbStack Ubuntu **Linux Machine**을 실습 서버로 사용하며, 여기서 �
 >
 > **제출 문서:** [요구사항 수행 내역서](docs/b4-1-final-evidence.md)(항목별 요구·설정·명령·결과·증빙 위치·판정, 증빙 절차) · [B4-2 인수인계](docs/b4-2-environment-handoff.md) · 실측 원본 [최종 회귀 출력](docs/evidence/task22-closeout-regression.txt)
 >
-> 남은 사항(Owner): ① 제출용 화면 캡처 촬영 ② 공식 원문 최종 대조·완료 판정.
+> 남은 사항(Owner): ① 공식 원문 최종 대조·완료 판정 ② 최종 검수·제출 승인 (제출용 화면 캡처 S1~S10은 확보 완료).
 >
 > **교육장 Mac 초기화 시 복구:** GitHub 저장소(`git clone` → `scripts/bootstrap-orbstack.sh apply`)로 SSH 20022·UFW·계정·권한·환경변수·`monitor.sh`·logrotate·cron이 복구됩니다. **수동 준비물**(저장소에 없음): ① 제공 Agent ZIP/바이너리(`/opt/agent-app/bin/agent-app-linux-x86`, `root:agent-core 0750`; 해시·방법은 [Agent 실행환경](docs/b4-1-agent-runtime.md)) ② Mac의 SSH 키쌍·사용자 비밀번호 ③ 이전 Machine 안의 `monitor.log` 이력. 확인: `scripts/bootstrap-orbstack.sh check --no-run`(Agent 항목만 PEND). 이 README의 아래 3장 이후는 작업 중 작성한 체크리스트이며, 현재 상태는 위 표와 수행 내역서가 우선합니다.
 
@@ -176,7 +176,7 @@ OrbStack Ubuntu **Linux Machine**을 실습 서버로 사용하며, 여기서 �
 - [x] `AGENT_KEY_PATH=/opt/agent-app/api_keys`(디렉터리), `api_keys/secret.key` 내용은 공식 실습 문자열 `agent_api_key_test` 한 줄(`root:agent-core 0640`; 실제 비밀키 아님). 제공 Agent 실행은 PENDING
 - [x] 환경변수를 실제 Agent가 사용하는지 검증 — 작업 17: Agent가 `AGENT_KEY_PATH`를 디렉터리로 검증(과제 설명의 `t_secret.key` 파일 경로는 거부됨)
 - [x] 변수 값·적용 위치: 파일 `/etc/default/agent-app`을 Agent 실행·`monitor.sh`가 명시 로드(작업 17·18). 로그인 셸에는 자동 적용되지 않음
-- [x] 증빙: Agent·`monitor.sh` 실행 시 값 확인([본환경 회귀 출력](docs/evidence/task21-b4-lab-regression.txt) `## env`). 화면 캡처는 CAPTURE PENDING
+- [x] 증빙: Agent·`monitor.sh` 실행 시 값 확인([본환경 회귀 출력](docs/evidence/task21-b4-lab-regression.txt) `## env`). 화면 캡처 확보(S4, 2026-11-17)
 
 #### 6) Agent(제공 Python 앱) 기동
 - [x] 제공 앱을 **수정하지 않고** 그대로 배치 (`/opt/agent-app/bin/`, `root:agent-core 0750`, SHA256 일치)
@@ -184,7 +184,7 @@ OrbStack Ubuntu **Linux Machine**을 실습 서버로 사용하며, 여기서 �
 - [x] [관리자료] Boot Sequence 5단계 모두 OK (작업 17)
 - [x] [관리자료] `Agent READY` 출력 (작업 17)
 - [x] [관리자료] `0.0.0.0:15034` LISTEN — `ss -tlnp | grep 15034`, 소유 PID = Agent 자식 프로세스 (작업 17·18)
-- [x] 증빙: 기동 로그·`ss` 결과([회귀 출력](docs/evidence/task21-b4-lab-regression.txt) `## agent run`). 화면 캡처는 CAPTURE PENDING
+- [x] 증빙: 기동 로그·`ss` 결과([회귀 출력](docs/evidence/task21-b4-lab-regression.txt) `## agent run`). 화면 캡처 확보(S5, 2026-11-17)
 
 #### 7) `monitor.sh` (Bash)
 - [x] Bash로 작성, `bash -n` 문법 검사 PASS → [bin/monitor.sh](bin/monitor.sh), 상세 [docs/b4-1-monitor.md](docs/b4-1-monitor.md)
@@ -213,7 +213,7 @@ OrbStack Ubuntu **Linux Machine**을 실습 서버로 사용하며, 여기서 �
 #### 10) 마무리
 - [x] 수동 설정을 `scripts/bootstrap-orbstack.sh`로 재현 가능하게 정리 (작업 14, [복구 자동화](docs/b4-1-recovery.md))
 - [x] 새 Machine(`b4-recovery-test`)에서 bootstrap 실행 → 재검증 PASS(`b4-lab`과 동일, 반복 실행 안전). Agent는 수동 배포·실행 검증(작업 17·18)
-- [x] 제출 수행 내역서·증빙 목록 정리 → [b4-1-final-evidence.md](docs/b4-1-final-evidence.md) (공식 제출 원문은 미확인; 터미널 캡처 자체는 사용자가 찍어야 함, 목록은 §4)
+- [x] 제출 수행 내역서·증빙 목록 정리 → [b4-1-final-evidence.md](docs/b4-1-final-evidence.md) (공식 제출 원문은 미확인; 화면 캡처 S1~S10은 Owner가 촬영해 모두 등록됨, 목록은 §4)
 - [x] B4-2에서 사용할 값(Machine 이름, 사용자, 포트, `monitor.sh` 경로) 기록 → [b4-2-environment-handoff.md](docs/b4-2-environment-handoff.md)
 
 ## 4. 교육장 Mac 초기화 후 복구 (요약)
