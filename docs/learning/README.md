@@ -24,7 +24,7 @@
 | [4강](04-env-agent-runtime.md) | 환경변수와 제공 Agent 실행: 프로그램은 자신의 설정을 어떻게 알고 실행될까? | **v0.1 원고 / 학습 검토** | S4 환경변수·키 파일 / S5 Agent 실행 화면 확보 |
 | [5강](05-monitor-health-check.md) | 컴퓨터는 어떻게 스스로 이상을 발견할까? Bash 스크립트 `monitor.sh`의 동작 원리 | **v0.1 원고 / 학습 검토** | S6 모니터링 Health Check 화면 확보(2026-11-18) |
 | [6강](06-resources-logging.md) | 컴퓨터는 자신의 사용량을 어떻게 알까? Linux CPU·메모리·디스크 사용률과 모니터링 로그 | **v0.1 원고 / 학습 검토** | S7 자원 사용률·임계값 / S8 운영 monitor.log 화면 확보(2026-11-18) |
-| 7강 (예정) | cron과 logrotate: 자동 실행과 기록 관리 | 미작성 | S9 cron·S10 logrotate 화면 확보(2026-11-18) |
+| [7강](07-cron-logrotate.md) | 사람이 없어도 점검이 계속되려면? cron과 logrotate: 자동 실행과 기록 관리 | **v0.1 원고 / 학습 검토** | S9 cron·S10 logrotate 화면 확보(2026-11-18) |
 
 ## 미션과 연결
 
