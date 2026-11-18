@@ -1,6 +1,6 @@
-# B4-1 Owner 화면 증빙 — S1~S6
+# B4-1 Owner 화면 증빙 — S1~S7
 
-> **촬영 일자·범위:** S1·S2는 2026-11-14, S3는 2026-11-16, S4·S5는 2026-11-17, S6는 2026-11-18에 Owner가 촬영했습니다. S7~S10은 Owner 촬영 대기입니다. S3~S6은 문서 아래쪽 "S3 — 사용자·그룹·ACL", "S4 — 환경변수·키 파일", "S5 — Agent Boot Sequence·LISTEN", "S6 — monitor.sh Health Check" 절에 있습니다.
+> **촬영 일자·범위:** S1·S2는 2026-11-14, S3는 2026-11-16, S4·S5는 2026-11-17, S6·S7은 2026-11-18에 Owner가 촬영했습니다(S7-A는 PNG가 아닌 텍스트 결과). S8~S10은 Owner 촬영 대기입니다. S3~S7은 문서 아래쪽 "S3 — 사용자·그룹·ACL", "S4 — 환경변수·키 파일", "S5 — Agent Boot Sequence·LISTEN", "S6 — monitor.sh Health Check", "S7 — 자원 사용률·임계값" 절에 있습니다.
 >
 > 제출용 캡처의 **원본 화면을 변경하지 않고** 등록한 자료입니다. 촬영 당시 교육장 Mac 터미널에서 OrbStack Ubuntu Machine `b4-lab`의 설정을 조회했습니다. 스크린샷 자체에 SSH 개인키·비밀번호·Agent 비밀키 값은 표시되지 않습니다.
 >
@@ -457,3 +457,125 @@ MONITOR_EXIT=1
 - **운영 `monitor.log`.** 이 화면은 임시 로그 `/tmp/s6-owner-20261118.log`만 보여 준다. 운영 `/var/log/agent-app/monitor.log`는 변경하지 않았다.
 - **CPU·MEM·DISK 계산이나 임계값 경계.** 수집값이 `OK`로 나온 것만 보여 주며 계산식·경계 시험은 S7 범위다.
 - 2026-11-14 회귀 기록([`task22-closeout-regression.txt`](../task22-closeout-regression.txt))과 형식은 일치하지만, 날짜·PID·시각이 다른 **별개의 실행**이다.
+
+---
+
+# S7 — 자원 사용률·임계값 (2026-11-18)
+
+> 2026-11-18 Owner가 교육장 Mac 터미널에서 OrbStack Ubuntu `b4-lab`에 직접 실행하고 촬영한 원본 4장(S7-B~E)입니다(편집·합성·재생성 없음, 바이트 단위 `cmp` 일치 확인). **S7-A는 PNG 촬영본이 없고 Owner가 터미널 결과를 텍스트로 전달한 것**이므로 화면 캡처를 확보했다고 표시하지 않습니다. 실습 안내는 [6강 11-1절](../../learning/06-resources-logging.md)입니다.
+
+| 파일 | 화면 제목 | 목적 |
+|---|---|---|
+| (PNG 없음) S7-A | Owner 제공 텍스트 | 원천 데이터(`/proc/stat`·`/proc/meminfo`·`df`) 조회 |
+| `S7-B-resource-usage-2026-11-18.png` | `===== S7-B 실제 자원 사용률 측정 =====` (17:50:12 KST, 오후 5:51경 촬영) | 실제 시스템의 CPU·MEM·DISK 수집값과 임계값 |
+| `S7-C-memory-threshold-2026-11-18.png` | S7-C 경계 시험 (17:56:54~55 KST, 오후 5:58경 촬영) | 메모리 10.0%·11.0% 경계 |
+| `S7-D-cpu-rounding-threshold-2026-11-18.png` | `===== S7-D CPU 반올림 경계 시험 =====` (18:05:01 KST, 오후 6:05경 촬영) | CPU 20.04%가 20.0%로 표시돼도 경고가 나는지 |
+| `S7-E-resource-log-verification-2026-11-18.png` | `===== S7 임시 로그 최종 검증 =====` (18:09:22 KST, 오후 6:09경 촬영) | 임시 로그 파일별 줄 수와 내용 |
+
+전체 SHA-256:
+
+- S7-B `5b57e48261c6405079ec18a3f462f7b87b082b35d9168f3c25230d2864241e24`
+- S7-C `2ff37abd882890d0c31a7881247d6c80c774901d24e4a833ce1981826a400eae`
+- S7-D `81abb657dce4ff5681b32098442dcead693bbfe180eceeab4a6fd690e1ecacd0`
+- S7-E `729dce67eb678bd5343d4b10fbf6bbbbb7287a03218265a740fb46c3638b2faa`
+
+## S7-A — 원천 데이터 (텍스트 결과, PNG 없음)
+
+2026-11-18 17:43:47 KST에 Owner가 실행하고 전달한 값입니다.
+
+| 항목 | 값 |
+|---|---|
+| `/proc/stat` `cpu` 행 | `cpu 21260 6443 50288 97233692 1945 0 830 0 0 0` (누적값, 한 번의 조회) |
+| MemTotal / MemFree / MemAvailable | 16449632 kB / 16090344 kB / 15962040 kB |
+| `df -Pk /` | `/dev/vdb1`, 1024-blocks 398262272, Used 840992, Available 397421280, Capacity 1%, Mounted on `/` |
+| 메모리 계산 | 100×(16449632−15962040)/16449632 ≈ **3.0%** |
+| 디스크 계산 | 100×840992/(840992+397421280) ≈ **0.2%** (`df`의 Capacity 1%는 소수점을 올려 표시한 값이다) |
+
+CPU는 누적값 한 개로는 사용률을 구할 수 없어(두 시점 차이 필요) 계산값을 적지 않았습니다.
+
+## S7-B — 실제 시스템 사용률
+
+![S7-B 실제 자원 사용률 측정](S7-B-resource-usage-2026-11-18.png)
+
+| 화면의 줄 | 의미 |
+|---|---|
+| `START user=agent-admin … trigger=manual host=b4-lab` | `agent-admin` 계정, 수동 실행, 호스트 `b4-lab` |
+| `[FAIL] PROCESS no process matches …` / `[FAIL] PORT tcp/15034 not LISTEN` | Agent가 종료된 상태라 프로세스·포트 검사가 `FAIL` |
+| `[OK] FIREWALL ufw active (checked via sudo)` | UFW 활성 확인 |
+| `[OK] CPU usage=0.2% (threshold 20%)` | CPU 0.2% < 20% |
+| `[OK] MEM usage=3.1% (total=16449632kB available=15937580kB) (threshold 10%)` | MEM 3.1% < 10% |
+| `[OK] DISK usage=0.2% path=/ mount=/ (threshold 80%)` | DISK 0.2% < 80% |
+| `LOG record appended to /tmp/s7-9W8n9L/owner.log: PID:N/A CPU:0.2% MEM:3.1% DISK_USED:0.2%` | 임시 로그에 공식 형식 한 줄 기록, Agent가 없어 `PID:N/A` |
+| `SUMMARY result=UNHEALTHY exit=1 fail=2 pending=0 warning=0 …` / `MONITOR_EXIT=1` | FAIL 2개로 `UNHEALTHY`, 종료 코드 1 |
+
+**`UNHEALTHY`의 원인은 Agent 부재(PROCESS·PORT FAIL)이며 자원 측정이 실패한 것이 아닙니다.** CPU·MEM·DISK 세 자원은 모두 `OK`입니다. 화면 맨 아래 `===== S7-B 임시 로그 =====` 제목 뒤의 로그 내용은 **화면에서 잘려 보이지 않으며**, 로그 내용은 S7-E 화면으로 보완합니다.
+
+## S7-C — 메모리 임계값 시험
+
+![S7-C 메모리 경계 시험](S7-C-memory-threshold-2026-11-18.png)
+
+| 시각 | 입력 파일(시험용) | 결과 |
+|---|---|---|
+| 17:56:54 | MemTotal 100 kB, MemAvailable 90 kB | `[OK] MEM usage=10.0%` (threshold 10%) |
+| 17:56:55 | MemTotal 100 kB, MemAvailable 89 kB | `[WARNING] MEM usage=11.0% (raw 11.000000) … > threshold 10%` |
+
+사용률 10.0%는 임계값과 **같으므로 `OK`**, 11.0%는 **초과이므로 `WARNING`**입니다(비교는 `>`). 이 입력은 `MONITOR_MEMINFO`로 지정한 시험 파일이며 **실제 서버 메모리 상태가 아닙니다.**
+
+## S7-D — CPU 반올림 경계 시험
+
+![S7-D CPU 반올림 경계 시험](S7-D-cpu-rounding-threshold-2026-11-18.png)
+
+| 화면의 줄 | 의미 |
+|---|---|
+| `S7DIR=/tmp/s7-9W8n9L` / `agent-admin:agent-admin 700 /tmp/s7-9W8n9L` | 시험 디렉터리: 소유자 `agent-admin`, 권한 700 |
+| `[WARNING] CPU usage=20.0% (raw 20.040000) > threshold 20%` | 실제 계산값 **20.040000%**, 화면 표시는 반올림한 **20.0%**, 임계값 20% |
+
+**경고 판정은 화면용 반올림 수치가 아니라 정밀한 비교값(raw)으로 합니다.** 표시가 `20.0%`여도 raw 20.04가 20을 초과하므로 `WARNING`입니다. 이 값은 시험용 `/proc/stat` 대체 파일의 계산이며 **실제 CPU 부하가 아닙니다.** 공식 형식 로그에는 반올림값 `CPU:20.0%`만 기록됩니다(S7-E).
+
+## S7-E — 임시 로그 최종 검증
+
+![S7-E 임시 로그 최종 검증](S7-E-resource-log-verification-2026-11-18.png)
+
+| 로그 | 줄 수 |
+|---|---|
+| `/tmp/s7-9W8n9L/owner.log` | 1 |
+| `/tmp/s7-9W8n9L/boundary.log` | 3 |
+| total | 4 |
+
+```text
+[2026-11-18 17:50:13] PID:N/A CPU:0.2% MEM:3.1% DISK_USED:0.2%      <- S7-B 실제 측정 1회
+[2026-11-18 17:56:54] PID:N/A CPU:0.2% MEM:10.0% DISK_USED:0.2%     <- S7-C 시험 입력 (OK)
+[2026-11-18 17:56:55] PID:N/A CPU:0.0% MEM:11.0% DISK_USED:0.2%     <- S7-C 시험 입력 (WARNING)
+[2026-11-18 18:05:02] PID:N/A CPU:20.0% MEM:3.2% DISK_USED:0.2%     <- S7-D 시험 입력 (WARNING)
+```
+
+네 줄은 **실제 측정 한 번과 시험 입력 기반 실행 세 번**입니다. 공식 형식 로그에는 `WARNING` 문구가 기록되지 않으며, 경고는 실행 출력에만 나타납니다(MEM 11.0%·CPU 20.0%라는 값만 남음).
+
+## S7 — 임시 파일 정리 (텍스트 보고, PNG 없음)
+
+Owner가 실습 후 직접 수행하고 전달한 터미널 출력입니다.
+
+- 디렉터리 `/tmp/s7-9W8n9L`, `agent-admin:agent-admin 700`
+- 이번 실습이 만든 파일 6개를 이름을 지정해 삭제
+- 빈 디렉터리 `rmdir` 성공
+- 최종 출력 `S7 임시 파일 정리 완료`
+
+정리 결과의 PNG는 없습니다. 임시 파일은 다시 만들거나 복원할 필요가 없습니다.
+
+## S7 — 화면이 증명하는 것
+
+- 실제 시스템 측정에서 CPU 0.2%·MEM 3.1%·DISK 0.2%가 임계값 20/10/80% 이하라 `OK`이고, 공식 형식 한 줄이 임시 로그에 기록된다는 것(S7-B).
+- 메모리 사용률이 임계값과 같은 10.0%이면 `OK`, 초과한 11.0%이면 `WARNING`이라는 것(S7-C).
+- 표시가 20.0%여도 raw 20.04%가 임계값을 넘으면 `WARNING`, 즉 판정이 반올림 전 값으로 이루어진다는 것(S7-D).
+- 임시 로그가 1줄(실제 측정)+3줄(시험 입력)로 누적되었고 내용이 위 네 줄이라는 것(S7-E).
+- 시험 디렉터리가 `agent-admin:agent-admin 700`이었다는 것(S7-D).
+
+## S7 — 화면으로 증명되지 않는 것
+
+- **S7-A 원천 데이터.** 화면 캡처가 없으며 Owner가 전달한 텍스트입니다.
+- **정리 결과.** 파일 6개 삭제·`rmdir`·`S7 임시 파일 정리 완료`는 Owner 텍스트 보고이며 PNG가 없습니다.
+- **실제 서버 부하에서의 `WARNING`.** S7-C·S7-D는 시험 입력 파일 검증입니다. 실제 부하에서 경고가 나는 것은 보이지 않았습니다.
+- **DISK 임계값 경계.** DISK는 실제 측정 0.2%(`OK`)만 있으며 80% 경계 시험은 하지 않았습니다.
+- **S7-B의 임시 로그 내용.** 해당 화면에서는 잘려 있습니다(S7-E로 보완).
+- **운영 `/var/log/agent-app/monitor.log`.** 이번 실습은 임시 로그만 썼으며 운영 로그는 검증하지 않았습니다(S8). cron(S9)·logrotate(S10) 실습도 하지 않았습니다.
+- **Agent 실행 중 상태.** S7-B는 Agent가 종료된 상태입니다(PROCESS·PORT `FAIL`).
